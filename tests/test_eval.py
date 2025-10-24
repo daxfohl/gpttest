@@ -50,3 +50,10 @@ def test_normalize_fully_reduces_application_chain():
     inner = Lam(TypeUniverse(), Succ(Var(0)))
     term = App(Lam(TypeUniverse(), App(inner, Var(0))), Zero())
     assert normalize(term) == Succ(Zero())
+
+
+def test_normalize_reduces_after_normalizing_function():
+    curried = Lam(TypeUniverse(), Lam(TypeUniverse(), Var(0)))
+    term = App(App(curried, Zero()), Zero())
+
+    assert normalize(term) == Zero()

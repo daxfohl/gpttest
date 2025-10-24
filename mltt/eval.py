@@ -140,10 +140,14 @@ def normalize(term: Term) -> Term:
             return Sigma(normalize(ty), normalize(body))
         case Pair(fst, snd):
             return Pair(normalize(fst), normalize(snd))
-        case App(Lam(_, body), arg):
-            return normalize(subst(body, arg))
         case App(f, a):
-            return App(normalize(f), normalize(a))
+            f_n = normalize(f)
+            a_n = normalize(a)
+            match f_n:
+                case Lam(_, body):
+                    return normalize(subst(body, a_n))
+                case _:
+                    return App(f_n, a_n)
         case Zero():
             return Zero()
         case Succ(n):
