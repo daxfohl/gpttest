@@ -59,52 +59,78 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
         case _:
             return term
 
-
-def subst(term: Term, sub: Term, depth: int = 0) -> Term:
+def subst_impl(term: Term, sub: Term, depth: int) -> Term:
     """Substitute ``sub`` for the variable at ``depth`` inside ``term``."""
-
     match term:
         case Var(index):
             if index == depth:
-                return shift(sub, 0, depth)
-            elif index > depth:
-                return Var(index - 1)
+                return sub
             else:
-                return term
+                return Var(index)  # ← no decrement here
+
         case Lam(ty, body):
-            return Lam(subst(ty, sub, depth), subst(body, sub, depth + 1))
+            return Lam(
+                subst_impl(ty, sub, depth),
+                subst_impl(body, shift(sub, 1, 0), depth + 1),
+            )
+
         case Pi(ty, body):
-            return Pi(subst(ty, sub, depth), subst(body, sub, depth + 1))
+            return Pi(
+                subst_impl(ty, sub, depth),
+                subst_impl(body, shift(sub, 1, 0), depth + 1),
+            )
+
         case Sigma(ty, body):
-            return Sigma(subst(ty, sub, depth), subst(body, sub, depth + 1))
+            return Sigma(
+                subst_impl(ty, sub, depth),
+                subst_impl(body, shift(sub, 1, 0), depth + 1),
+            )
+
         case Pair(fst, snd):
-            return Pair(subst(fst, sub, depth), subst(snd, sub, depth))
+            return Pair(subst_impl(fst, sub, depth), subst_impl(snd, sub, depth))
+
         case App(f, a):
-            return App(subst(f, sub, depth), subst(a, sub, depth))
+            return App(subst_impl(f, sub, depth), subst_impl(a, sub, depth))
+
         case NatRec(P, z, s, n):
             return NatRec(
-                subst(P, sub, depth),
-                subst(z, sub, depth),
-                subst(s, sub, depth),
-                subst(n, sub, depth),
+                subst_impl(P, sub, depth),
+                subst_impl(z, sub, depth),
+                subst_impl(s, sub, depth),
+                subst_impl(n, sub, depth),
             )
+
         case Succ(n):
-            return Succ(subst(n, sub, depth))
+            return Succ(subst_impl(n, sub, depth))
+
         case Id(ty, l, r):
-            return Id(subst(ty, sub, depth), subst(l, sub, depth), subst(r, sub, depth))
+            return Id(
+                subst_impl(ty, sub, depth),
+                subst_impl(l, sub, depth),
+                subst_impl(r, sub, depth),
+            )
+
         case Refl(ty, t):
-            return Refl(subst(ty, sub, depth), subst(t, sub, depth))
+            return Refl(subst_impl(ty, sub, depth), subst_impl(t, sub, depth))
+
         case IdElim(A, x, P, d, y, p):
             return IdElim(
-                subst(A, sub, depth),
-                subst(x, sub, depth),
-                subst(P, sub, depth),
-                subst(d, sub, depth),
-                subst(y, sub, depth),
-                subst(p, sub, depth),
+                subst_impl(A, sub, depth),
+                subst_impl(x, sub, depth),
+                subst_impl(P, sub, depth),
+                subst_impl(d, sub, depth),
+                subst_impl(y, sub, depth),
+                subst_impl(p, sub, depth),
             )
+
         case _:
             return term
 
 
-__all__ = ["shift", "subst"]
+def subst(term: Term, sub: Term) -> Term:
+    # TAPL-style safe substitution for topmost var:
+    return shift(subst_impl(term, shift(sub, 1, 0), 0), -1, 0)
+
+
+
+__all__ = ["subst"]
