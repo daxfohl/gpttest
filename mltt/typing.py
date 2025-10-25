@@ -80,13 +80,14 @@ def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
 
 def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
     ctx = ctx or []
+    expected_ty = normalize(ty)
     match term:
         case Var(i):
             if i >= len(ctx):
                 raise TypeError(f"Unbound variable {i}")
-            return type_equal(ctx[i], ty)
+            return type_equal(ctx[i], expected_ty)
         case Lam(arg_ty, body):
-            match ty:
+            match expected_ty:
                 case Pi(dom, cod):
                     if not type_equal(arg_ty, dom):
                         raise TypeError("Lambda domain mismatch")
@@ -99,15 +100,15 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
                 case Pi(dom, cod):
                     if not type_check(a, dom, ctx):
                         raise TypeError("Application argument type mismatch")
-                    return type_equal(ty, subst(cod, a))
+                    return type_equal(expected_ty, subst(cod, a))
                 case _:
                     raise TypeError("Application of non-function")
         case Pi(_, _):
-            return isinstance(normalize(ty), TypeUniverse)
+            return isinstance(expected_ty, TypeUniverse)
         case Sigma(_, _):
-            return isinstance(normalize(ty), TypeUniverse)
+            return isinstance(expected_ty, TypeUniverse)
         case Pair(fst, snd):
-            match ty:
+            match expected_ty:
                 case Sigma(dom, cod):
                     ok1 = type_check(fst, dom, ctx)
                     ok2 = type_check(snd, subst(cod, fst), ctx)
@@ -115,17 +116,17 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
                 case _:
                     raise TypeError("Pair expected to have Sigma type")
         case TypeUniverse():
-            return isinstance(normalize(ty), TypeUniverse)
+            return isinstance(expected_ty, TypeUniverse)
         case NatType():
-            return isinstance(normalize(ty), TypeUniverse)
+            return isinstance(expected_ty, TypeUniverse)
         case Zero():
-            match ty:
+            match expected_ty:
                 case NatType():
                     return True
                 case _:
                     raise TypeError("Zero must have type Nat")
         case Succ(n):
-            match ty:
+            match expected_ty:
                 case NatType():
                     return type_check(n, NatType(), ctx)
                 case _:
@@ -138,15 +139,15 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
             step_ty = Pi(NatType(), Pi(App(P, Var(0)), App(P, Succ(Var(0)))))
             if not type_check(s, step_ty, ctx):
                 raise TypeError("NatRec step case type mismatch")
-            return type_equal(ty, App(P, n))
+            return type_equal(expected_ty, App(P, n))
         case Id(id_ty, l, r):
             if not type_check(l, id_ty, ctx) or not type_check(r, id_ty, ctx):
                 raise TypeError("Id sides not of given type")
-            return isinstance(normalize(ty), TypeUniverse)
+            return isinstance(expected_ty, TypeUniverse)
         case Refl(rty, t):
             if not type_check(t, rty, ctx):
                 raise TypeError("Refl term not of stated type")
-            return type_equal(ty, Id(rty, t, t))
+            return type_equal(expected_ty, Id(rty, t, t))
         case IdElim(A, x, P, d, y, p):
             if not type_check(x, A, ctx):
                 raise TypeError("IdElim: x : A fails")
@@ -156,10 +157,10 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
                 raise TypeError("IdElim: p : Id(A,x,y) fails")
             if not type_check(d, App(App(P, x), Refl(A, x)), ctx):
                 raise TypeError("IdElim: d : P x (Refl x) fails")
-            return type_equal(ty, App(App(P, y), p))
+            return type_equal(expected_ty, App(App(P, y), p))
         case _:
             inferred = infer_type(term, ctx)
-            return type_equal(inferred, ty)
+            return type_equal(inferred, expected_ty)
 
 
 from .debruijn import subst
