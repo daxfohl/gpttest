@@ -2,11 +2,14 @@ import pytest
 
 from mltt.ast import (
     App,
+    Id,
+    IdElim,
     Lam,
     NatRec,
     NatType,
     Pair,
     Pi,
+    Refl,
     Sigma,
     TypeUniverse,
     Var,
@@ -56,3 +59,38 @@ def test_type_check_accepts_add_application():
     term = App(App(add, numeral(2)), numeral(3))
 
     assert type_check(term, NatType())
+
+
+def test_type_check_lambda_with_wrong_domain():
+    term = Lam(NatType(), Var(0))
+    expected = Pi(TypeUniverse(), NatType())
+    with pytest.raises(TypeError, match="Lambda domain mismatch"):
+        type_check(term, expected)
+
+
+def test_type_check_application_argument_mismatch():
+    f = Lam(NatType(), Var(0))
+    term = App(f, TypeUniverse())
+    with pytest.raises(TypeError, match="Application argument type mismatch"):
+        type_check(term, NatType())
+
+
+def test_infer_type_idelim():
+    term = IdElim(
+        TypeUniverse(),
+        Var(0),
+        Lam(TypeUniverse(), Lam(Id(TypeUniverse(), Var(0), Var(1)), TypeUniverse())),
+        Var(0),
+        Var(1),
+        Refl(TypeUniverse(), Var(0)),
+    )
+    inferred = infer_type(term)
+    assert inferred == App(
+        App(
+            Lam(
+                TypeUniverse(), Lam(Id(TypeUniverse(), Var(0), Var(1)), TypeUniverse())
+            ),
+            Var(1),
+        ),
+        Refl(TypeUniverse(), Var(0)),
+    )

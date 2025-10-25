@@ -66,3 +66,27 @@ def test_normalize_reduces_after_normalizing_function():
     term = App(App(curried, Zero()), Zero())
 
     assert normalize(term) == Zero()
+
+
+def test_beta_reduce_eta_expansion_collapses():
+    term = App(Lam(TypeUniverse(), Var(0)), Lam(TypeUniverse(), Var(0)))
+    assert beta_reduce(term) == Lam(TypeUniverse(), Var(0))
+
+
+def test_whnf_stops_on_irreducible_function():
+    term = App(Var(0), Zero())
+    assert whnf(term) == App(Var(0), Zero())
+
+
+def test_beta_step_progresses_once():
+    term = App(Lam(TypeUniverse(), Succ(Var(0))), Succ(Zero()))
+    step = beta_step(term)
+    assert step == Succ(Succ(Zero()))
+
+
+def test_normalize_complex_natrec():
+    P = Lam(NatType(), NatType())
+    z = Zero()
+    s = Lam(NatType(), Lam(NatType(), Succ(Var(0))))
+    term = NatRec(P, z, s, Succ(Succ(Zero())))
+    assert normalize(term) == Succ(Succ(Zero()))

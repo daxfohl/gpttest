@@ -1,4 +1,17 @@
-from mltt.ast import App, Id, IdElim, Lam, NatRec, Pair, Pi, Sigma, Succ, TypeUniverse, Var, Zero
+from mltt.ast import (
+    App,
+    Id,
+    IdElim,
+    Lam,
+    NatRec,
+    Pair,
+    Pi,
+    Sigma,
+    Succ,
+    TypeUniverse,
+    Var,
+    Zero,
+)
 from mltt.debruijn import shift, subst
 
 
@@ -56,7 +69,9 @@ def test_subst_sigma_pair():
 
 
 def test_subst_natrec_components():
-    term = NatRec(Pi(TypeUniverse(), TypeUniverse()), Zero(), Lam(TypeUniverse(), Var(0)), Var(0))
+    term = NatRec(
+        Pi(TypeUniverse(), TypeUniverse()), Zero(), Lam(TypeUniverse(), Var(0)), Var(0)
+    )
     sub = Succ(Var(0))
     result = subst(term, sub)
     assert isinstance(result, NatRec)

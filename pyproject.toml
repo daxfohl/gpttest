@@ -19,7 +19,22 @@ dependencies = []
 dev = [
     "mypy>=1.6",
     "pytest>=7.4",
+    "black>=24.4",
 ]
+
+[tool.black]
+line-length = 88
+target-version = ["py314"]
+include = "\\.pyi?$"
+extend-exclude = """(
+    /\\.eggs
+  | /\\.git
+  | /\\.mypy_cache
+  | /\\.ruff_cache
+  | /\\.venv
+  | /build
+  | /dist
+)"""
 
 [tool.setuptools.packages.find]
 where = ["src"]

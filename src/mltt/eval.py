@@ -39,7 +39,9 @@ def beta_reduce(term: Term) -> Term:
         case Succ(n):
             return Succ(beta_reduce(n))
         case NatRec(P, z, s, n):
-            return NatRec(beta_reduce(P), beta_reduce(z), beta_reduce(s), beta_reduce(n))
+            return NatRec(
+                beta_reduce(P), beta_reduce(z), beta_reduce(s), beta_reduce(n)
+            )
         case Id(ty, l, r):
             return Id(beta_reduce(ty), beta_reduce(l), beta_reduce(r))
         case Refl(ty, t):

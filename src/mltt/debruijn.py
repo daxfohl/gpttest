@@ -59,6 +59,7 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
         case _:
             return term
 
+
 def subst_impl(term: Term, sub: Term, depth: int) -> Term:
     """Substitute ``sub`` for the variable at ``depth`` inside ``term``."""
     match term:
@@ -130,7 +131,6 @@ def subst_impl(term: Term, sub: Term, depth: int) -> Term:
 def subst(term: Term, sub: Term) -> Term:
     # TAPL-style safe substitution for topmost var:
     return shift(subst_impl(term, shift(sub, 1, 0), 0), -1, 0)
-
 
 
 __all__ = ["subst"]
