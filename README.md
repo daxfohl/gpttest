@@ -19,4 +19,10 @@ The code targets Python 3.11+ and has no third-party dependencies.  Install an a
 python -m pytest
 ```
 
+Static type checking is configured with [mypy](https://mypy-lang.org/).  Run it against the package to ensure new code type checks cleanly:
+
+```bash
+python -m mypy
+```
+
 When extending the type theory or adding new utilities, prefer modelling constructs as pure functions on the existing dataclasses and accompany changes with tests that demonstrate the new behaviour.
