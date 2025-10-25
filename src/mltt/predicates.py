@@ -1,15 +1,9 @@
-"""Type guard helpers leveraging modern typing features.
-
-The helpers here are tiny runtime wrappers around ``isinstance`` checks, but
-annotated with :data:`typing.TypeIs` so static analysis knows that a successful
-check refines the operand's type.  Python 3.14 introduces ``TypeIs`` (PEP 742)
-and the compatibility layer in :mod:`mltt._compat` allows us to use it today
-without giving up support for older interpreters.
-"""
+"""Type guard helpers leveraging modern typing features."""
 
 from __future__ import annotations
 
-from ._compat import TypeIs
+from typing import TypeIs
+
 from .ast import NatType, Pi, Sigma, Term, TypeUniverse
 
 
@@ -38,4 +32,3 @@ def is_nat_type(term: Term) -> TypeIs[NatType]:
 
 
 __all__ = ["is_pi", "is_sigma", "is_type_universe", "is_nat_type"]
-
