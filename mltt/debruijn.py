@@ -66,11 +66,11 @@ def subst(term: Term, sub: Term, depth: int = 0) -> Term:
             else:
                 return term
         case Lam(ty, body):
-            return Lam(subst(ty, sub, depth), subst(body, sub, depth + 1))
+            return Lam(subst(ty, sub, depth), subst(body, shift(sub, 1), depth + 1))
         case Pi(ty, body):
-            return Pi(subst(ty, sub, depth), subst(body, sub, depth + 1))
+            return Pi(subst(ty, sub, depth), subst(body, shift(sub, 1), depth + 1))
         case Sigma(ty, body):
-            return Sigma(subst(ty, sub, depth), subst(body, sub, depth + 1))
+            return Sigma(subst(ty, sub, depth), subst(body, shift(sub, 1), depth + 1))
         case Pair(fst, snd):
             return Pair(subst(fst, sub, depth), subst(snd, sub, depth))
         case App(f, a):
