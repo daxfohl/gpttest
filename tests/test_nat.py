@@ -1,14 +1,9 @@
-import pathlib
-import sys
-
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
 from mltt.ast import App, NatType, Pi, Succ, Zero
-from mltt.nat import add, numeral
 from mltt.eval import normalize
+from mltt.nat import add, numeral
 from mltt.typing import type_check
+
+
 def test_add_has_expected_pi_type():
     add_type = Pi(NatType(), Pi(NatType(), NatType()))
 

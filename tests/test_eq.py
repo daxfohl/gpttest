@@ -1,10 +1,3 @@
-import pathlib
-import sys
-
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
 from mltt.ast import App, Id, IdElim, Lam, NatType, Refl, Succ, Var, Zero
 from mltt.eq import cong, sym, trans
 

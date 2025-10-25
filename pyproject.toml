@@ -1,6 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mltt"
+version = "0.1.0"
+description = "Miniature Martin-Löf type theory utilities"
+readme = "README.md"
+requires-python = ">=3.14"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.6",
+    "pytest>=7.4",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+mltt = ["py.typed"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
 [tool.mypy]
-python_version = "3.11"
-files = ["mltt"]
+python_version = "3.14"
+files = ["src/mltt"]
 show_error_codes = true
 warn_unused_configs = true
 strict_optional = true
