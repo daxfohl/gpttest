@@ -1,4 +1,96 @@
-.idea/
-.mypy_cache/
-.pytest_cache/
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+pytestdebug.log
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# PyBuilder
+.pybuild/
+
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Hatch
+.hatch/
+
+# uv
+.uv/
+
+# pytype
+.pytype/
+
+# Cython debug symbols
+test/build/
+cython_debug/
+
+# Virtual environments
 .venv/
+.env
+venv/
+ENV/
+
+# IDEs / editors
+*.swp
+
+# mypy / type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# Pytest / coverage artifacts
+.pytest_cache/
+
+# Ruff / lint
+.ruff_cache/
+
