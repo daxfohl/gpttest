@@ -20,6 +20,7 @@ from .ast import (
     Zero,
 )
 from .eval import normalize
+from .predicates import is_nat_type, is_pi, is_sigma, is_type_universe
 
 
 def type_equal(t1: Term, t2: Term) -> bool:
@@ -39,13 +40,11 @@ def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
             return Pi(arg_ty, body_ty)
         case App(f, a):
             f_ty = infer_type(f, ctx)
-            match f_ty:
-                case Pi(dom, cod):
-                    if not type_check(a, dom, ctx):
-                        raise TypeError("Function argument type mismatch")
-                    return subst(cod, a)
-                case _:
-                    raise TypeError("Application of non-function")
+            if not is_pi(f_ty):
+                raise TypeError("Application of non-function")
+            if not type_check(a, f_ty.ty, ctx):
+                raise TypeError("Function argument type mismatch")
+            return subst(f_ty.body, a)
         case Pi(_, _):
             return TypeUniverse()
         case Sigma(_, _):
@@ -96,41 +95,33 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
                     raise TypeError("Lambda expected to have Pi type")
         case App(f, a):
             f_ty = infer_type(f, ctx)
-            match f_ty:
-                case Pi(dom, cod):
-                    if not type_check(a, dom, ctx):
-                        raise TypeError("Application argument type mismatch")
-                    return type_equal(expected_ty, subst(cod, a))
-                case _:
-                    raise TypeError("Application of non-function")
+            if not is_pi(f_ty):
+                raise TypeError("Application of non-function")
+            if not type_check(a, f_ty.ty, ctx):
+                raise TypeError("Application argument type mismatch")
+            return type_equal(expected_ty, subst(f_ty.body, a))
         case Pi(_, _):
-            return isinstance(expected_ty, TypeUniverse)
+            return is_type_universe(expected_ty)
         case Sigma(_, _):
-            return isinstance(expected_ty, TypeUniverse)
+            return is_type_universe(expected_ty)
         case Pair(fst, snd):
-            match expected_ty:
-                case Sigma(dom, cod):
-                    ok1 = type_check(fst, dom, ctx)
-                    ok2 = type_check(snd, subst(cod, fst), ctx)
-                    return ok1 and ok2
-                case _:
-                    raise TypeError("Pair expected to have Sigma type")
+            if not is_sigma(expected_ty):
+                raise TypeError("Pair expected to have Sigma type")
+            ok1 = type_check(fst, expected_ty.ty, ctx)
+            ok2 = type_check(snd, subst(expected_ty.body, fst), ctx)
+            return ok1 and ok2
         case TypeUniverse():
-            return isinstance(expected_ty, TypeUniverse)
+            return is_type_universe(expected_ty)
         case NatType():
-            return isinstance(expected_ty, TypeUniverse)
+            return is_type_universe(expected_ty)
         case Zero():
-            match expected_ty:
-                case NatType():
-                    return True
-                case _:
-                    raise TypeError("Zero must have type Nat")
+            if not is_nat_type(expected_ty):
+                raise TypeError("Zero must have type Nat")
+            return True
         case Succ(n):
-            match expected_ty:
-                case NatType():
-                    return type_check(n, NatType(), ctx)
-                case _:
-                    raise TypeError("Succ must have type Nat")
+            if not is_nat_type(expected_ty):
+                raise TypeError("Succ must have type Nat")
+            return type_check(n, NatType(), ctx)
         case NatRec(P, z, s, n):
             if not type_check(n, NatType(), ctx):
                 raise TypeError("NatRec scrutinee not Nat")
@@ -143,7 +134,7 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
         case Id(id_ty, l, r):
             if not type_check(l, id_ty, ctx) or not type_check(r, id_ty, ctx):
                 raise TypeError("Id sides not of given type")
-            return isinstance(expected_ty, TypeUniverse)
+            return is_type_universe(expected_ty)
         case Refl(rty, t):
             if not type_check(t, rty, ctx):
                 raise TypeError("Refl term not of stated type")
