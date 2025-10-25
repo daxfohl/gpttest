@@ -32,4 +32,11 @@ def test_subst_under_lambda_preserves_bound_variable():
     term = Lam(TypeUniverse(), App(Var(1), Var(0)))
     sub = Succ(Var(0))
     result = subst(term, sub)
-    assert result == Lam(TypeUniverse(), App(Succ(Var(0)), Var(0)))
+    assert result == Lam(TypeUniverse(), App(Succ(Var(1)), Var(0)))
+
+
+def test_subst_avoids_capture_under_nested_binder():
+    term = Lam(TypeUniverse(), Var(1))
+    sub = Var(0)
+    result = subst(term, sub)
+    assert result == Lam(TypeUniverse(), Var(1))
