@@ -10,6 +10,7 @@ from mltt.ast import (
     IdElim,
     Lam,
     NatRec,
+    NatType,
     Refl,
     Succ,
     TypeUniverse,
@@ -17,12 +18,27 @@ from mltt.ast import (
     Zero,
 )
 from mltt.eval import beta_reduce, beta_step, normalize, whnf
+from mltt.nat import add
 
 
 def test_beta_reduce_performs_nested_reduction():
     inner_identity = Lam(TypeUniverse(), Var(0))
     term = App(Lam(TypeUniverse(), App(Var(0), Zero())), inner_identity)
     assert beta_reduce(term) == Zero()
+
+
+def test_beta_reduce_unfolds_add_base_case():
+    expected = Lam(
+        NatType(),
+        NatRec(
+            P=Lam(NatType(), NatType()),
+            z=Var(0),
+            s=Lam(NatType(), Lam(NatType(), Succ(Var(0)))),
+            n=Zero(),
+        ),
+    )
+
+    assert beta_reduce(App(add, Zero())) == expected
 
 
 def test_whnf_unfolds_natrec_on_successor():

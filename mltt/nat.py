@@ -6,14 +6,24 @@ from .eval import normalize
 from .typing import type_check
 
 
+def numeral(value: int) -> Term:
+    term: Term = Zero()
+    for _ in range(value):
+        term = Succ(term)
+    return term
+
+
 add = Lam(
     NatType(),
     Lam(
         NatType(),
         NatRec(
-            P=Lam(NatType()),
+            P=Lam(NatType(), NatType()),
             z=Var(0),
-            s=Lam(Lam(Succ(App(App(Var(3), Var(1)), Var(0))))),
+            s=Lam(
+                NatType(),
+                Lam(NatType(), Succ(Var(0))),
+            ),
             n=Var(1),
         ),
     ),

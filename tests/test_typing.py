@@ -20,6 +20,7 @@ from mltt.ast import (
     Zero,
 )
 from mltt.typing import infer_type, type_check, type_equal
+from mltt.nat import add, numeral
 
 
 def test_type_equal_normalizes_beta_equivalent_terms():
@@ -56,3 +57,9 @@ def test_type_check_natrec_rejects_invalid_base_case():
 
     with pytest.raises(TypeError, match="NatRec base case type mismatch"):
         type_check(term, App(P, n))
+
+
+def test_type_check_accepts_add_application():
+    term = App(App(add, numeral(2)), numeral(3))
+
+    assert type_check(term, NatType())
