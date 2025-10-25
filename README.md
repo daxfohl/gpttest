@@ -9,7 +9,7 @@ This repository contains a small Python library that models fragments of Martin-
 - `src/mltt/eval.py` – a small-step evaluator for normalising terms.
 - `src/mltt/typing.py` – type-checking rules for the language and helpers for building typing contexts.
 - `src/mltt/eq.py` – derived rules for propositional equality (congruence, symmetry, and transitivity).
-- `tests/` – pytest-based unit tests that exercise the evaluator, typing rules, equality lemmas, and de Bruijn utilities.
+- `tests/mltt/` – pytest-based unit tests mirroring the source tree; they exercise the evaluator, typing rules, equality lemmas, and de Bruijn utilities.
 
 ## Development
 
