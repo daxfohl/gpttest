@@ -1,3 +1,5 @@
+"""Beta reduction and evaluation helpers for MLTT terms."""
+
 from __future__ import annotations
 
 from .ast import (
@@ -19,6 +21,8 @@ from .debruijn import subst
 
 
 def beta_reduce(term: Term) -> Term:
+    """Fully beta-reduce ``term`` by recursively rewriting every redex."""
+
     match term:
         case App(Lam(_, body), arg):
             return beta_reduce(subst(body, arg))
@@ -54,6 +58,8 @@ def beta_reduce(term: Term) -> Term:
 
 
 def whnf(term: Term) -> Term:
+    """Compute the weak head normal form of ``term`` without normalizing subterms."""
+
     match term:
         case App(Lam(_, body), arg):
             return whnf(subst(body, arg))
@@ -83,6 +89,8 @@ def whnf(term: Term) -> Term:
 
 
 def beta_step(term: Term) -> Term:
+    """Perform a single beta-reduction step on ``term`` if possible."""
+
     match term:
         case App(Lam(_, body), arg):
             return subst(body, arg)
@@ -129,6 +137,8 @@ def beta_step(term: Term) -> Term:
 
 
 def normalize(term: Term) -> Term:
+    """Normalize ``term`` by repeatedly reducing until no rules apply."""
+
     match term:
         case Var(_):
             return term

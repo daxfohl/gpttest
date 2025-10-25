@@ -1,3 +1,5 @@
+"""Type inference and checking for the miniature Martin-Lof type theory."""
+
 from __future__ import annotations
 
 from typing import List, Optional
@@ -24,10 +26,14 @@ from .predicates import is_nat_type, is_pi, is_sigma, is_type_universe
 
 
 def type_equal(t1: Term, t2: Term) -> bool:
+    """Return ``True`` when ``t1`` and ``t2`` normalize to the same term."""
+
     return normalize(t1) == normalize(t2)
 
 
 def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
+    """Infer the type of ``term`` under the optional De Bruijn context ``ctx``."""
+
     ctx = ctx or []
     match term:
         case Var(i):
@@ -78,6 +84,8 @@ def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
 
 
 def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
+    """Check that ``term`` has type ``ty`` under ``ctx``, raising on mismatches."""
+
     ctx = ctx or []
     expected_ty = normalize(ty)
     match term:

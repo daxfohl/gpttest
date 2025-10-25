@@ -1,3 +1,5 @@
+"""Utilities for working with De Bruijn indices such as shifting and substitution."""
+
 from __future__ import annotations
 
 from .ast import (
@@ -17,6 +19,8 @@ from .ast import (
 
 
 def shift(term: Term, by: int, cutoff: int = 0) -> Term:
+    """Shift free variables in ``term`` by ``by`` starting at ``cutoff``."""
+
     match term:
         case Var(index):
             return Var(index + by if index >= cutoff else index)
@@ -57,6 +61,8 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
 
 
 def subst(term: Term, sub: Term, depth: int = 0) -> Term:
+    """Substitute ``sub`` for the variable at ``depth`` inside ``term``."""
+
     match term:
         case Var(index):
             if index == depth:

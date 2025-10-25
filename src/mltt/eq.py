@@ -1,9 +1,13 @@
+"""Basic equality combinators for the identity type."""
+
 from __future__ import annotations
 
 from .ast import App, Id, IdElim, Lam, Refl, Term, Var
 
 
 def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
+    """Map equality along ``f`` to obtain ``f x == f y``."""
+
     P = Lam(
         A,
         Lam(
@@ -16,6 +20,8 @@ def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
 
 
 def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
+    """Flip an equality proof so that ``x == y`` becomes ``y == x``."""
+
     P = Lam(
         A,
         Lam(
@@ -28,6 +34,8 @@ def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
 
 
 def trans(A: Term, x: Term, y: Term, z: Term, p: Term, q: Term) -> Term:
+    """Compose equality proofs for transitivity."""
+
     Q = Lam(
         A,
         Lam(
