@@ -11,46 +11,6 @@ This repository contains a small Python library that models fragments of Martin-
 - `src/mltt/eq.py` – derived rules for propositional equality (congruence, symmetry, and transitivity).
 - `tests/` – pytest-based unit tests that exercise the evaluator, typing rules, equality lemmas, and de Bruijn utilities.
 
-## Installation on macOS
-
-1. Install the Xcode Command Line Tools to obtain the developer toolchain and a recent version of `git`:
-
-   ```bash
-   xcode-select --install
-   ```
-
-2. Install [Homebrew](https://brew.sh), the macOS package manager, by running the script recommended on the Homebrew homepage:
-
-   ```bash
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-   ```
-
-   Follow the post-install instructions printed by the script to add Homebrew to your shell profile (for example by appending `eval "$(/opt/homebrew/bin/brew shellenv)"` to `~/.zprofile`).
-
-3. Use Homebrew to install Python 3.11 or newer:
-
-   ```bash
-   brew install python@3.11
-   ```
-
-   Ensure the newly installed interpreter is first on your `PATH` by adding a line such as `export PATH="/opt/homebrew/opt/python@3.11/bin:$PATH"` to your shell profile.
-
-4. Clone this repository and create a virtual environment for local development:
-
-   ```bash
-   git clone https://github.com/<your-username>/gpttest.git
-   cd gpttest
-   python3.11 -m venv .venv
-   source .venv/bin/activate
-   ```
-
-5. Upgrade `pip` and install the project in editable mode along with its development extras:
-
-   ```bash
-   python -m pip install --upgrade pip
-   python -m pip install -e .
-   ```
-
 ## Development
 
 ### macOS setup with uv
