@@ -41,3 +41,15 @@ def add_zero_right() -> Term:
         NatType(),
         Refl(NatType(), App(App(add, Var(0)), Zero())),
     )
+
+
+def add_succ_right() -> Term:
+    """Proof that ``add m (Succ n)`` equals ``Succ (add m n)`` for all naturals."""
+
+    return Lam(
+        NatType(),
+        Lam(
+            NatType(),
+            Refl(NatType(), App(App(add, Var(1)), Succ(Var(0)))),
+        ),
+    )

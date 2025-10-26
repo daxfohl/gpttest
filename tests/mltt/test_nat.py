@@ -1,6 +1,6 @@
 from mltt.ast import App, Id, NatType, Pi, Refl, Succ, Var, Zero
 from mltt.eval import normalize
-from mltt.nat import add, add_zero_right, numeral
+from mltt.nat import add, add_zero_right, add_succ_right, numeral
 from mltt.typing import type_check
 
 
@@ -43,3 +43,28 @@ def test_add_zero_right_typechecks_and_reduces():
     )
     assert type_check(lemma, lemma_ty)
     assert normalize(App(lemma, numeral(4))) == Refl(NatType(), numeral(4))
+
+
+def test_add_succ_right_typechecks():
+    lemma = add_succ_right()
+    lemma_ty = Pi(
+        NatType(),
+        Pi(
+            NatType(),
+            Id(
+                NatType(),
+                App(App(add, Var(1)), Succ(Var(0))),
+                Succ(App(App(add, Var(1)), Var(0))),
+            ),
+        ),
+    )
+    assert type_check(lemma, lemma_ty)
+
+
+def test_add_succ_right_normalizes():
+    lemma = add_succ_right()
+    applied = App(App(lemma, numeral(2)), numeral(3))
+    assert normalize(applied) == Refl(
+        NatType(),
+        Succ(normalize(App(App(add, numeral(2)), numeral(3)))),
+    )
