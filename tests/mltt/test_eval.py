@@ -25,9 +25,9 @@ def test_beta_reduce_unfolds_add_base_case():
         NatType(),
         NatRec(
             P=Lam(NatType(), NatType()),
-            z=Var(0),
+            z=Zero(),
             s=Lam(NatType(), Lam(NatType(), Succ(Var(0)))),
-            n=Zero(),
+            n=Var(0),
         ),
     )
 

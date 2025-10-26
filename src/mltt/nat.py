@@ -23,12 +23,21 @@ add = Lam(
         NatType(),
         NatRec(
             P=Lam(NatType(), NatType()),
-            z=Var(0),
+            z=Var(1),
             s=Lam(
                 NatType(),
                 Lam(NatType(), Succ(Var(0))),
             ),
-            n=Var(1),
+            n=Var(0),
         ),
     ),
 )
+
+
+def add_zero_right() -> Term:
+    """Proof that ``add n 0`` is definitionally equal to ``n`` for all ``n``."""
+
+    return Lam(
+        NatType(),
+        Refl(NatType(), App(App(add, Var(0)), Zero())),
+    )
