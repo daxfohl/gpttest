@@ -17,39 +17,30 @@ def numeral(value: int) -> Term:
     return term
 
 
-add = Lam(
-    NatType(),
-    Lam(
-        NatType(),
-        NatRec(
-            P=Lam(NatType(), NatType()),
-            z=Var(1),
-            s=Lam(
-                NatType(),
-                Lam(NatType(), Succ(Var(0))),
-            ),
-            n=Var(0),
-        ),
-    ),
-)
+def add():
+    """
+add : Nat → Nat → Nat
+Addition by recursion on the first argument.
 
+add a b =
+  NatRec (λ_. Nat) b (λ_ r. Succ r) a
 
-def add_zero_right() -> Term:
-    """Proof that ``add n 0`` is definitionally equal to ``n`` for all ``n``."""
-
-    return Lam(
-        NatType(),
-        Refl(NatType(), App(App(add, Var(0)), Zero())),
-    )
-
-
-def add_succ_right() -> Term:
-    """Proof that ``add m (Succ n)`` equals ``Succ (add m n)`` for all naturals."""
-
+Rules:
+  add Zero b = b
+  add (Succ a) b = Succ (add a b)
+"""
     return Lam(
         NatType(),
         Lam(
             NatType(),
-            Refl(NatType(), App(App(add, Var(1)), Succ(Var(0)))),
+            NatRec(
+                P=Lam(NatType(), NatType()),
+                z=Var(0),
+                s=Lam(
+                    NatType(),
+                    Lam(NatType(), Succ(Var(0))),
+                ),
+                n=Var(1),
+            ),
         ),
     )

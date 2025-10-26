@@ -56,7 +56,7 @@ def test_type_check_natrec_rejects_invalid_base_case():
 
 
 def test_type_check_accepts_add_application():
-    term = App(App(add, numeral(2)), numeral(3))
+    term = App(App(add(), numeral(2)), numeral(3))
 
     assert type_check(term, NatType())
 

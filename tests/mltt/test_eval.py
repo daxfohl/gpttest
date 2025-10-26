@@ -25,13 +25,13 @@ def test_beta_reduce_unfolds_add_base_case():
         NatType(),
         NatRec(
             P=Lam(NatType(), NatType()),
-            z=Zero(),
+            z=Var(0),
             s=Lam(NatType(), Lam(NatType(), Succ(Var(0)))),
-            n=Var(0),
+            n=Zero(),
         ),
     )
 
-    assert beta_reduce(App(add, Zero())) == expected
+    assert beta_reduce(App(add(), Zero())) == expected
 
 
 def test_whnf_unfolds_natrec_on_successor():
