@@ -19,16 +19,16 @@ def numeral(value: int) -> Term:
 
 def add():
     """
-add : Nat → Nat → Nat
-Addition by recursion on the first argument.
+    add : Nat → Nat → Nat
+    Addition by recursion on the first argument.
 
-add a b =
-  NatRec (λ_. Nat) b (λ_ r. Succ r) a
+    add a b =
+      NatRec (λ_. Nat) b (λ_ r. Succ r) a
 
-Rules:
-  add Zero b = b
-  add (Succ a) b = Succ (add a b)
-"""
+    Rules:
+      add Zero b = b
+      add (Succ a) b = Succ (add a b)
+    """
     return Lam(
         NatType(),
         Lam(
