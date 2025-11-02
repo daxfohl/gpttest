@@ -13,7 +13,9 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
-dependencies = []
+dependencies = [
+    "pytest>=8.4.2",
+]
 
 [project.optional-dependencies]
 dev = [

@@ -1,6 +1,6 @@
-from mltt.ast import App, Id, NatType, Pi, Refl, Succ, Var, Zero
+from mltt.ast import App, Id, NatType, Pi, Refl, Succ, Var, Zero, Term
 from mltt.eval import normalize
-from mltt.nat import add, numeral
+from mltt.nat import add, numeral, add_n_0
 from mltt.typing import type_check
 
 
@@ -33,3 +33,40 @@ def test_add_produces_expected_numeral():
     result = normalize(App(App(add(), numeral(2)), numeral(3)))
 
     assert result == numeral(5)
+
+
+def test_add_zero_right_typechecks():
+    lemma = add_n_0()
+    lemma_ty = Pi(
+        NatType(),
+        Id(NatType(), App(App(add(), Var(0)), Zero()), Var(0)),
+    )
+
+    assert type_check(lemma, lemma_ty)
+
+
+def test_add_zero_right_normalizes():
+    lemma = add_n_0()
+    applied = App(lemma, numeral(5))
+    assert normalize(applied) == Refl(NatType(), numeral(5))
+
+
+def test_add_zero_right_normalizes_multiple_inputs():
+    lemma = add_n_0()
+
+    for value in range(6):
+        applied = App(lemma, numeral(value))
+        assert normalize(applied) == Refl(NatType(), numeral(value))
+
+
+def test_add_zero_right_applied_term_typechecks():
+    lemma = add_n_0()
+    three = numeral(3)
+    applied = App(lemma, three)
+    expected = Id(
+        NatType(),
+        App(App(add(), three), Zero()),
+        three,
+    )
+
+    assert type_check(applied, expected)

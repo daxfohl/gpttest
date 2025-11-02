@@ -31,6 +31,12 @@ def type_equal(t1: Term, t2: Term) -> bool:
     return normalize(t1) == normalize(t2)
 
 
+def _extend_ctx(ctx: List[Term], ty: Term) -> List[Term]:
+    """Extend ``ctx`` with ``ty`` while keeping indices for outer vars stable."""
+
+    return [shift(ty, 1)] + ctx
+
+
 def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
     """Infer the type of ``term`` under the optional De Bruijn context ``ctx``."""
 
@@ -42,7 +48,7 @@ def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
             else:
                 raise TypeError(f"Unbound variable {i}")
         case Lam(arg_ty, body):
-            body_ty = infer_type(body, [arg_ty] + ctx)
+            body_ty = infer_type(body, _extend_ctx(ctx, arg_ty))
             return Pi(arg_ty, body_ty)
         case App(f, a):
             f_ty = infer_type(f, ctx)
@@ -98,7 +104,7 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
                 case Pi(dom, cod):
                     if not type_equal(arg_ty, dom):
                         raise TypeError("Lambda domain mismatch")
-                    return type_check(body, cod, [arg_ty] + ctx)
+                    return type_check(body, cod, _extend_ctx(ctx, arg_ty))
                 case _:
                     raise TypeError("Lambda expected to have Pi type")
         case App(f, a):
@@ -135,7 +141,7 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
                 raise TypeError("NatRec scrutinee not Nat")
             if not type_check(z, App(P, Zero()), ctx):
                 raise TypeError("NatRec base case type mismatch (z : P 0)")
-            step_ty = Pi(NatType(), Pi(App(P, Var(0)), App(P, Succ(Var(0)))))
+            step_ty = Pi(NatType(), Pi(App(P, Var(0)), App(P, Succ(Var(1)))))
             if not type_check(s, step_ty, ctx):
                 raise TypeError("NatRec step case type mismatch")
             return type_equal(expected_ty, App(P, n))
@@ -162,6 +168,6 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
             return type_equal(inferred, expected_ty)
 
 
-from .debruijn import subst
+from .debruijn import shift, subst
 
 __all__ = ["type_equal", "infer_type", "type_check"]
