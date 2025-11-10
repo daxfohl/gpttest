@@ -13,9 +13,9 @@ class Term:
 
 @dataclass
 class Var(Term):
-    """De Bruijn variable pointing to the binder at ``index``."""
+    """De Bruijn variable pointing to the binder at ``k``."""
 
-    index: int
+    k: int
 
 
 @dataclass

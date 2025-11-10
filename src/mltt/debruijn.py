@@ -22,8 +22,8 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
     """Shift free variables in ``term`` by ``by`` starting at ``cutoff``."""
 
     match term:
-        case Var(index):
-            return Var(index + by if index >= cutoff else index)
+        case Var(k):
+            return Var(k + by if k >= cutoff else k)
         case Lam(ty, body):
             return Lam(shift(ty, by, cutoff), shift(body, by, cutoff + 1))
         case Pi(ty, body):
@@ -56,81 +56,79 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
                 shift(y, by, cutoff),
                 shift(p, by, cutoff),
             )
+
         case _:
             return term
 
 
-def subst_impl(term: Term, sub: Term, depth: int) -> Term:
-    """Substitute ``sub`` for the variable at ``depth`` inside ``term``."""
+def subst(term: Term, sub: Term, j: int = 0) -> Term:
+    """Substitute ``sub`` for ``Var(j)`` inside ``term``, and squash it."""
     match term:
-        case Var(index):
-            if index == depth:
+        case Var(k):
+            if k == j:
                 return sub
+            elif k > j:
+                return Var(k - 1)
             else:
-                return Var(index)  # ← no decrement here
+                return term
 
         case Lam(ty, body):
             return Lam(
-                subst_impl(ty, sub, depth),
-                subst_impl(body, shift(sub, 1, 0), depth + 1),
+                subst(ty, sub, j),
+                subst(body, shift(sub, 1, 0), j + 1),
             )
 
         case Pi(ty, body):
             return Pi(
-                subst_impl(ty, sub, depth),
-                subst_impl(body, shift(sub, 1, 0), depth + 1),
+                subst(ty, sub, j),
+                subst(body, shift(sub, 1, 0), j + 1),
             )
 
         case Sigma(ty, body):
             return Sigma(
-                subst_impl(ty, sub, depth),
-                subst_impl(body, shift(sub, 1, 0), depth + 1),
+                subst(ty, sub, j),
+                subst(body, shift(sub, 1, 0), j + 1),
             )
 
         case Pair(fst, snd):
-            return Pair(subst_impl(fst, sub, depth), subst_impl(snd, sub, depth))
+            return Pair(subst(fst, sub, j), subst(snd, sub, j))
 
         case App(f, a):
-            return App(subst_impl(f, sub, depth), subst_impl(a, sub, depth))
+            return App(subst(f, sub, j), subst(a, sub, j))
 
         case NatRec(P, z, s, n):
             return NatRec(
-                subst_impl(P, sub, depth),
-                subst_impl(z, sub, depth),
-                subst_impl(s, sub, depth),
-                subst_impl(n, sub, depth),
+                subst(P, sub, j),
+                subst(z, sub, j),
+                subst(s, sub, j),
+                subst(n, sub, j),
             )
 
         case Succ(n):
-            return Succ(subst_impl(n, sub, depth))
+            return Succ(subst(n, sub, j))
 
         case Id(ty, l, r):
             return Id(
-                subst_impl(ty, sub, depth),
-                subst_impl(l, sub, depth),
-                subst_impl(r, sub, depth),
+                subst(ty, sub, j),
+                subst(l, sub, j),
+                subst(r, sub, j),
             )
 
         case Refl(ty, t):
-            return Refl(subst_impl(ty, sub, depth), subst_impl(t, sub, depth))
+            return Refl(subst(ty, sub, j), subst(t, sub, j))
 
         case IdElim(A, x, P, d, y, p):
             return IdElim(
-                subst_impl(A, sub, depth),
-                subst_impl(x, sub, depth),
-                subst_impl(P, sub, depth),
-                subst_impl(d, sub, depth),
-                subst_impl(y, sub, depth),
-                subst_impl(p, sub, depth),
+                subst(A, sub, j),
+                subst(x, sub, j),
+                subst(P, sub, j),
+                subst(d, sub, j),
+                subst(y, sub, j),
+                subst(p, sub, j),
             )
 
         case _:
             return term
-
-
-def subst(term: Term, sub: Term) -> Term:
-    # TAPL-style safe substitution for topmost var:
-    return shift(subst_impl(term, shift(sub, 1, 0), 0), -1, 0)
 
 
 __all__ = ["subst"]
