@@ -1,5 +1,5 @@
 from mltt.ast import App, Id, NatType, Pi, Refl, Succ, Var, Zero, Term
-from mltt.eval import normalize
+from mltt.beta_reduce import normalize
 from mltt.nat import add, numeral, add_n_0
 from mltt.typing import type_check
 

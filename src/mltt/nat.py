@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .ast import App, Id, Lam, NatRec, NatType, Pi, Refl, Succ, Term, Var, Zero
 from .eq import cong, sym, trans, ap
-from .eval import normalize
+from .beta_reduce import normalize
 from .typing import type_check
 
 

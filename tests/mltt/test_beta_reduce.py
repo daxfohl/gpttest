@@ -10,7 +10,7 @@ from mltt.ast import (
     Var,
     Zero,
 )
-from mltt.eval import beta_reduce, beta_step, normalize, whnf
+from mltt.beta_reduce import beta_reduce, beta_step, normalize, whnf
 from mltt.nat import add
 
 
