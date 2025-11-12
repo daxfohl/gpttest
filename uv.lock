@@ -58,6 +58,7 @@ name = "mltt"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "black" },
     { name = "pytest" },
 ]
 
@@ -70,6 +71,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "black", specifier = ">=25.11.0" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.4" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.6" },
     { name = "pytest", specifier = ">=8.4.2" },

@@ -11,13 +11,17 @@ def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
 
     P = Lam(
         A,
-        shift(Lam(
-            Id(A, x, Var(1)),
-            shift(Id(App(B, Var(1)), App(f, x), App(f, Var(1))), 1),
-        ), 1),
+        shift(
+            Lam(
+                Id(A, x, Var(1)),
+                shift(Id(App(B, Var(1)), App(f, x), App(f, Var(1))), 1),
+            ),
+            1,
+        ),
     )
     d = Refl(App(B, x), App(f, x))
     return IdElim(A, x, P, d, y, p)
+
 
 def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
     """Map equality along ``f`` to obtain ``f x == f y``."""
