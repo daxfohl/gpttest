@@ -11,7 +11,7 @@ from mltt.ast import (
     Pi,
     Refl,
     Sigma,
-    TypeUniverse,
+    Univ,
     Var,
     Zero,
 )
@@ -20,16 +20,29 @@ from mltt.nat import add, numeral
 
 
 def test_type_equal_normalizes_beta_equivalent_terms():
-    beta_equiv = App(Lam(TypeUniverse(), Var(0)), TypeUniverse())
+    beta_equiv = App(Lam(Univ(), Var(0)), Univ())
 
-    assert type_equal(beta_equiv, TypeUniverse())
+    assert type_equal(beta_equiv, Univ())
     assert not type_equal(beta_equiv, NatType())
+
+
+def test_type_universe_levels_are_indexed():
+    assert infer_type(Univ()) == Univ(1)
+    assert infer_type(Univ(2)) == Univ(3)
 
 
 def test_infer_type_of_lambda_returns_pi_type():
     term = Lam(NatType(), Var(0))
 
     assert infer_type(term) == Pi(NatType(), NatType())
+
+
+def test_infer_type_of_pi_uses_maximum_universe_level():
+    assert infer_type(Pi(NatType(), NatType())) == Univ(0)
+    higher = Pi(Univ(), NatType())
+    assert infer_type(higher) == Univ(1)
+    cod_dominates = Pi(NatType(), Univ(1))
+    assert infer_type(cod_dominates) == Univ(2)
 
 
 def test_infer_type_application_requires_function():
@@ -39,14 +52,14 @@ def test_infer_type_application_requires_function():
 
 def test_type_check_pair_against_sigma_type():
     pair = Pair(Zero(), NatType())
-    sigma_ty = Sigma(NatType(), TypeUniverse())
+    sigma_ty = Sigma(NatType(), Univ())
 
     assert type_check(pair, sigma_ty)
 
 
 def test_type_check_natrec_rejects_invalid_base_case():
     P = Lam(NatType(), NatType())
-    z = TypeUniverse()
+    z = Univ()
     s = Zero()
     n = Zero()
     term = NatRec(P, z, s, n)
@@ -63,34 +76,32 @@ def test_type_check_accepts_add_application():
 
 def test_type_check_lambda_with_wrong_domain():
     term = Lam(NatType(), Var(0))
-    expected = Pi(TypeUniverse(), NatType())
+    expected = Pi(Univ(), NatType())
     with pytest.raises(TypeError, match="Lambda domain mismatch"):
         type_check(term, expected)
 
 
 def test_type_check_application_argument_mismatch():
     f = Lam(NatType(), Var(0))
-    term = App(f, TypeUniverse())
+    term = App(f, Univ())
     with pytest.raises(TypeError, match="Application argument type mismatch"):
         type_check(term, NatType())
 
 
 def test_infer_type_idelim():
     term = IdElim(
-        TypeUniverse(),
+        Univ(),
         Var(0),
-        Lam(TypeUniverse(), Lam(Id(TypeUniverse(), Var(0), Var(1)), TypeUniverse())),
+        Lam(Univ(), Lam(Id(Univ(), Var(0), Var(1)), Univ())),
         Var(0),
         Var(1),
-        Refl(TypeUniverse(), Var(0)),
+        Refl(Univ(), Var(0)),
     )
     inferred = infer_type(term)
     assert inferred == App(
         App(
-            Lam(
-                TypeUniverse(), Lam(Id(TypeUniverse(), Var(0), Var(1)), TypeUniverse())
-            ),
+            Lam(Univ(), Lam(Id(Univ(), Var(0), Var(1)), Univ())),
             Var(1),
         ),
-        Refl(TypeUniverse(), Var(0)),
+        Refl(Univ(), Var(0)),
     )

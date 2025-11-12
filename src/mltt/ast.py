@@ -59,10 +59,14 @@ class App(Term):
 
 
 @dataclass
-class TypeUniverse(Term):
-    """The sole universe used by the miniature theory."""
+class Univ(Term):
+    """A universe ``Type(level)``."""
 
-    pass
+    level: int = 0
+
+    def __post_init__(self) -> None:
+        if self.level < 0:
+            raise ValueError("Universe level must be non-negative")
 
 
 @dataclass
@@ -133,7 +137,7 @@ __all__ = [
     "Sigma",
     "Pair",
     "App",
-    "TypeUniverse",
+    "Univ",
     "NatType",
     "Zero",
     "Succ",

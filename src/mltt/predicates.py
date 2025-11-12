@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TypeIs
 
-from .ast import NatType, Pi, Sigma, Term, TypeUniverse
+from .ast import NatType, Pi, Sigma, Term, Univ
 
 
 def is_pi(term: Term) -> TypeIs[Pi]:
@@ -19,10 +19,10 @@ def is_sigma(term: Term) -> TypeIs[Sigma]:
     return isinstance(term, Sigma)
 
 
-def is_type_universe(term: Term) -> TypeIs[TypeUniverse]:
-    """Return ``True`` if *term* is the :class:`~mltt.ast.TypeUniverse`."""
+def is_type_universe(term: Term) -> TypeIs[Univ]:
+    """Return ``True`` if *term* is the :class:`~mltt.ast.Univ`."""
 
-    return isinstance(term, TypeUniverse)
+    return isinstance(term, Univ)
 
 
 def is_nat_type(term: Term) -> TypeIs[NatType]:

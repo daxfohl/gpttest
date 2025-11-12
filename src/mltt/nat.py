@@ -17,7 +17,7 @@ def numeral(value: int) -> Term:
     return term
 
 
-def add():
+def add() -> Term:
     """
     add : Nat → Nat → Nat
     Addition by recursion on the first argument.
@@ -46,7 +46,7 @@ def add():
     )
 
 
-def add_n_0():
+def add_n_0() -> Term:
     """Proof that n + 0 == n"""
     add_term = add()
     return Lam(

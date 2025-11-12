@@ -6,7 +6,7 @@ from mltt.ast import (
     NatType,
     Refl,
     Succ,
-    TypeUniverse,
+    Univ,
     Var,
     Zero,
 )
@@ -15,8 +15,8 @@ from mltt.nat import add
 
 
 def test_beta_reduce_performs_nested_reduction():
-    inner_identity = Lam(TypeUniverse(), Var(0))
-    term = App(Lam(TypeUniverse(), App(Var(0), Zero())), inner_identity)
+    inner_identity = Lam(Univ(), Var(0))
+    term = App(Lam(Univ(), App(Var(0), Zero())), inner_identity)
     assert beta_reduce(term) == Zero()
 
 
@@ -35,9 +35,9 @@ def test_beta_reduce_unfolds_add_base_case():
 
 
 def test_whnf_unfolds_natrec_on_successor():
-    P = Lam(TypeUniverse(), TypeUniverse())
+    P = Lam(Univ(), Univ())
     z = Zero()
-    s = Lam(TypeUniverse(), Lam(TypeUniverse(), Succ(Var(0))))
+    s = Lam(Univ(), Lam(Univ(), Succ(Var(0))))
     term = NatRec(P, z, s, Succ(Zero()))
 
     result = whnf(term)
@@ -51,26 +51,26 @@ def test_whnf_simplifies_identity_elimination_on_refl():
 
 
 def test_beta_step_reduces_single_application():
-    term = App(Lam(TypeUniverse(), Succ(Var(0))), Zero())
+    term = App(Lam(Univ(), Succ(Var(0))), Zero())
     assert beta_step(term) == Succ(Zero())
 
 
 def test_normalize_fully_reduces_application_chain():
-    inner = Lam(TypeUniverse(), Succ(Var(0)))
-    term = App(Lam(TypeUniverse(), App(inner, Var(0))), Zero())
+    inner = Lam(Univ(), Succ(Var(0)))
+    term = App(Lam(Univ(), App(inner, Var(0))), Zero())
     assert normalize(term) == Succ(Zero())
 
 
 def test_normalize_reduces_after_normalizing_function():
-    curried = Lam(TypeUniverse(), Lam(TypeUniverse(), Var(0)))
+    curried = Lam(Univ(), Lam(Univ(), Var(0)))
     term = App(App(curried, Zero()), Zero())
 
     assert normalize(term) == Zero()
 
 
 def test_beta_reduce_eta_expansion_collapses():
-    term = App(Lam(TypeUniverse(), Var(0)), Lam(TypeUniverse(), Var(0)))
-    assert beta_reduce(term) == Lam(TypeUniverse(), Var(0))
+    term = App(Lam(Univ(), Var(0)), Lam(Univ(), Var(0)))
+    assert beta_reduce(term) == Lam(Univ(), Var(0))
 
 
 def test_whnf_stops_on_irreducible_function():
@@ -79,7 +79,7 @@ def test_whnf_stops_on_irreducible_function():
 
 
 def test_beta_step_progresses_once():
-    term = App(Lam(TypeUniverse(), Succ(Var(0))), Succ(Zero()))
+    term = App(Lam(Univ(), Succ(Var(0))), Succ(Zero()))
     step = beta_step(term)
     assert step == Succ(Succ(Zero()))
 

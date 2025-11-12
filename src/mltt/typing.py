@@ -17,7 +17,7 @@ from .ast import (
     Sigma,
     Succ,
     Term,
-    TypeUniverse,
+    Univ,
     Var,
     Zero,
 )
@@ -35,6 +35,17 @@ def _extend_ctx(ctx: List[Term], ty: Term) -> List[Term]:
     """Extend ``ctx`` with ``ty`` while keeping indices for outer vars stable."""
 
     return [shift(ty, 1)] + ctx
+
+
+def _expect_universe(term: Term, ctx: List[Term]) -> int:
+    """Return the universe level of ``term`` or raise if it is not a type."""
+
+    ty = normalize(infer_type(term, ctx))
+    match ty:
+        case Univ(level):
+            return level
+        case _:
+            raise TypeError("Expected a term living in some universe")
 
 
 def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
@@ -57,16 +68,20 @@ def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
             if not type_check(a, f_ty.ty, ctx):
                 raise TypeError("Function argument type mismatch")
             return subst(f_ty.body, a)
-        case Pi(_, _):
-            return TypeUniverse()
-        case Sigma(_, _):
-            return TypeUniverse()
+        case Pi(arg_ty, body):
+            arg_level = _expect_universe(arg_ty, ctx)
+            body_level = _expect_universe(body, _extend_ctx(ctx, arg_ty))
+            return Univ(max(arg_level, body_level))
+        case Sigma(arg_ty, body):
+            arg_level = _expect_universe(arg_ty, ctx)
+            body_level = _expect_universe(body, _extend_ctx(ctx, arg_ty))
+            return Univ(max(arg_level, body_level))
         case Pair(_, _):
             raise TypeError("Cannot infer type of Pair without expected Sigma")
-        case TypeUniverse():
-            return TypeUniverse()
+        case Univ(level):
+            return Univ(level + 1)
         case NatType():
-            return TypeUniverse()
+            return Univ(0)
         case Zero():
             return NatType()
         case Succ(n):
@@ -78,7 +93,7 @@ def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
         case Id(ty, lhs, rhs):
             if not type_check(lhs, ty, ctx) or not type_check(rhs, ty, ctx):
                 raise TypeError("Id sides must have given type")
-            return TypeUniverse()
+            return Univ(_expect_universe(ty, ctx))
         case Refl(ty, t):
             if not type_check(t, ty, ctx):
                 raise TypeError("Refl term not of stated type")
@@ -115,19 +130,15 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
                 raise TypeError("Application argument type mismatch")
             return type_equal(expected_ty, subst(f_ty.body, a))
         case Pi(_, _):
-            return is_type_universe(expected_ty)
+            return type_equal(expected_ty, infer_type(term, ctx))
         case Sigma(_, _):
-            return is_type_universe(expected_ty)
+            return type_equal(expected_ty, infer_type(term, ctx))
         case Pair(fst, snd):
             if not is_sigma(expected_ty):
                 raise TypeError("Pair expected to have Sigma type")
             ok1 = type_check(fst, expected_ty.ty, ctx)
             ok2 = type_check(snd, subst(expected_ty.body, fst), ctx)
             return ok1 and ok2
-        case TypeUniverse():
-            return is_type_universe(expected_ty)
-        case NatType():
-            return is_type_universe(expected_ty)
         case Zero():
             if not is_nat_type(expected_ty):
                 raise TypeError("Zero must have type Nat")
