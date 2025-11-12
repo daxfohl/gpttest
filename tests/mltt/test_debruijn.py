@@ -370,7 +370,7 @@ def test_subst_sigma_pair():
 
 
 def test_subst_natrec_components():
-    term = NatRec(Pi(Univ(), Univ()), Zero(), Lam(Univ(), Var(0)), Var(0))
+    term = NatRec(Lam(Univ(), Univ()), Zero(), Lam(Univ(), Var(0)), Var(0))
     sub = Succ(Var(0))
     result = subst(term, sub)
     assert isinstance(result, NatRec)

@@ -12,6 +12,10 @@ class Var:
 
     k: int
 
+    def __post_init__(self) -> None:
+        if self.k < 0:
+            raise ValueError("De Bruijn indices must be non-negative")
+
 
 @dataclass
 class Lam:
@@ -90,8 +94,8 @@ class NatRec:
     """Primitive recursion principle for natural numbers."""
 
     P: Term
-    z: Term
-    s: Term
+    base: Term
+    step: Term
     n: Term
 
 

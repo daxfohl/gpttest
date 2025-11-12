@@ -35,8 +35,8 @@ def add() -> Term:
             NatType(),
             NatRec(
                 P=Lam(NatType(), NatType()),
-                z=Var(0),
-                s=Lam(
+                base=Var(0),
+                step=Lam(
                     NatType(),
                     Lam(NatType(), Succ(Var(0))),
                 ),
@@ -58,11 +58,11 @@ def add_n_0() -> Term:
                 Id(NatType(), App(App(add_term, Var(0)), Zero()), Var(0)),
             ),
             # base: add 0 0 ≡ 0  ⇒ refl
-            z=Refl(ty=NatType(), t=Zero()),
+            base=Refl(ty=NatType(), t=Zero()),
             # step: ih : Id Nat (add k 0) k  ⇒ need Id Nat (add (Succ k) 0) (Succ k)
             # definitional eqn: add (Succ k) 0 ≡ Succ (add k 0)
             # so use ap Succ ih : Id Nat (Succ (add k 0)) (Succ k)
-            s=Lam(
+            step=Lam(
                 NatType(),  # k
                 Lam(
                     Id(NatType(), App(App(add_term, Var(0)), Zero()), Var(0)),  # ih
