@@ -3,23 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-
-
-class Term:
-    """Base class for all core syntax tree nodes."""
-
-    pass
+from typing import TypeAlias
 
 
 @dataclass
-class Var(Term):
+class Var:
     """De Bruijn variable pointing to the binder at ``k``."""
 
     k: int
 
 
 @dataclass
-class Lam(Term):
+class Lam:
     """Dependent lambda term with an argument type and body."""
 
     ty: Term
@@ -27,7 +22,7 @@ class Lam(Term):
 
 
 @dataclass
-class Pi(Term):
+class Pi:
     """Dependent function type (Pi-type)."""
 
     ty: Term
@@ -35,7 +30,7 @@ class Pi(Term):
 
 
 @dataclass
-class Sigma(Term):
+class Sigma:
     """Dependent pair type (Sigma-type)."""
 
     ty: Term
@@ -43,7 +38,7 @@ class Sigma(Term):
 
 
 @dataclass
-class Pair(Term):
+class Pair:
     """Dependent pair constructor."""
 
     fst: Term
@@ -51,7 +46,7 @@ class Pair(Term):
 
 
 @dataclass
-class App(Term):
+class App:
     """Function application."""
 
     func: Term
@@ -59,7 +54,7 @@ class App(Term):
 
 
 @dataclass
-class Univ(Term):
+class Univ:
     """A universe ``Type(level)``."""
 
     level: int = 0
@@ -70,28 +65,28 @@ class Univ(Term):
 
 
 @dataclass
-class NatType(Term):
+class NatType:
     """The natural numbers type."""
 
     pass
 
 
 @dataclass
-class Zero(Term):
+class Zero:
     """Zero constructor for the natural numbers."""
 
     pass
 
 
 @dataclass
-class Succ(Term):
+class Succ:
     """Successor constructor for the natural numbers."""
 
     n: Term
 
 
 @dataclass
-class NatRec(Term):
+class NatRec:
     """Primitive recursion principle for natural numbers."""
 
     P: Term
@@ -101,7 +96,7 @@ class NatRec(Term):
 
 
 @dataclass
-class Id(Term):
+class Id:
     """Identity type over ``ty`` relating ``lhs`` and ``rhs``."""
 
     ty: Term
@@ -110,7 +105,7 @@ class Id(Term):
 
 
 @dataclass
-class Refl(Term):
+class Refl:
     """Canonical inhabitant of an identity type."""
 
     ty: Term
@@ -118,7 +113,7 @@ class Refl(Term):
 
 
 @dataclass
-class IdElim(Term):
+class IdElim:
     """Identity elimination principle (J)."""
 
     A: Term
@@ -127,6 +122,24 @@ class IdElim(Term):
     d: Term
     y: Term
     p: Term
+
+
+Term: TypeAlias = (
+    Var
+    | Lam
+    | Pi
+    | Sigma
+    | Pair
+    | App
+    | Univ
+    | NatType
+    | Zero
+    | Succ
+    | NatRec
+    | Id
+    | Refl
+    | IdElim
+)
 
 
 __all__ = [
