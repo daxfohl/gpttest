@@ -48,7 +48,7 @@ testpaths = ["tests"]
 
 [tool.mypy]
 python_version = "3.14"
-files = ["src/mltt"]
+files = ["src/mltt", "tests"]
 show_error_codes = true
 warn_unused_configs = true
 strict_optional = true

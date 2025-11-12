@@ -4,13 +4,13 @@ from mltt.nat import add, numeral, add_n_0
 from mltt.typing import type_check
 
 
-def test_add_has_expected_pi_type():
+def test_add_has_expected_pi_type() -> None:
     add_type = Pi(NatType(), Pi(NatType(), NatType()))
 
     assert type_check(add(), add_type)
 
 
-def test_add_zero_left_identity():
+def test_add_zero_left_identity() -> None:
     n_term = numeral(4)
     expected = numeral(4)
 
@@ -19,7 +19,7 @@ def test_add_zero_left_identity():
     assert result == expected
 
 
-def test_add_satisfies_recursive_step():
+def test_add_satisfies_recursive_step() -> None:
     k_term = numeral(2)
     n_term = numeral(3)
 
@@ -29,13 +29,13 @@ def test_add_satisfies_recursive_step():
     assert lhs == rhs
 
 
-def test_add_produces_expected_numeral():
+def test_add_produces_expected_numeral() -> None:
     result = normalize(App(App(add(), numeral(2)), numeral(3)))
 
     assert result == numeral(5)
 
 
-def test_add_zero_right_typechecks():
+def test_add_zero_right_typechecks() -> None:
     lemma = add_n_0()
     lemma_ty = Pi(
         NatType(),
@@ -45,13 +45,13 @@ def test_add_zero_right_typechecks():
     assert type_check(lemma, lemma_ty)
 
 
-def test_add_zero_right_normalizes():
+def test_add_zero_right_normalizes() -> None:
     lemma = add_n_0()
     applied = App(lemma, numeral(5))
     assert normalize(applied) == Refl(NatType(), numeral(5))
 
 
-def test_add_zero_right_normalizes_multiple_inputs():
+def test_add_zero_right_normalizes_multiple_inputs() -> None:
     lemma = add_n_0()
 
     for value in range(6):
@@ -59,7 +59,7 @@ def test_add_zero_right_normalizes_multiple_inputs():
         assert normalize(applied) == Refl(NatType(), numeral(value))
 
 
-def test_add_zero_right_applied_term_typechecks():
+def test_add_zero_right_applied_term_typechecks() -> None:
     lemma = add_n_0()
     three = numeral(3)
     applied = App(lemma, three)

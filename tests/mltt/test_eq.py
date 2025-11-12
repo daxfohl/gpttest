@@ -2,7 +2,7 @@ from mltt.ast import App, Id, IdElim, Lam, NatType, Refl, Succ, Var, Zero
 from mltt.eq import cong, sym, trans
 
 
-def test_cong_builds_identity_elimination_over_function_application():
+def test_cong_builds_identity_elimination_over_function_application() -> None:
     A = NatType()
     B = Lam(NatType(), Var(0))
     f = Lam(NatType(), Succ(Var(0)))
@@ -25,7 +25,7 @@ def test_cong_builds_identity_elimination_over_function_application():
     assert result == expected
 
 
-def test_sym_builds_identity_elimination_with_swapped_arguments():
+def test_sym_builds_identity_elimination_with_swapped_arguments() -> None:
     A = NatType()
     x = Zero()
     y = Succ(Zero())
@@ -46,7 +46,7 @@ def test_sym_builds_identity_elimination_with_swapped_arguments():
     assert result == expected
 
 
-def test_trans_builds_identity_elimination_for_composition():
+def test_trans_builds_identity_elimination_for_composition() -> None:
     A = NatType()
     x = Zero()
     y = Succ(Zero())
