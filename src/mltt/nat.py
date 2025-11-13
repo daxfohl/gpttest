@@ -8,7 +8,7 @@ from .beta_reduce import normalize
 from .typing import type_check
 
 
-def numeral(value: int) -> Term:
+def numeral(value: int) -> Zero | Succ:
     """Return the canonical term representing the natural number ``value``."""
 
     term: Term = Zero()
@@ -17,7 +17,7 @@ def numeral(value: int) -> Term:
     return term
 
 
-def add() -> Term:
+def add() -> Lam:
     """
     add : Nat → Nat → Nat
     Addition by recursion on the first argument.

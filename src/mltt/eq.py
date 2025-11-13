@@ -7,7 +7,19 @@ from .debruijn import shift
 
 
 def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
-    """Map equality along ``f`` to obtain ``f x == f y``."""
+    """Dependent congruence for arbitrary codomains.
+
+    Args:
+        f: Dependent function ``(a : A) -> B a`` whose action on equal terms we lift.
+        A: Domain type of ``f`` and the type witnessing ``p``.
+        B: Dependent codomain family over ``A``.
+        x: Left endpoint of the given equality proof.
+        y: Right endpoint of the given equality proof.
+        p: Proof of ``Id A x y``.
+
+    Returns:
+        A term of type ``Id (B y) (f x) (f y)`` justifying that ``f`` preserves ``p``.
+    """
 
     P = Lam(
         A,
@@ -24,7 +36,19 @@ def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
 
 
 def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
-    """Map equality along ``f`` to obtain ``f x == f y``."""
+    """Standard dependent congruence.
+
+    Args:
+        f: Dependent function ``(a : A) -> B a``.
+        A: Domain type.
+        B: Codomain family depending on ``A``.
+        x: Left endpoint of ``p``.
+        y: Right endpoint of ``p``.
+        p: Proof of ``Id A x y``.
+
+    Returns:
+        Proof of ``Id (B y) (f x) (f y)`` obtained by lifting ``p`` through ``f``.
+    """
 
     A1 = shift(A, 1)
     x1 = shift(x, 1)
@@ -45,13 +69,35 @@ def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
 
 
 def ap(f: Term, A: Term, B0: Term, x: Term, y: Term, p: Term) -> Term:
-    """Non-dependent congruence (ap) as a thin wrapper (B made constant)."""
+    """Non-dependent congruence (``ap``).
+
+    Args:
+        f: Plain function ``A -> B0``.
+        A: Domain type.
+        B0: Codomain type (constant family).
+        x: Left endpoint of ``p``.
+        y: Right endpoint of ``p``.
+        p: Proof of ``Id A x y``.
+
+    Returns:
+        Proof of ``Id B0 (f x) (f y)`` asserting ``f`` preserves equality.
+    """
 
     return cong(f, A, Lam(A, B0), x, y, p)
 
 
 def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
-    """Flip an equality proof so that ``x == y`` becomes ``y == x``."""
+    """Symmetry of identity proofs.
+
+    Args:
+        A: Ambient type.
+        x: Left endpoint.
+        y: Right endpoint.
+        p: Proof of ``Id A x y``.
+
+    Returns:
+        A proof of ``Id A y x`` obtained by flipping ``p``.
+    """
 
     A1 = shift(A, 1)
     x1 = shift(x, 1)
@@ -70,7 +116,19 @@ def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
 
 
 def trans(A: Term, x: Term, y: Term, z: Term, p: Term, q: Term) -> Term:
-    """Compose equality proofs for transitivity."""
+    """Transitivity of identity proofs.
+
+    Args:
+        A: Ambient type.
+        x: First element.
+        y: Middle element shared between the two proofs.
+        z: Final element.
+        p: Proof of ``Id A x y``.
+        q: Proof of ``Id A y z``.
+
+    Returns:
+        A proof of ``Id A x z`` composing ``p`` and ``q``.
+    """
 
     A1 = shift(A, 1)
     y1 = shift(y, 1)
