@@ -8,7 +8,12 @@ from typing import TypeAlias
 
 @dataclass
 class Var:
-    """De Bruijn variable pointing to the binder at ``k``."""
+    """De Bruijn variable pointing to the binder at ``k``.
+
+    Args:
+        k: Zero-based index counting binders outward from the binding site.
+           ``0`` refers to the innermost binder, ``1`` to the next, etc.
+    """
 
     k: int
 
@@ -19,7 +24,12 @@ class Var:
 
 @dataclass
 class Lam:
-    """Dependent lambda term with an argument type and body."""
+    """Dependent lambda term with an argument type and body.
+
+    Args:
+        ty: Type of the bound argument.
+        body: Term evaluated with the bound argument in scope (index 0).
+    """
 
     ty: Term
     body: Term
@@ -27,7 +37,12 @@ class Lam:
 
 @dataclass
 class Pi:
-    """Dependent function type (Pi-type)."""
+    """Dependent function type (Pi-type).
+
+    Args:
+        ty: Domain type.
+        body: Codomain type that may refer to the bound argument (index 0).
+    """
 
     ty: Term
     body: Term
@@ -35,7 +50,12 @@ class Pi:
 
 @dataclass
 class App:
-    """Function application."""
+    """Function application.
+
+    Args:
+        func: Term expected to reduce to a function.
+        arg: Argument term supplied to ``func``.
+    """
 
     func: Term
     arg: Term
@@ -68,14 +88,25 @@ class Zero:
 
 @dataclass
 class Succ:
-    """Successor constructor for the natural numbers."""
+    """Successor constructor for the natural numbers.
+
+    Args:
+        n: Term representing the predecessor.
+    """
 
     n: Term
 
 
 @dataclass
 class NatRec:
-    """Primitive recursion principle for natural numbers."""
+    """Primitive recursion principle for natural numbers.
+
+    Args:
+        P: Motive taking a natural and returning a type.
+        base: Proof/value for the zero case ``P 0``.
+        step: Function consuming ``k`` and ``ih : P k`` to produce ``P (Succ k)``.
+        n: Scrutinee natural number.
+    """
 
     P: Term
     base: Term
@@ -85,7 +116,13 @@ class NatRec:
 
 @dataclass
 class Id:
-    """Identity type over ``ty`` relating ``lhs`` and ``rhs``."""
+    """Identity type over ``ty`` relating ``lhs`` and ``rhs``.
+
+    Args:
+        ty: Ambient type ``A``.
+        lhs: Left endpoint ``x``.
+        rhs: Right endpoint ``y``.
+    """
 
     ty: Term
     lhs: Term
@@ -94,7 +131,12 @@ class Id:
 
 @dataclass
 class Refl:
-    """Canonical inhabitant of an identity type."""
+    """Canonical inhabitant of an identity type.
+
+    Args:
+        ty: Ambient type ``A``.
+        t: Witness term ``x``; produces ``Id A x x``.
+    """
 
     ty: Term
     t: Term
@@ -102,7 +144,16 @@ class Refl:
 
 @dataclass
 class IdElim:
-    """Identity elimination principle (J)."""
+    """Identity elimination principle (J).
+
+    Args:
+        A: Ambient type ``A``.
+        x: Base point ``x : A``.
+        P: Motive ``λy. Id A x y -> Type``.
+        d: Proof of ``P x (Refl x)``.
+        y: Target point ``y : A``.
+        p: Proof of ``Id A x y`` being eliminated.
+    """
 
     A: Term
     x: Term
