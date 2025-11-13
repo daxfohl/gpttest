@@ -1,6 +1,6 @@
 from mltt.ast import App, Id, Lam, NatType, Pi, Refl, Succ, Term, Var
 from mltt.eq import ap
-from mltt.nat import add, numeral
+from mltt.nat import add_terms, numeral
 from mltt.typing import infer_type, type_check, type_equal
 
 
@@ -13,11 +13,10 @@ def test_refl_proves_succ_self_equality() -> None:
 
 
 def test_double_preserves_y_equals_x_plus_seven() -> None:
-    add_term = add()
     seven = numeral(7)
     # double = λz. z + z, expressed via the primitive add operator.
     # We use add rather than Nat multiplication because only addition primitives exist.
-    double = Lam(NatType(), App(App(add_term, Var(0)), Var(0)))
+    double = Lam(NatType(), add_terms(Var(0), Var(0)))
 
     # Build a lemma with the following structure:
     #   λx. λy. λp : Id Nat y (x+7). ap double p
@@ -32,14 +31,14 @@ def test_double_preserves_y_equals_x_plus_seven() -> None:
                 Id(
                     NatType(),
                     Var(1),  # y
-                    App(App(add_term, Var(2)), seven),  # x + 7
+                    add_terms(Var(2), seven),  # x + 7
                 ),  # 3rd λ: p : Id(Nat, y, x+7)
                 ap(
                     f=double,
                     A=NatType(),
                     B0=NatType(),
                     x=Var(1),  # y
-                    y=App(App(add_term, Var(2)), seven),  # x + 7
+                    y=add_terms(Var(2), seven),  # x + 7
                     p=Var(0),  # p : y = x+7
                 ),
             ),
@@ -54,13 +53,13 @@ def test_double_preserves_y_equals_x_plus_seven() -> None:
         Pi(
             NatType(),
             Pi(
-                Id(NatType(), Var(1), App(App(add_term, Var(2)), seven)),
+                Id(NatType(), Var(1), add_terms(Var(2), seven)),
                 Id(
                     NatType(),
-                    App(App(add_term, Var(1)), Var(1)),
-                    App(
-                        App(add_term, App(App(add_term, Var(2)), seven)),
-                        App(App(add_term, Var(2)), seven),
+                    add_terms(Var(1), Var(1)),
+                    add_terms(
+                        add_terms(Var(2), seven),
+                        add_terms(Var(2), seven),
                     ),
                 ),
             ),

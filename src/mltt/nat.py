@@ -46,6 +46,12 @@ def add() -> Lam:
     )
 
 
+def add_terms(lhs: Term, rhs: Term) -> Term:
+    """Build ``add lhs rhs`` as nested applications."""
+
+    return App(App(add(), lhs), rhs)
+
+
 def add_n_0() -> Term:
     """Proof that n + 0 == n"""
     add_term = add()
@@ -55,7 +61,7 @@ def add_n_0() -> Term:
             # motive P(n) = Id Nat (add n 0) n
             P=Lam(
                 NatType(),
-                Id(NatType(), App(App(add_term, Var(0)), Zero()), Var(0)),
+                Id(NatType(), add_terms(Var(0), Zero()), Var(0)),
             ),
             # base: add 0 0 ≡ 0  ⇒ refl
             base=Refl(ty=NatType(), t=Zero()),
@@ -65,12 +71,12 @@ def add_n_0() -> Term:
             step=Lam(
                 NatType(),  # k
                 Lam(
-                    Id(NatType(), App(App(add_term, Var(0)), Zero()), Var(0)),  # ih
+                    Id(NatType(), add_terms(Var(0), Zero()), Var(0)),  # ih
                     ap(
                         f=Lam(NatType(), Succ(Var(0))),  # Succ as a function
                         A=NatType(),
                         B0=NatType(),
-                        x=App(App(add_term, Var(1)), Zero()),  # add k 0
+                        x=add_terms(Var(1), Zero()),  # add k 0
                         y=Var(1),  # k
                         p=Var(0),  # ih
                     ),
