@@ -54,7 +54,6 @@ def add_terms(lhs: Term, rhs: Term) -> Term:
 
 def add_n_0() -> Term:
     """Proof that n + 0 == n"""
-    add_term = add()
     return Lam(
         NatType(),  # n
         NatRec(
