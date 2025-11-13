@@ -29,10 +29,11 @@ def test_double_preserves_y_equals_x_plus_seven() -> None:
         Lam(
             NatType(),  # 2nd λ: y : Nat
             Lam(
-                Id(NatType(),
-                   Var(1),  # y
-                   App(App(add_term, Var(2)), seven)  # x + 7
-                   ),  # 3rd λ: p : Id(Nat, y, x+7)
+                Id(
+                    NatType(),
+                    Var(1),  # y
+                    App(App(add_term, Var(2)), seven),  # x + 7
+                ),  # 3rd λ: p : Id(Nat, y, x+7)
                 ap(
                     f=double,
                     A=NatType(),

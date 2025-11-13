@@ -11,10 +11,8 @@ from .ast import (
     Lam,
     NatRec,
     NatType,
-    Pair,
     Pi,
     Refl,
-    Sigma,
     Succ,
     Term,
     Univ,
@@ -22,7 +20,7 @@ from .ast import (
     Zero,
 )
 from .beta_reduce import normalize
-from .predicates import is_nat_type, is_pi, is_sigma, is_type_universe
+from .predicates import is_nat_type, is_pi, is_type_universe
 
 
 def type_equal(t1: Term, t2: Term) -> bool:
@@ -72,12 +70,6 @@ def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
             arg_level = _expect_universe(arg_ty, ctx)
             body_level = _expect_universe(body, _extend_ctx(ctx, arg_ty))
             return Univ(max(arg_level, body_level))
-        case Sigma(arg_ty, body):
-            arg_level = _expect_universe(arg_ty, ctx)
-            body_level = _expect_universe(body, _extend_ctx(ctx, arg_ty))
-            return Univ(max(arg_level, body_level))
-        case Pair(_, _):
-            raise TypeError("Cannot infer type of Pair without expected Sigma")
         case Univ(level):
             return Univ(level + 1)
         case NatType():
@@ -131,14 +123,6 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
             return type_equal(expected_ty, subst(f_ty.body, a))
         case Pi(_, _):
             return type_equal(expected_ty, infer_type(term, ctx))
-        case Sigma(_, _):
-            return type_equal(expected_ty, infer_type(term, ctx))
-        case Pair(fst, snd):
-            if not is_sigma(expected_ty):
-                raise TypeError("Pair expected to have Sigma type")
-            ok1 = type_check(fst, expected_ty.ty, ctx)
-            ok2 = type_check(snd, subst(expected_ty.body, fst), ctx)
-            return ok1 and ok2
         case Zero():
             if not is_nat_type(expected_ty):
                 raise TypeError("Zero must have type Nat")

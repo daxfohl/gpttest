@@ -34,22 +34,6 @@ class Pi:
 
 
 @dataclass
-class Sigma:
-    """Dependent pair type (Sigma-type)."""
-
-    ty: Term
-    body: Term
-
-
-@dataclass
-class Pair:
-    """Dependent pair constructor."""
-
-    fst: Term
-    snd: Term
-
-
-@dataclass
 class App:
     """Function application."""
 
@@ -129,20 +113,7 @@ class IdElim:
 
 
 Term: TypeAlias = (
-    Var
-    | Lam
-    | Pi
-    | Sigma
-    | Pair
-    | App
-    | Univ
-    | NatType
-    | Zero
-    | Succ
-    | NatRec
-    | Id
-    | Refl
-    | IdElim
+    Var | Lam | Pi | App | Univ | NatType | Zero | Succ | NatRec | Id | Refl | IdElim
 )
 
 
@@ -151,8 +122,6 @@ __all__ = [
     "Var",
     "Lam",
     "Pi",
-    "Sigma",
-    "Pair",
     "App",
     "Univ",
     "NatType",

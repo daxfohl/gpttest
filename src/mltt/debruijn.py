@@ -8,10 +8,8 @@ from .ast import (
     IdElim,
     Lam,
     NatRec,
-    Pair,
     Pi,
     Refl,
-    Sigma,
     Succ,
     Term,
     Var,
@@ -28,10 +26,6 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
             return Lam(shift(ty, by, cutoff), shift(body, by, cutoff + 1))
         case Pi(ty, body):
             return Pi(shift(ty, by, cutoff), shift(body, by, cutoff + 1))
-        case Sigma(ty, body):
-            return Sigma(shift(ty, by, cutoff), shift(body, by, cutoff + 1))
-        case Pair(fst, snd):
-            return Pair(shift(fst, by, cutoff), shift(snd, by, cutoff))
         case App(f, a):
             return App(shift(f, by, cutoff), shift(a, by, cutoff))
         case NatRec(P, z, s, n):
@@ -83,15 +77,6 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
                 subst(ty, sub, j),
                 subst(body, shift(sub, 1, 0), j + 1),
             )
-
-        case Sigma(ty, body):
-            return Sigma(
-                subst(ty, sub, j),
-                subst(body, shift(sub, 1, 0), j + 1),
-            )
-
-        case Pair(fst, snd):
-            return Pair(subst(fst, sub, j), subst(snd, sub, j))
 
         case App(f, a):
             return App(subst(f, sub, j), subst(a, sub, j))

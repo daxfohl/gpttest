@@ -4,9 +4,7 @@ from mltt.ast import (
     IdElim,
     Lam,
     NatRec,
-    Pair,
     Pi,
-    Sigma,
     Succ,
     Term,
     Univ,
@@ -363,13 +361,6 @@ def test_subst_pi_body() -> None:
     sub = Succ(Var(0))
     result = subst(pi_term, sub)
     assert result == Pi(Univ(), Pi(Univ(), Var(1)))
-
-
-def test_subst_sigma_pair() -> None:
-    sigma_term = Sigma(Univ(), Var(0))
-    pair = Pair(Succ(Var(1)), Var(0))
-    result = subst(pair, sigma_term)
-    assert result == Pair(Succ(Var(0)), Sigma(Univ(), Var(0)))
 
 
 def test_subst_natrec_components() -> None:

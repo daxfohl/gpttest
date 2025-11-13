@@ -7,10 +7,8 @@ from mltt.ast import (
     Lam,
     NatRec,
     NatType,
-    Pair,
     Pi,
     Refl,
-    Sigma,
     Univ,
     Var,
     Zero,
@@ -48,13 +46,6 @@ def test_infer_type_of_pi_uses_maximum_universe_level() -> None:
 def test_infer_type_application_requires_function() -> None:
     with pytest.raises(TypeError, match="Application of non-function"):
         infer_type(App(Zero(), Zero()))
-
-
-def test_type_check_pair_against_sigma_type() -> None:
-    pair = Pair(Zero(), NatType())
-    sigma_ty = Sigma(NatType(), Univ())
-
-    assert type_check(pair, sigma_ty)
 
 
 def test_type_check_natrec_rejects_invalid_base_case() -> None:

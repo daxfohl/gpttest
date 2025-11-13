@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from .ast import App, Id, Lam, NatRec, NatType, Pi, Refl, Succ, Term, Var, Zero
-from .eq import cong, sym, trans, ap
 from .beta_reduce import normalize
+from .eq import ap
 from .typing import type_check
 
 
-def numeral(value: int) -> Zero | Succ:
+def numeral(value: int) -> Term:
     """Return the canonical term representing the natural number ``value``."""
 
     term: Term = Zero()

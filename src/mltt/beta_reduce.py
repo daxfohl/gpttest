@@ -8,10 +8,8 @@ from .ast import (
     IdElim,
     Lam,
     NatRec,
-    Pair,
     Pi,
     Refl,
-    Sigma,
     Succ,
     Term,
     Var,
@@ -32,10 +30,6 @@ def beta_reduce(term: Term) -> Term:
             return Lam(beta_reduce(ty), beta_reduce(body))
         case Pi(ty, body):
             return Pi(beta_reduce(ty), beta_reduce(body))
-        case Sigma(ty, body):
-            return Sigma(beta_reduce(ty), beta_reduce(body))
-        case Pair(fst, snd):
-            return Pair(beta_reduce(fst), beta_reduce(snd))
         case Succ(n):
             return Succ(beta_reduce(n))
         case NatRec(P, z, s, n):
@@ -148,10 +142,6 @@ def normalize(term: Term) -> Term:
             return Lam(normalize(ty), normalize(body))
         case Pi(ty, body):
             return Pi(normalize(ty), normalize(body))
-        case Sigma(ty, body):
-            return Sigma(normalize(ty), normalize(body))
-        case Pair(fst, snd):
-            return Pair(normalize(fst), normalize(snd))
         case App(f, a):
             f_n = normalize(f)
             a_n = normalize(a)
