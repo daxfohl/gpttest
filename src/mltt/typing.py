@@ -43,7 +43,7 @@ def _expect_universe(term: Term, ctx: List[Term]) -> int:
         case Univ(level):
             return level
         case _:
-            raise TypeError("Expected a term living in some universe")
+            raise TypeError(f"Expected a universe, got {ty!r}")
 
 
 def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
@@ -92,8 +92,8 @@ def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
             return Id(ty, t, t)
         case IdElim(A, x, P, d, y, p):
             return App(App(P, y), p)
-        case _:
-            raise TypeError(f"Cannot infer type of {term}")
+
+    raise TypeError(f"Unexpected term in infer_type: {term!r}")
 
 
 def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
@@ -158,9 +158,10 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
             if not type_check(d, App(App(P, x), Refl(A, x)), ctx):
                 raise TypeError("IdElim: d : P x (Refl x) fails")
             return type_equal(expected_ty, App(App(P, y), p))
-        case _:
-            inferred = infer_type(term, ctx)
-            return type_equal(inferred, expected_ty)
+        case NatType() | Univ(_):
+            return is_type_universe(expected_ty)
+
+    raise TypeError(f"Unexpected term in type_check: {term!r}")
 
 
 from .debruijn import shift, subst

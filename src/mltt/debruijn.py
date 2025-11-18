@@ -8,11 +8,14 @@ from .ast import (
     IdElim,
     Lam,
     NatRec,
+    NatType,
     Pi,
     Refl,
     Succ,
     Term,
+    Univ,
     Var,
+    Zero,
 )
 
 
@@ -22,6 +25,8 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
     match term:
         case Var(k):
             return Var(k + by if k >= cutoff else k)
+        case Univ() | NatType() | Zero():
+            return term
         case Lam(ty, body):
             return Lam(shift(ty, by, cutoff), shift(body, by, cutoff + 1))
         case Pi(ty, body):
@@ -51,8 +56,7 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
                 shift(p, by, cutoff),
             )
 
-        case _:
-            return term
+    raise TypeError(f"Unexpected term in shift: {term!r}")
 
 
 def subst(term: Term, sub: Term, j: int = 0) -> Term:
@@ -65,6 +69,8 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
                 return Var(k - 1)
             else:
                 return term
+        case Univ() | NatType() | Zero():
+            return term
 
         case Lam(ty, body):
             return Lam(
@@ -112,8 +118,7 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
                 subst(p, sub, j),
             )
 
-        case _:
-            return term
+    raise TypeError(f"Unexpected term in subst: {term!r}")
 
 
 __all__ = ["subst"]

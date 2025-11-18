@@ -8,10 +8,12 @@ from .ast import (
     IdElim,
     Lam,
     NatRec,
+    NatType,
     Pi,
     Refl,
     Succ,
     Term,
+    Univ,
     Var,
     Zero,
 )
@@ -49,8 +51,10 @@ def beta_reduce(term: Term) -> Term:
                 beta_reduce(y),
                 beta_reduce(p),
             )
-        case _:
+        case Var(_) | NatType() | Univ() | Zero():
             return term
+
+    raise TypeError(f"Unexpected term in beta_reduce: {term!r}")
 
 
 def whnf(term: Term) -> Term:
@@ -80,8 +84,10 @@ def whnf(term: Term) -> Term:
                     return d
                 case _:
                     return IdElim(A, x, P, d, y, p_wh)
-        case _:
+        case Var(_) | Lam(_, _) | Pi(_, _) | NatType() | Univ() | Zero() | Succ(_) |  Refl(_, _) | Id(_, _, _):
             return term
+
+    raise TypeError(f"Unexpected term in whnf: {term!r}")
 
 
 def beta_step(term: Term) -> Term:
@@ -128,16 +134,16 @@ def beta_step(term: Term) -> Term:
             if n1 != n:
                 return Succ(n1)
             return term
-        case _:
+        case Var(_) | NatType() | Univ() | Zero():
             return term
+
+    raise TypeError(f"Unexpected term in beta_step: {term!r}")
 
 
 def normalize(term: Term) -> Term:
     """Normalize ``term`` by repeatedly reducing until no rules apply."""
 
     match term:
-        case Var(_):
-            return term
         case Lam(ty, body):
             return Lam(normalize(ty), normalize(body))
         case Pi(ty, body):
@@ -150,8 +156,6 @@ def normalize(term: Term) -> Term:
                     return normalize(subst(body, a_n))
                 case _:
                     return App(f_n, a_n)
-        case Zero():
-            return Zero()
         case Succ(n):
             return Succ(normalize(n))
         case NatRec(P, z, s, n):
@@ -182,8 +186,10 @@ def normalize(term: Term) -> Term:
                         normalize(y),
                         p_n,
                     )
-        case _:
+        case Univ(_) | Zero() | Var(_) | NatType():
             return term
+
+    raise TypeError(f"Unexpected term in normalize: {term!r}")
 
 
 __all__ = ["beta_reduce", "whnf", "beta_step", "normalize"]
