@@ -81,12 +81,12 @@ def test_type_check_application_argument_mismatch() -> None:
 
 def test_infer_type_idelim() -> None:
     term = IdElim(
-        Univ(),
-        Var(0),
-        Lam(Univ(), Lam(Id(Univ(), Var(0), Var(1)), Univ())),
-        Var(0),
-        Var(1),
-        Refl(Univ(), Var(0)),
+        A=Univ(),
+        x=Var(0),
+        P=Lam(Univ(), Lam(Id(Univ(), Var(0), Var(1)), Univ())),
+        d=Var(0),
+        y=Var(1),
+        p=Refl(Univ(), Var(0)),
     )
     inferred = infer_type(term)
     assert inferred == App(

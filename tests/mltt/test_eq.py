@@ -20,7 +20,7 @@ def test_cong_builds_identity_elimination_over_function_application() -> None:
         ),
     )
     d = Refl(App(B, x), App(f, x))
-    expected = IdElim(A, x, P, d, y, p)
+    expected = IdElim(A=A, x=x, P=P, d=d, y=y, p=p)
 
     assert result == expected
 
@@ -41,7 +41,7 @@ def test_sym_builds_identity_elimination_with_swapped_arguments() -> None:
         ),
     )
     d = Refl(A, x)
-    expected = IdElim(A, x, P, d, y, p)
+    expected = IdElim(A=A, x=x, P=P, d=d, y=y, p=p)
 
     assert result == expected
 
@@ -63,6 +63,6 @@ def test_trans_builds_identity_elimination_for_composition() -> None:
             Id(A, x, Var(1)),
         ),
     )
-    expected = IdElim(A, y, Q, p, z, q)
+    expected = IdElim(A=A, x=y, P=Q, d=p, y=z, p=q)
 
     assert result == expected

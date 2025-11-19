@@ -20,7 +20,6 @@ from .ast import (
     Zero,
 )
 from .normalization import normalize
-from .predicates import is_nat_type, is_pi, is_type_universe
 
 
 def type_equal(t1: Term, t2: Term) -> bool:
@@ -61,7 +60,7 @@ def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
             return Pi(arg_ty, body_ty)
         case App(f, a):
             f_ty = infer_type(f, ctx)
-            if not is_pi(f_ty):
+            if not isinstance(f_ty, Pi):
                 raise TypeError("Application of non-function")
             if not type_check(a, f_ty.ty, ctx):
                 raise TypeError("Function argument type mismatch")
@@ -116,7 +115,7 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
                     raise TypeError("Lambda expected to have Pi type")
         case App(f, a):
             f_ty = infer_type(f, ctx)
-            if not is_pi(f_ty):
+            if not isinstance(f_ty, Pi):
                 raise TypeError("Application of non-function")
             if not type_check(a, f_ty.ty, ctx):
                 raise TypeError("Application argument type mismatch")
@@ -124,11 +123,11 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
         case Pi(_, _):
             return type_equal(expected_ty, infer_type(term, ctx))
         case Zero():
-            if not is_nat_type(expected_ty):
+            if not isinstance(expected_ty, NatType):
                 raise TypeError("Zero must have type Nat")
             return True
         case Succ(n):
-            if not is_nat_type(expected_ty):
+            if not isinstance(expected_ty, NatType):
                 raise TypeError("Succ must have type Nat")
             return type_check(n, NatType(), ctx)
         case NatRec(P, z, s, n):
@@ -143,7 +142,7 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
         case Id(id_ty, l, r):
             if not type_check(l, id_ty, ctx) or not type_check(r, id_ty, ctx):
                 raise TypeError("Id sides not of given type")
-            return is_type_universe(expected_ty)
+            return isinstance(expected_ty, Univ)
         case Refl(rty, t):
             if not type_check(t, rty, ctx):
                 raise TypeError("Refl term not of stated type")
@@ -159,7 +158,7 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
                 raise TypeError("IdElim: d : P x (Refl x) fails")
             return type_equal(expected_ty, App(App(P, y), p))
         case NatType() | Univ(_):
-            return is_type_universe(expected_ty)
+            return isinstance(expected_ty, Univ)
 
     raise TypeError(f"Unexpected term in type_check: {term!r}")
 

@@ -364,7 +364,12 @@ def test_subst_pi_body() -> None:
 
 
 def test_subst_natrec_components() -> None:
-    term = NatRec(Lam(Univ(), Univ()), Zero(), Lam(Univ(), Var(0)), Var(0))
+    term = NatRec(
+        P=Lam(Univ(), Univ()),
+        base=Zero(),
+        step=Lam(Univ(), Var(0)),
+        n=Var(0),
+    )
     sub = Succ(Var(0))
     result = subst(term, sub)
     assert isinstance(result, NatRec)
@@ -378,7 +383,14 @@ def test_subst_identity_constructs() -> None:
 
 
 def test_subst_idelim_components() -> None:
-    term = IdElim(Univ(), Var(0), Var(1), Var(2), Var(3), Var(4))
+    term = IdElim(
+        A=Univ(),
+        x=Var(0),
+        P=Var(1),
+        d=Var(2),
+        y=Var(3),
+        p=Var(4),
+    )
     sub = Succ(Var(0))
     result = subst(term, sub)
     assert isinstance(result, IdElim)
