@@ -19,7 +19,7 @@ from .ast import (
     Var,
     Zero,
 )
-from .beta_reduce import normalize
+from .normalization import normalize
 from .predicates import is_nat_type, is_pi, is_type_universe
 
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .ast import App, Id, Lam, NatRec, NatType, Pi, Refl, Succ, Term, Var, Zero
-from .beta_reduce import normalize
+from .normalization import normalize
 from .eq import ap
 from .typing import type_check
 

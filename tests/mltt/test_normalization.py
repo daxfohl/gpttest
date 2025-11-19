@@ -10,8 +10,8 @@ from mltt.ast import (
     Var,
     Zero,
 )
-from mltt.beta_reduce import beta_step, normalize, whnf, normalize_step
 from mltt.nat import add
+from mltt.normalization import beta_step, normalize, whnf, normalize_step
 
 
 def test_normalize_performs_nested_reduction() -> None:
