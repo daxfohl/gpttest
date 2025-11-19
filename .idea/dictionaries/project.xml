@@ -2,6 +2,7 @@
   <dictionary name="project">
     <words>
       <w>succ</w>
+      <w>whnf</w>
     </words>
   </dictionary>
 </component>

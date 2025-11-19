@@ -10,17 +10,17 @@ from mltt.ast import (
     Var,
     Zero,
 )
-from mltt.beta_reduce import beta_reduce, beta_step, normalize, whnf
+from mltt.beta_reduce import beta_step, normalize, whnf, normalize_step
 from mltt.nat import add
 
 
-def test_beta_reduce_performs_nested_reduction() -> None:
+def test_normalize_performs_nested_reduction() -> None:
     inner_identity = Lam(Univ(), Var(0))
     term = App(Lam(Univ(), App(Var(0), Zero())), inner_identity)
-    assert beta_reduce(term) == Zero()
+    assert normalize(term) == Zero()
 
 
-def test_beta_reduce_unfolds_add_base_case() -> None:
+def test_normalize_step_unfolds_add_base_case() -> None:
     expected = Lam(
         NatType(),
         NatRec(
@@ -31,7 +31,7 @@ def test_beta_reduce_unfolds_add_base_case() -> None:
         ),
     )
 
-    assert beta_reduce(App(add(), Zero())) == expected
+    assert normalize_step(App(add(), Zero())) == expected
 
 
 def test_whnf_unfolds_natrec_on_successor() -> None:
@@ -39,10 +39,16 @@ def test_whnf_unfolds_natrec_on_successor() -> None:
     z = Zero()
     s = Lam(Univ(), Lam(Univ(), Succ(Var(0))))
     term = NatRec(P, z, s, Succ(Zero()))
-
     result = whnf(term)
 
-    assert result == App(App(s, Zero()), NatRec(P, z, s, Zero()))
+    assert result == Succ(
+        NatRec(
+            P=Lam(ty=Univ(0), body=Univ(0)),
+            base=Zero(),
+            step=Lam(ty=Univ(0), body=Lam(ty=Univ(0), body=Succ(Var(0)))),
+            n=Zero(),
+        )
+    )
 
 
 def test_whnf_simplifies_identity_elimination_on_refl() -> None:
@@ -68,9 +74,9 @@ def test_normalize_reduces_after_normalizing_function() -> None:
     assert normalize(term) == Zero()
 
 
-def test_beta_reduce_eta_expansion_collapses() -> None:
+def test_normalize_eta_expansion_collapses() -> None:
     term = App(Lam(Univ(), Var(0)), Lam(Univ(), Var(0)))
-    assert beta_reduce(term) == Lam(Univ(), Var(0))
+    assert normalize(term) == Lam(Univ(), Var(0))
 
 
 def test_whnf_stops_on_irreducible_function() -> None:
