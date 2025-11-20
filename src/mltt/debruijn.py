@@ -25,8 +25,6 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
     match term:
         case Var(k):
             return Var(k + by if k >= cutoff else k)
-        case Univ() | NatType() | Zero():
-            return term
         case Lam(ty, body):
             return Lam(shift(ty, by, cutoff), shift(body, by, cutoff + 1))
         case Pi(ty, body):
@@ -55,6 +53,8 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
                 shift(y, by, cutoff),
                 shift(p, by, cutoff),
             )
+        case Univ() | NatType() | Zero():
+            return term
 
     raise TypeError(f"Unexpected term in shift: {term!r}")
 
@@ -69,24 +69,18 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
                 return Var(k - 1)
             else:
                 return term
-        case Univ() | NatType() | Zero():
-            return term
-
         case Lam(ty, body):
             return Lam(
                 subst(ty, sub, j),
                 subst(body, shift(sub, 1, 0), j + 1),
             )
-
         case Pi(ty, body):
             return Pi(
                 subst(ty, sub, j),
                 subst(body, shift(sub, 1, 0), j + 1),
             )
-
         case App(f, a):
             return App(subst(f, sub, j), subst(a, sub, j))
-
         case NatRec(P, z, s, n):
             return NatRec(
                 subst(P, sub, j),
@@ -94,20 +88,16 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
                 subst(s, sub, j),
                 subst(n, sub, j),
             )
-
         case Succ(n):
             return Succ(subst(n, sub, j))
-
         case Id(ty, l, r):
             return Id(
                 subst(ty, sub, j),
                 subst(l, sub, j),
                 subst(r, sub, j),
             )
-
         case Refl(ty, t):
             return Refl(subst(ty, sub, j), subst(t, sub, j))
-
         case IdElim(A, x, P, d, y, p):
             return IdElim(
                 subst(A, sub, j),
@@ -117,6 +107,8 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
                 subst(y, sub, j),
                 subst(p, sub, j),
             )
+        case Univ() | NatType() | Zero():
+            return term
 
     raise TypeError(f"Unexpected term in subst: {term!r}")
 

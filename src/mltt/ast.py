@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypeAlias
 
 
 @dataclass
@@ -163,9 +162,7 @@ class IdElim:
     p: Term
 
 
-Term: TypeAlias = (
-    Var | Lam | Pi | App | Univ | NatType | Zero | Succ | NatRec | Id | Refl | IdElim
-)
+type Term = Var | Lam | Pi | App | Univ | NatType | Zero | Succ | NatRec | Id | Refl | IdElim
 
 
 __all__ = [

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
-
 from .ast import (
     App,
     Id,
@@ -19,6 +17,7 @@ from .ast import (
     Var,
     Zero,
 )
+from .debruijn import shift, subst
 from .normalization import normalize
 
 
@@ -28,24 +27,25 @@ def type_equal(t1: Term, t2: Term) -> bool:
     return normalize(t1) == normalize(t2)
 
 
-def _extend_ctx(ctx: List[Term], ty: Term) -> List[Term]:
+def _extend_ctx(ctx: list[Term], ty: Term) -> list[Term]:
     """Extend ``ctx`` with ``ty`` while keeping indices for outer vars stable."""
+    print(ctx)
+    return [shift(ty, 1)] + [shift(x, 1) for x in ctx]
 
-    return [shift(ty, 1)] + ctx
+
+#    return [shift(ty, 1)] + ctx
 
 
-def _expect_universe(term: Term, ctx: List[Term]) -> int:
+def _expect_universe(term: Term, ctx: list[Term]) -> int:
     """Return the universe level of ``term`` or raise if it is not a type."""
 
     ty = normalize(infer_type(term, ctx))
-    match ty:
-        case Univ(level):
-            return level
-        case _:
-            raise TypeError(f"Expected a universe, got {ty!r}")
+    if not isinstance(ty, Univ):
+        raise TypeError(f"Expected a universe, got {ty!r}")
+    return ty.level
 
 
-def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
+def infer_type(term: Term, ctx: list[Term] | None = None) -> Term:
     """Infer the type of ``term`` under the optional De Bruijn context ``ctx``."""
 
     ctx = ctx or []
@@ -95,7 +95,7 @@ def infer_type(term: Term, ctx: Optional[List[Term]] = None) -> Term:
     raise TypeError(f"Unexpected term in infer_type: {term!r}")
 
 
-def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
+def type_check(term: Term, ty: Term, ctx: list[Term] | None = None) -> bool:
     """Check that ``term`` has type ``ty`` under ``ctx``, raising on mismatches."""
 
     ctx = ctx or []
@@ -162,7 +162,5 @@ def type_check(term: Term, ty: Term, ctx: Optional[List[Term]] = None) -> bool:
 
     raise TypeError(f"Unexpected term in type_check: {term!r}")
 
-
-from .debruijn import shift, subst
 
 __all__ = ["type_equal", "infer_type", "type_check"]

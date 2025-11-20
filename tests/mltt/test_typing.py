@@ -17,6 +17,104 @@ from mltt.typing import infer_type, type_check, type_equal
 from mltt.nat import add_terms, numeral
 
 
+def test_infer_var():
+    a = Var(0)
+    with pytest.raises(TypeError, match="Unbound variable"):
+        assert infer_type(a)
+    t = NatType()
+    assert infer_type(a, [t]) == t
+
+
+def test_infer_lam_no_ctx():
+    assert infer_type(Lam(Var(0), Var(0))) == Pi(Var(0), Var(1))
+    assert infer_type(Lam(Var(10), Var(0))) == Pi(Var(10), Var(11))
+    assert infer_type(Lam(Univ(0), Var(0))) == Pi(Univ(0), Univ(0))
+    assert infer_type(Lam(Univ(10), Var(0))) == Pi(Univ(10), Univ(10))
+    with pytest.raises(TypeError, match="Unbound variable"):
+        infer_type(Lam(Var(0), Var(1)))
+    with pytest.raises(TypeError, match="Unbound variable"):
+        infer_type(Lam(Var(10), Var(1)))
+    with pytest.raises(TypeError, match="Unbound variable"):
+        infer_type(Lam(Univ(0), Var(1)))
+    with pytest.raises(TypeError, match="Unbound variable"):
+        infer_type(Lam(Univ(10), Var(1)))
+    assert infer_type(Lam(Var(0), Univ(0))) == Pi(Var(0), Univ(1))
+    assert infer_type(Lam(Var(10), Univ(0))) == Pi(Var(10), Univ(1))
+    assert infer_type(Lam(Univ(0), Univ(0))) == Pi(Univ(0), Univ(1))
+    assert infer_type(Lam(Univ(10), Univ(0))) == Pi(Univ(10), Univ(1))
+    assert infer_type(Lam(Var(0), Univ(10))) == Pi(Var(0), Univ(11))
+    assert infer_type(Lam(Var(10), Univ(10))) == Pi(Var(10), Univ(11))
+    assert infer_type(Lam(Univ(0), Univ(10))) == Pi(Univ(0), Univ(11))
+    assert infer_type(Lam(Univ(10), Univ(10))) == Pi(Univ(10), Univ(11))
+
+
+def test_infer_lam(t1, i1, t2, i2):
+    ctx = [Univ(i + 100) for i in range(100)]
+
+    def infer(t):
+        return infer_type(t, ctx)
+
+    assert infer(Lam(Var(0), Var(0))) == Pi(Var(0), Var(1))
+    assert infer(Lam(Var(10), Var(0))) == Pi(Var(10), Var(11))
+    assert infer(Lam(Univ(0), Var(0))) == Pi(Univ(0), Univ(0))
+    assert infer(Lam(Univ(10), Var(0))) == Pi(Univ(10), Univ(10))
+    assert infer(Lam(Var(0), Var(1))) == Pi(Var(0), Univ(100))
+    assert infer(Lam(Var(10), Var(1))) == Pi(Var(10), Univ(100))
+    assert infer(Lam(Univ(0), Var(1))) == Pi(Univ(0), Univ(100))
+    assert infer(Lam(Univ(10), Var(1))) == Pi(Univ(10), Univ(100))
+    assert infer(Lam(Var(0), Univ(0))) == Pi(Var(0), Univ(1))
+    assert infer(Lam(Var(10), Univ(0))) == Pi(Var(10), Univ(1))
+    assert infer(Lam(Univ(0), Univ(0))) == Pi(Univ(0), Univ(1))
+    assert infer(Lam(Univ(10), Univ(0))) == Pi(Univ(10), Univ(1))
+    assert infer(Lam(Var(0), Univ(10))) == Pi(Var(0), Univ(11))
+    assert infer(Lam(Var(10), Univ(10))) == Pi(Var(10), Univ(11))
+    assert infer(Lam(Univ(0), Univ(10))) == Pi(Univ(0), Univ(11))
+    assert infer(Lam(Univ(10), Univ(10))) == Pi(Univ(10), Univ(11))
+
+
+def infer(a, b):
+    return infer_type(b, a)
+
+
+def test_two_level_lambda_type_refers_to_previous_binder():
+    """
+    λ (A : Type₀). λ (x : A). x
+
+    In de Bruijn:
+      Lam(ty = Univ(0),
+          body = Lam(ty = Var(0),   # A
+                     body = Var(0))) # x
+
+    This only type-checks if, when we extend the context with A and then x:A,
+    the internal context extension + shifting are correct.
+    """
+
+    term = Lam(
+        ty=Univ(level=0),  # Γ ⊢ Type₀ : Type₁ (ignored here)
+        body=Lam(
+            ty=Var(k=0),  # x : A   (Var(0) refers to A)
+            body=Var(k=0),  # body = x
+        ),
+    )
+
+    # Empty context
+    ctx: list = []
+
+    ty = infer(ctx, term)
+
+    # Expected type: Π (A : Type₀). Π (x : A). A
+    # De Bruijn: Pi(Univ(0), Pi(Var(0), Var(0)))
+    assert isinstance(ty, Pi)
+    assert ty.ty == Univ(level=0)  # domain of outer Pi is Type₀
+
+    inner = ty.body
+    assert isinstance(inner, Pi)
+    # domain of inner Pi is A (which is Var(0) in the outer Pi's scope)
+    assert inner.ty == Var(k=0)
+    # codomain is also A
+    assert inner.body == Var(k=0)
+
+
 def test_type_equal_normalizes_beta_equivalent_terms() -> None:
     beta_equiv = App(Lam(Univ(), Var(0)), Univ())
 
