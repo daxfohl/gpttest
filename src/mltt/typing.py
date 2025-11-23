@@ -29,11 +29,7 @@ def type_equal(t1: Term, t2: Term) -> bool:
 
 def _extend_ctx(ctx: list[Term], ty: Term) -> list[Term]:
     """Extend ``ctx`` with ``ty`` while keeping indices for outer vars stable."""
-    print(ctx)
     return [shift(ty, 1)] + [shift(x, 1) for x in ctx]
-
-
-#    return [shift(ty, 1)] + ctx
 
 
 def _expect_universe(term: Term, ctx: list[Term]) -> int:
