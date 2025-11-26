@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Sequence
 
 
 @dataclass
@@ -95,13 +95,13 @@ class InductiveElim:
     Args:
         inductive: Inductive type being eliminated.
         motive: Motive ``λx. Type``.
-        cases: Mapping from constructor to case branch.
+        cases: Branches aligned with ``inductive.constructors``.
         scrutinee: Term of the inductive type being eliminated.
     """
 
     inductive: InductiveType
     motive: Term
-    cases: Mapping[InductiveConstructor, Term]
+    cases: list[Term]
     scrutinee: Term
 
 

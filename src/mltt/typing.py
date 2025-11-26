@@ -175,13 +175,11 @@ def type_check(term: Term, ty: Term, ctx: list[Term] | None = None) -> bool:
                 raise TypeError("InductiveElim motive domain mismatch")
             motive_level = _expect_universe(motive_ty.body, _extend_ctx(ctx, inductive))
 
-            if set(cases.keys()) != set(inductive.constructors):
+            if len(cases) != len(inductive.constructors):
                 raise TypeError("InductiveElim cases do not match constructors")
 
-            for ctor in inductive.constructors:
+            for ctor, branch in zip(inductive.constructors, cases):
                 branch_ty = _expected_case_type(inductive, motive, ctor)
-                branch = cases.get(ctor)
-                assert branch is not None
                 if not type_check(branch, branch_ty, ctx):
                     raise TypeError("Case for constructor has wrong type")
 

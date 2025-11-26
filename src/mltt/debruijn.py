@@ -34,7 +34,7 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
             return InductiveElim(
                 inductive,
                 shift(motive, by, cutoff),
-                {ctor: shift(branch, by, cutoff) for ctor, branch in cases.items()},
+                [shift(branch, by, cutoff) for branch in cases],
                 shift(scrutinee, by, cutoff),
             )
         case InductiveConstructor():
@@ -84,7 +84,7 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
             return InductiveElim(
                 inductive,
                 subst(motive, sub, j),
-                {ctor: subst(branch, sub, j) for ctor, branch in cases.items()},
+                [subst(branch, sub, j) for branch in cases],
                 subst(scrutinee, sub, j),
             )
         case InductiveConstructor():

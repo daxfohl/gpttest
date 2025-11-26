@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Mapping, Sequence
+from typing import Sequence
 
 from .ast import (
     App,
@@ -41,22 +41,24 @@ def _decompose_ctor_app(
     return None
 
 
-def _ensure_constructor(inductive: InductiveType, ctor: InductiveConstructor) -> None:
-    if not any(ctor is ctor_def for ctor_def in inductive.constructors):
-        raise TypeError("Constructor does not belong to inductive type")
+def _ctor_index(inductive: InductiveType, ctor: InductiveConstructor) -> int:
+    for idx, ctor_def in enumerate(inductive.constructors):
+        if ctor is ctor_def:
+            return idx
+    raise TypeError("Constructor does not belong to inductive type")
 
 
 def _iota_constructor(
     inductive: InductiveType,
     motive: Term,
-    cases: Mapping[InductiveConstructor, Term],
+    cases: list[Term],
     ctor: InductiveConstructor,
     args: Sequence[Term],
 ) -> Term:
-    _ensure_constructor(inductive, ctor)
-    branch = cases.get(ctor)
-    if branch is None:
+    index = _ctor_index(inductive, ctor)
+    if index >= len(cases):
         return InductiveElim(inductive, motive, cases, _apply_ctor(ctor, args))
+    branch = cases[index]
 
     applied_args: list[Term] = []
     for arg_ty, arg in zip(ctor.arg_types, args, strict=False):
@@ -170,8 +172,8 @@ def beta_step(term: Term) -> Term:
             motive1 = beta_step(motive)
             if motive1 != motive:
                 return InductiveElim(inductive, motive1, cases, scrutinee)
-            cases1 = {k: beta_step(v) for k, v in cases.items()}
-            if list(cases1.items()) != list(cases.items()):
+            cases1 = [beta_step(branch) for branch in cases]
+            if cases1 != cases:
                 return InductiveElim(inductive, motive, cases1, scrutinee)
             scrutinee1 = beta_step(scrutinee)
             if scrutinee1 != scrutinee:
@@ -290,8 +292,8 @@ def iota_step(term: Term) -> Term:
             motive1 = iota_step(motive)
             if motive1 != motive:
                 return InductiveElim(inductive, motive1, cases, scrutinee)
-            cases1 = {k: iota_step(v) for k, v in cases.items()}
-            if list(cases1.items()) != list(cases.items()):
+            cases1 = [iota_step(branch) for branch in cases]
+            if cases1 != cases:
                 return InductiveElim(inductive, motive, cases1, scrutinee)
             scrutinee1 = iota_step(scrutinee)
             if scrutinee1 != scrutinee:
