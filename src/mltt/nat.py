@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from .ast import (
     App,
-    ConstructorApp,
     Id,
     InductiveConstructor,
     InductiveElim,
@@ -20,8 +19,8 @@ from .normalization import normalize
 from .typing import type_check
 
 Nat = InductiveType(level=0)
-ZeroCtor = InductiveConstructor(())
-SuccCtor = InductiveConstructor((Nat,))
+ZeroCtor = InductiveConstructor(Nat, ())
+SuccCtor = InductiveConstructor(Nat, (Nat,))
 Nat.constructors = (ZeroCtor, SuccCtor)
 
 
@@ -29,12 +28,12 @@ def NatType() -> InductiveType:
     return Nat
 
 
-def Zero() -> ConstructorApp:
-    return ConstructorApp(Nat, ZeroCtor, ())
+def Zero() -> InductiveConstructor:
+    return ZeroCtor
 
 
-def Succ(n: Term) -> ConstructorApp:
-    return ConstructorApp(Nat, SuccCtor, (n,))
+def Succ(n: Term) -> App:
+    return App(SuccCtor, n)
 
 
 def NatRec(P: Term, base: Term, step: Term, n: Term) -> InductiveElim:

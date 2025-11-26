@@ -76,6 +76,7 @@ class Univ:
 class InductiveConstructor:
     """A constructor for an inductive type."""
 
+    inductive: "InductiveType"
     arg_types: Sequence["Term"]
 
 
@@ -85,15 +86,6 @@ class InductiveType:
 
     constructors: Sequence[InductiveConstructor] = ()
     level: int = 0
-
-
-@dataclass
-class ConstructorApp:
-    """Application of a constructor to its arguments."""
-
-    inductive: InductiveType
-    constructor: InductiveConstructor
-    args: Sequence["Term"]
 
 
 @dataclass
@@ -168,8 +160,8 @@ type Term = (
     | Pi
     | App
     | Univ
+    | InductiveConstructor
     | InductiveType
-    | ConstructorApp
     | InductiveElim
     | Id
     | Refl
@@ -186,7 +178,6 @@ __all__ = [
     "Univ",
     "InductiveConstructor",
     "InductiveType",
-    "ConstructorApp",
     "InductiveElim",
     "Id",
     "Refl",

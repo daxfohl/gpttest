@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Sequence
+
 from .ast import (
     App,
-    ConstructorApp,
     Id,
     IdElim,
     InductiveConstructor,
@@ -21,9 +22,18 @@ from .debruijn import shift, subst
 from .normalization import normalize
 
 
-def _ensure_constructor(inductive: InductiveType, ctor: InductiveConstructor) -> None:
-    if not any(ctor is ctor_def for ctor_def in inductive.constructors):
-        raise TypeError("Constructor does not belong to inductive type")
+def _ctor_type(ctor: InductiveConstructor) -> Term:
+    result: Term = ctor.inductive
+    for arg_ty in reversed(ctor.arg_types):
+        result = Pi(arg_ty, result)
+    return result
+
+
+def _apply_ctor(ctor: InductiveConstructor, args: Sequence[Term]) -> Term:
+    term: Term = ctor
+    for arg in args:
+        term = App(term, arg)
+    return term
 
 
 def _expected_case_type(
@@ -40,7 +50,7 @@ def _expected_case_type(
 
     total_binders = len(binder_roles)
     ctor_args = tuple(Var(total_binders - 1 - arg_pos) for arg_pos in arg_positions)
-    target: Term = App(motive, ConstructorApp(inductive, ctor, ctor_args))
+    target: Term = App(motive, _apply_ctor(ctor, ctor_args))
 
     binder_types: list[Term] = []
     for pos, (role, arg_idx, maybe_arg_ty) in enumerate(binder_roles):
@@ -105,14 +115,8 @@ def infer_type(term: Term, ctx: list[Term] | None = None) -> Term:
             return Univ(level + 1)
         case InductiveType(_, level):
             return Univ(level)
-        case ConstructorApp(ind, ctor, args):
-            _ensure_constructor(ind, ctor)
-            if len(args) != len(ctor.arg_types):
-                raise TypeError("Constructor applied to wrong number of arguments")
-            for arg, arg_ty in zip(args, ctor.arg_types, strict=False):
-                if not type_check(arg, arg_ty, ctx):
-                    raise TypeError("Constructor argument fails type check")
-            return ind
+        case InductiveConstructor():
+            return _ctor_type(term)
         case InductiveElim(_, motive, _, scrutinee):
             return App(motive, scrutinee)
         case Id(ty, lhs, rhs):
@@ -158,16 +162,8 @@ def type_check(term: Term, ty: Term, ctx: list[Term] | None = None) -> bool:
             return type_equal(expected_ty, infer_type(term, ctx))
         case InductiveType(_, level):
             return isinstance(expected_ty, Univ) and expected_ty.level >= level
-        case ConstructorApp(ind, ctor, args):
-            if not type_equal(expected_ty, ind):
-                raise TypeError("Constructor must have inductive type")
-            _ensure_constructor(ind, ctor)
-            if len(args) != len(ctor.arg_types):
-                raise TypeError("Constructor applied to wrong number of arguments")
-            for arg, arg_ty in zip(args, ctor.arg_types, strict=False):
-                if not type_check(arg, arg_ty, ctx):
-                    raise TypeError("Constructor argument fails type check")
-            return True
+        case InductiveConstructor():
+            return type_equal(expected_ty, _ctor_type(term))
         case InductiveElim(inductive, motive, cases, scrutinee):
             if not type_check(scrutinee, inductive, ctx):
                 raise TypeError("InductiveElim scrutinee has wrong type")

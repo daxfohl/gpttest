@@ -6,7 +6,6 @@ from typing import Mapping, Sequence
 
 from .ast import (
     App,
-    ConstructorApp,
     Id,
     IdElim,
     InductiveConstructor,
@@ -20,6 +19,26 @@ from .ast import (
     Var,
 )
 from .debruijn import subst
+
+
+def _apply_ctor(ctor: InductiveConstructor, args: Sequence[Term]) -> Term:
+    term: Term = ctor
+    for arg in args:
+        term = App(term, arg)
+    return term
+
+
+def _decompose_ctor_app(
+    term: Term,
+) -> tuple[InductiveConstructor, tuple[Term, ...]] | None:
+    args: list[Term] = []
+    head = term
+    while isinstance(head, App):
+        args.insert(0, head.arg)
+        head = head.func
+    if isinstance(head, InductiveConstructor):
+        return head, tuple(args)
+    return None
 
 
 def _ensure_constructor(inductive: InductiveType, ctor: InductiveConstructor) -> None:
@@ -37,12 +56,7 @@ def _iota_constructor(
     _ensure_constructor(inductive, ctor)
     branch = cases.get(ctor)
     if branch is None:
-        return InductiveElim(
-            inductive,
-            motive,
-            cases,
-            ConstructorApp(inductive, ctor, tuple(args)),
-        )
+        return InductiveElim(inductive, motive, cases, _apply_ctor(ctor, args))
 
     applied_args: list[Term] = []
     for arg_ty, arg in zip(ctor.arg_types, args, strict=False):
@@ -110,12 +124,6 @@ def beta_step(term: Term) -> Term:
                 return Pi(ty, body1)
             return term
 
-        case ConstructorApp(ind, ctor, args):
-            updated_args = tuple(beta_step(arg) for arg in args)
-            if list(updated_args) != list(args):
-                return ConstructorApp(ind, ctor, updated_args)
-            return term
-
         case Id(ty, l, r):
             ty1 = beta_step(ty)
             if ty1 != ty:
@@ -170,7 +178,7 @@ def beta_step(term: Term) -> Term:
                 return InductiveElim(inductive, motive, cases, scrutinee1)
             return term
 
-        case Var(_) | Univ() | InductiveType():
+        case Var(_) | Univ() | InductiveType() | InductiveConstructor():
             return term
 
     raise TypeError(f"Unexpected term in beta_step: {term!r}")
@@ -178,15 +186,18 @@ def beta_step(term: Term) -> Term:
 
 def iota_head_step(t: Term) -> Term:
     match t:
-        case InductiveElim(inductive, motive, cases, ConstructorApp(ind, ctor, args)):
-            return _iota_constructor(inductive, motive, cases, ctor, args)
-        case IdElim(A, x, P, d, y, Refl(_, _)):
-            return d
         case InductiveElim(inductive, motive, cases, scrutinee):
+            decomposition = _decompose_ctor_app(scrutinee)
+            if decomposition:
+                ctor, args = decomposition
+                if ctor.inductive is inductive and len(args) == len(ctor.arg_types):
+                    return _iota_constructor(inductive, motive, cases, ctor, args)
             scrutinee1 = iota_head_step(scrutinee)
             if scrutinee1 != scrutinee:
                 return InductiveElim(inductive, motive, cases, scrutinee1)
             return t
+        case IdElim(A, x, P, d, y, Refl(_, _)):
+            return d
         case IdElim(A, x, P, d, y, p):
             p1 = iota_head_step(p)
             if p1 != p:
@@ -231,12 +242,6 @@ def iota_step(term: Term) -> Term:
             body1 = iota_step(body)
             if body1 != body:
                 return Pi(ty, body1)
-            return term
-
-        case ConstructorApp(ind, ctor, args):
-            updated_args = tuple(iota_step(arg) for arg in args)
-            if list(updated_args) != list(args):
-                return ConstructorApp(ind, ctor, updated_args)
             return term
 
         case Id(ty, l, r):
@@ -293,7 +298,7 @@ def iota_step(term: Term) -> Term:
                 return InductiveElim(inductive, motive, cases, scrutinee1)
             return term
 
-        case Var(_) | Univ() | InductiveType():
+        case Var(_) | Univ() | InductiveType() | InductiveConstructor():
             return term
 
     raise TypeError(f"Unexpected term in iota_step: {term!r}")

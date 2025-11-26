@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .ast import (
     App,
-    ConstructorApp,
+    InductiveConstructor,
     Id,
     IdElim,
     InductiveElim,
@@ -30,12 +30,6 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
             return Pi(shift(ty, by, cutoff), shift(body, by, cutoff + 1))
         case App(f, a):
             return App(shift(f, by, cutoff), shift(a, by, cutoff))
-        case ConstructorApp(ind, ctor, args):
-            return ConstructorApp(
-                ind,
-                ctor,
-                tuple(shift(arg, by, cutoff) for arg in args),
-            )
         case InductiveElim(inductive, motive, cases, scrutinee):
             return InductiveElim(
                 inductive,
@@ -43,6 +37,8 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
                 {ctor: shift(branch, by, cutoff) for ctor, branch in cases.items()},
                 shift(scrutinee, by, cutoff),
             )
+        case InductiveConstructor():
+            return term
         case Id(ty, l, r):
             return Id(shift(ty, by, cutoff), shift(l, by, cutoff), shift(r, by, cutoff))
         case Refl(ty, t):
@@ -84,8 +80,6 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
             )
         case App(f, a):
             return App(subst(f, sub, j), subst(a, sub, j))
-        case ConstructorApp(ind, ctor, args):
-            return ConstructorApp(ind, ctor, tuple(subst(arg, sub, j) for arg in args))
         case InductiveElim(inductive, motive, cases, scrutinee):
             return InductiveElim(
                 inductive,
@@ -93,6 +87,8 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
                 {ctor: subst(branch, sub, j) for ctor, branch in cases.items()},
                 subst(scrutinee, sub, j),
             )
+        case InductiveConstructor():
+            return term
         case Id(ty, l, r):
             return Id(
                 subst(ty, sub, j),
