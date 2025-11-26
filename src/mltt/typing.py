@@ -4,21 +4,59 @@ from __future__ import annotations
 
 from .ast import (
     App,
+    ConstructorApp,
     Id,
     IdElim,
+    InductiveConstructor,
+    InductiveElim,
+    InductiveType,
     Lam,
-    NatRec,
-    NatType,
     Pi,
     Refl,
-    Succ,
     Term,
     Univ,
     Var,
-    Zero,
 )
 from .debruijn import shift, subst
 from .normalization import normalize
+
+
+def _lookup_constructor(inductive: InductiveType, ctor: str) -> InductiveConstructor:
+    for ctor_def in inductive.constructors:
+        if ctor_def.name == ctor:
+            return ctor_def
+    raise TypeError(f"Unknown constructor {ctor!r} for inductive {inductive.name}")
+
+
+def _expected_case_type(
+    inductive: InductiveType, motive: Term, ctor: InductiveConstructor
+) -> Term:
+    binder_roles: list[tuple[str, int | None, Term | None]] = []
+    arg_positions: list[int] = []
+
+    for idx, arg_ty in enumerate(ctor.arg_types):
+        arg_positions.append(len(binder_roles))
+        binder_roles.append(("arg", idx, arg_ty))
+        if isinstance(arg_ty, InductiveType) and arg_ty.name == inductive.name:
+            binder_roles.append(("ih", idx, None))
+
+    total_binders = len(binder_roles)
+    ctor_args = tuple(Var(total_binders - 1 - arg_pos) for arg_pos in arg_positions)
+    target: Term = App(motive, ConstructorApp(inductive, ctor.name, ctor_args))
+
+    binder_types: list[Term] = []
+    for pos, (role, arg_idx, maybe_arg_ty) in enumerate(binder_roles):
+        if role == "arg":
+            binder_types.append(maybe_arg_ty)  # type: ignore[arg-type]
+        else:
+            assert arg_idx is not None
+            index = pos - 1 - arg_idx
+            binder_types.append(App(motive, Var(index)))
+
+    result = target
+    for binder_ty in reversed(binder_types):
+        result = Pi(binder_ty, result)
+    return result
 
 
 def type_equal(t1: Term, t2: Term) -> bool:
@@ -67,16 +105,18 @@ def infer_type(term: Term, ctx: list[Term] | None = None) -> Term:
             return Univ(max(arg_level, body_level))
         case Univ(level):
             return Univ(level + 1)
-        case NatType():
-            return Univ(0)
-        case Zero():
-            return NatType()
-        case Succ(n):
-            if not type_check(n, NatType(), ctx):
-                raise TypeError("Succ expects Nat")
-            return NatType()
-        case NatRec(P, z, s, n):
-            return App(P, n)
+        case InductiveType(_, _, level):
+            return Univ(level)
+        case ConstructorApp(ind, ctor, args):
+            ctor_def = _lookup_constructor(ind, ctor)
+            if len(args) != len(ctor_def.arg_types):
+                raise TypeError("Constructor applied to wrong number of arguments")
+            for arg, arg_ty in zip(args, ctor_def.arg_types, strict=False):
+                if not type_check(arg, arg_ty, ctx):
+                    raise TypeError(f"Constructor argument for {ctor} fails type check")
+            return ind
+        case InductiveElim(_, motive, _, scrutinee):
+            return App(motive, scrutinee)
         case Id(ty, lhs, rhs):
             if not type_check(lhs, ty, ctx) or not type_check(rhs, ty, ctx):
                 raise TypeError("Id sides must have given type")
@@ -118,23 +158,45 @@ def type_check(term: Term, ty: Term, ctx: list[Term] | None = None) -> bool:
             return type_equal(expected_ty, subst(f_ty.body, a))
         case Pi(_, _):
             return type_equal(expected_ty, infer_type(term, ctx))
-        case Zero():
-            if not isinstance(expected_ty, NatType):
-                raise TypeError("Zero must have type Nat")
+        case InductiveType(_, _, level):
+            return isinstance(expected_ty, Univ) and expected_ty.level >= level
+        case ConstructorApp(ind, ctor, args):
+            if not type_equal(expected_ty, ind):
+                raise TypeError("Constructor must have inductive type")
+            ctor_def = _lookup_constructor(ind, ctor)
+            if len(args) != len(ctor_def.arg_types):
+                raise TypeError("Constructor applied to wrong number of arguments")
+            for arg, arg_ty in zip(args, ctor_def.arg_types, strict=False):
+                if not type_check(arg, arg_ty, ctx):
+                    raise TypeError(f"Constructor argument for {ctor} fails type check")
             return True
-        case Succ(n):
-            if not isinstance(expected_ty, NatType):
-                raise TypeError("Succ must have type Nat")
-            return type_check(n, NatType(), ctx)
-        case NatRec(P, z, s, n):
-            if not type_check(n, NatType(), ctx):
-                raise TypeError("NatRec scrutinee not Nat")
-            if not type_check(z, App(P, Zero()), ctx):
-                raise TypeError("NatRec base case type mismatch (z : P 0)")
-            step_ty = Pi(NatType(), Pi(App(P, Var(0)), App(P, Succ(Var(1)))))
-            if not type_check(s, step_ty, ctx):
-                raise TypeError("NatRec step case type mismatch")
-            return type_equal(expected_ty, App(P, n))
+        case InductiveElim(inductive, motive, cases, scrutinee):
+            if not type_check(scrutinee, inductive, ctx):
+                raise TypeError("InductiveElim scrutinee has wrong type")
+
+            motive_ty = infer_type(motive, ctx)
+            if not isinstance(motive_ty, Pi):
+                raise TypeError("InductiveElim motive not a function")
+            if not type_equal(motive_ty.ty, inductive):
+                raise TypeError("InductiveElim motive domain mismatch")
+            motive_level = _expect_universe(motive_ty.body, _extend_ctx(ctx, inductive))
+
+            ctor_names = {ctor.name for ctor in inductive.constructors}
+            if set(cases.keys()) != ctor_names:
+                raise TypeError("InductiveElim cases do not match constructors")
+
+            for ctor in inductive.constructors:
+                branch_ty = _expected_case_type(inductive, motive, ctor)
+                branch = cases.get(ctor.name)
+                assert branch is not None
+                if not type_check(branch, branch_ty, ctx):
+                    raise TypeError(f"Case for {ctor.name} has wrong type")
+
+            target_ty = App(motive, scrutinee)
+            target_level = _expect_universe(target_ty, ctx)
+            if target_level > motive_level:
+                raise TypeError("InductiveElim motive returns too small a universe")
+            return type_equal(expected_ty, target_ty)
         case Id(id_ty, l, r):
             if not type_check(l, id_ty, ctx) or not type_check(r, id_ty, ctx):
                 raise TypeError("Id sides not of given type")
@@ -153,7 +215,7 @@ def type_check(term: Term, ty: Term, ctx: list[Term] | None = None) -> bool:
             if not type_check(d, App(App(P, x), Refl(A, x)), ctx):
                 raise TypeError("IdElim: d : P x (Refl x) fails")
             return type_equal(expected_ty, App(App(P, y), p))
-        case NatType() | Univ(_):
+        case Univ(_):
             return isinstance(expected_ty, Univ)
 
     raise TypeError(f"Unexpected term in type_check: {term!r}")

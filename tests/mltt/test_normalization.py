@@ -1,16 +1,5 @@
-from mltt.ast import (
-    App,
-    IdElim,
-    Lam,
-    NatRec,
-    NatType,
-    Refl,
-    Succ,
-    Univ,
-    Var,
-    Zero,
-)
-from mltt.nat import add
+from mltt.ast import App, IdElim, Lam, Refl, Univ, Var
+from mltt.nat import NatRec, NatType, Succ, Zero, add
 from mltt.normalization import beta_step, normalize, whnf, normalize_step
 
 

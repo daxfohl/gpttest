@@ -1,21 +1,9 @@
 import pytest
 
-from mltt.ast import (
-    App,
-    Id,
-    IdElim,
-    Lam,
-    NatRec,
-    NatType,
-    Pi,
-    Refl,
-    Univ,
-    Var,
-    Zero,
-)
+from mltt.ast import App, Id, IdElim, Lam, Pi, Refl, Univ, Var
 from mltt.normalization import normalize
 from mltt.typing import infer_type, type_check, type_equal
-from mltt.nat import add_terms, numeral
+from mltt.nat import NatRec, NatType, Zero, Succ, add_terms, numeral
 
 
 def test_infer_var():
@@ -193,7 +181,7 @@ def test_type_check_natrec_rejects_invalid_base_case() -> None:
     n = Zero()
     term = NatRec(P, z, s, n)
 
-    with pytest.raises(TypeError, match="NatRec base case type mismatch"):
+    with pytest.raises(TypeError, match="Case for Zero has wrong type"):
         type_check(term, App(P, n))
 
 

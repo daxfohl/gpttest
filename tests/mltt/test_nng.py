@@ -1,6 +1,6 @@
-from mltt.ast import App, Id, Lam, NatType, Pi, Refl, Succ, Term, Var
+from mltt.ast import App, Id, Lam, Pi, Refl, Term, Var
 from mltt.eq import ap
-from mltt.nat import add_terms, numeral
+from mltt.nat import NatType, Succ, add_terms, numeral
 from mltt.typing import infer_type, type_check, type_equal
 
 

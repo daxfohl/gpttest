@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Mapping, Sequence
 
 
 @dataclass
@@ -72,45 +73,46 @@ class Univ:
 
 
 @dataclass
-class NatType:
-    """The natural numbers type."""
+class InductiveConstructor:
+    """A constructor for an inductive type."""
 
-    pass
-
-
-@dataclass
-class Zero:
-    """Zero constructor for the natural numbers."""
-
-    pass
+    name: str
+    arg_types: Sequence["Term"]
 
 
 @dataclass
-class Succ:
-    """Successor constructor for the natural numbers.
+class InductiveType:
+    """A generalized inductive type with named constructors."""
+
+    name: str
+    constructors: Sequence[InductiveConstructor] = ()
+    level: int = 0
+
+
+@dataclass
+class ConstructorApp:
+    """Application of a constructor to its arguments."""
+
+    inductive: InductiveType
+    constructor: str
+    args: Sequence["Term"]
+
+
+@dataclass
+class InductiveElim:
+    """Elimination principle for an inductive type.
 
     Args:
-        n: Term representing the predecessor.
+        inductive: Inductive type being eliminated.
+        motive: Motive ``λx. Type``.
+        cases: Mapping from constructor name to case branch.
+        scrutinee: Term of the inductive type being eliminated.
     """
 
-    n: Term
-
-
-@dataclass
-class NatRec:
-    """Primitive recursion principle for natural numbers.
-
-    Args:
-        P: Motive taking a natural and returning a type.
-        base: Proof/value for the zero case ``P 0``.
-        step: Function consuming ``k`` and ``ih : P k`` to produce ``P (Succ k)``.
-        n: Scrutinee natural number.
-    """
-
-    P: Term
-    base: Term
-    step: Term
-    n: Term
+    inductive: InductiveType
+    motive: Term
+    cases: Mapping[str, Term]
+    scrutinee: Term
 
 
 @dataclass
@@ -162,7 +164,19 @@ class IdElim:
     p: Term
 
 
-type Term = Var | Lam | Pi | App | Univ | NatType | Zero | Succ | NatRec | Id | Refl | IdElim
+type Term = (
+    Var
+    | Lam
+    | Pi
+    | App
+    | Univ
+    | InductiveType
+    | ConstructorApp
+    | InductiveElim
+    | Id
+    | Refl
+    | IdElim
+)
 
 
 __all__ = [
@@ -172,10 +186,10 @@ __all__ = [
     "Pi",
     "App",
     "Univ",
-    "NatType",
-    "Zero",
-    "Succ",
-    "NatRec",
+    "InductiveConstructor",
+    "InductiveType",
+    "ConstructorApp",
+    "InductiveElim",
     "Id",
     "Refl",
     "IdElim",

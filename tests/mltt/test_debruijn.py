@@ -1,17 +1,6 @@
-from mltt.ast import (
-    App,
-    Id,
-    IdElim,
-    Lam,
-    NatRec,
-    Pi,
-    Succ,
-    Term,
-    Univ,
-    Var,
-    Zero,
-)
+from mltt.ast import App, Id, IdElim, InductiveElim, Lam, Pi, Term, Univ, Var
 from mltt.debruijn import shift, subst
+from mltt.nat import NatRec, Succ, Zero
 
 
 # ------------- Shift: basic behavior -------------
@@ -372,7 +361,7 @@ def test_subst_natrec_components() -> None:
     )
     sub = Succ(Var(0))
     result = subst(term, sub)
-    assert isinstance(result, NatRec)
+    assert isinstance(result, InductiveElim)
 
 
 def test_subst_identity_constructs() -> None:

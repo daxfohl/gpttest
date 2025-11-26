@@ -4,20 +4,55 @@ from __future__ import annotations
 
 from .ast import (
     App,
+    ConstructorApp,
     Id,
     IdElim,
+    InductiveElim,
+    InductiveType,
     Lam,
-    NatRec,
-    NatType,
     Pi,
     Refl,
-    Succ,
     Term,
     Univ,
     Var,
-    Zero,
 )
 from .debruijn import subst
+
+
+def _lookup_constructor(inductive: InductiveType, ctor: str):
+    for ctor_def in inductive.constructors:
+        if ctor_def.name == ctor:
+            return ctor_def
+    raise TypeError(f"Unknown constructor {ctor!r} for inductive {inductive.name}")
+
+
+def _iota_constructor(
+    inductive: InductiveType,
+    motive: Term,
+    cases: dict[str, Term],
+    ctor: str,
+    args: list[Term] | tuple[Term, ...],
+) -> Term:
+    ctor_def = _lookup_constructor(inductive, ctor)
+    branch = cases.get(ctor)
+    if branch is None:
+        return InductiveElim(
+            inductive,
+            motive,
+            cases,
+            ConstructorApp(inductive, ctor, tuple(args)),
+        )
+
+    applied_args: list[Term] = []
+    for arg_ty, arg in zip(ctor_def.arg_types, args, strict=False):
+        applied_args.append(arg)
+        if isinstance(arg_ty, InductiveType) and arg_ty.name == inductive.name:
+            applied_args.append(InductiveElim(inductive, motive, cases, arg))
+
+    result: Term = branch
+    for a in applied_args:
+        result = App(result, a)
+    return result
 
 
 def beta_head_step(t: Term) -> Term:
@@ -74,19 +109,10 @@ def beta_step(term: Term) -> Term:
                 return Pi(ty, body1)
             return term
 
-        case NatRec(P, z, s, n):
-            P1 = beta_step(P)
-            if P1 != P:
-                return NatRec(P1, z, s, n)
-            z1 = beta_step(z)
-            if z1 != z:
-                return NatRec(P, z1, s, n)
-            s1 = beta_step(s)
-            if s1 != s:
-                return NatRec(P, z, s1, n)
-            n1 = beta_step(n)
-            if n1 != n:
-                return NatRec(P, z, s, n1)
+        case ConstructorApp(ind, ctor, args):
+            updated_args = tuple(beta_step(arg) for arg in args)
+            if list(updated_args) != list(args):
+                return ConstructorApp(ind, ctor, updated_args)
             return term
 
         case Id(ty, l, r):
@@ -131,13 +157,19 @@ def beta_step(term: Term) -> Term:
                 return IdElim(A, x, P, d, y, p1)
             return term
 
-        case Succ(n):
-            n1 = beta_step(n)
-            if n1 != n:
-                return Succ(n1)
+        case InductiveElim(inductive, motive, cases, scrutinee):
+            motive1 = beta_step(motive)
+            if motive1 != motive:
+                return InductiveElim(inductive, motive1, cases, scrutinee)
+            cases1 = {k: beta_step(v) for k, v in cases.items()}
+            if list(cases1.items()) != list(cases.items()):
+                return InductiveElim(inductive, motive, cases1, scrutinee)
+            scrutinee1 = beta_step(scrutinee)
+            if scrutinee1 != scrutinee:
+                return InductiveElim(inductive, motive, cases, scrutinee1)
             return term
 
-        case Var(_) | NatType() | Univ() | Zero():
+        case Var(_) | Univ() | InductiveType():
             return term
 
     raise TypeError(f"Unexpected term in beta_step: {term!r}")
@@ -145,16 +177,14 @@ def beta_step(term: Term) -> Term:
 
 def iota_head_step(t: Term) -> Term:
     match t:
-        case NatRec(P, z, s, Zero()):
-            return z
-        case NatRec(P, z, s, Succ(k)):
-            return App(App(s, k), NatRec(P, z, s, k))
+        case InductiveElim(inductive, motive, cases, ConstructorApp(ind, ctor, args)):
+            return _iota_constructor(inductive, motive, cases, ctor, args)
         case IdElim(A, x, P, d, y, Refl(_, _)):
             return d
-        case NatRec(P, z, s, n):
-            n1 = iota_head_step(n)
-            if n1 != n:
-                return NatRec(P, z, s, n1)
+        case InductiveElim(inductive, motive, cases, scrutinee):
+            scrutinee1 = iota_head_step(scrutinee)
+            if scrutinee1 != scrutinee:
+                return InductiveElim(inductive, motive, cases, scrutinee1)
             return t
         case IdElim(A, x, P, d, y, p):
             p1 = iota_head_step(p)
@@ -166,7 +196,7 @@ def iota_head_step(t: Term) -> Term:
 
 
 def iota_step(term: Term) -> Term:
-    """One iota-reduction step anywhere (NatRec / IdElim)."""
+    """One iota-reduction step anywhere (InductiveElim / IdElim)."""
 
     # 1. Try a head ι step first
     t1 = iota_head_step(term)
@@ -202,19 +232,10 @@ def iota_step(term: Term) -> Term:
                 return Pi(ty, body1)
             return term
 
-        case NatRec(P, z, s, n):
-            P1 = iota_step(P)
-            if P1 != P:
-                return NatRec(P1, z, s, n)
-            z1 = iota_step(z)
-            if z1 != z:
-                return NatRec(P, z1, s, n)
-            s1 = iota_step(s)
-            if s1 != s:
-                return NatRec(P, z, s1, n)
-            n1 = iota_step(n)
-            if n1 != n:
-                return NatRec(P, z, s, n1)
+        case ConstructorApp(ind, ctor, args):
+            updated_args = tuple(iota_step(arg) for arg in args)
+            if list(updated_args) != list(args):
+                return ConstructorApp(ind, ctor, updated_args)
             return term
 
         case Id(ty, l, r):
@@ -259,13 +280,19 @@ def iota_step(term: Term) -> Term:
                 return IdElim(A, x, P, d, y, p1)
             return term
 
-        case Succ(n):
-            n1 = iota_step(n)
-            if n1 != n:
-                return Succ(n1)
+        case InductiveElim(inductive, motive, cases, scrutinee):
+            motive1 = iota_step(motive)
+            if motive1 != motive:
+                return InductiveElim(inductive, motive1, cases, scrutinee)
+            cases1 = {k: iota_step(v) for k, v in cases.items()}
+            if list(cases1.items()) != list(cases.items()):
+                return InductiveElim(inductive, motive, cases1, scrutinee)
+            scrutinee1 = iota_step(scrutinee)
+            if scrutinee1 != scrutinee:
+                return InductiveElim(inductive, motive, cases, scrutinee1)
             return term
 
-        case Var(_) | NatType() | Univ() | Zero():
+        case Var(_) | Univ() | InductiveType():
             return term
 
     raise TypeError(f"Unexpected term in iota_step: {term!r}")

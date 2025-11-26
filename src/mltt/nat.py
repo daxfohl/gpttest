@@ -2,10 +2,54 @@
 
 from __future__ import annotations
 
-from .ast import App, Id, Lam, NatRec, NatType, Pi, Refl, Succ, Term, Var, Zero
-from .normalization import normalize
+from .ast import (
+    App,
+    ConstructorApp,
+    Id,
+    InductiveConstructor,
+    InductiveElim,
+    InductiveType,
+    Lam,
+    Pi,
+    Refl,
+    Term,
+    Var,
+)
 from .eq import ap
+from .normalization import normalize
 from .typing import type_check
+
+Nat = InductiveType(name="Nat", level=0)
+Nat.constructors = (
+    InductiveConstructor("Zero", ()),
+    InductiveConstructor("Succ", (Nat,)),
+)
+
+
+def NatType() -> InductiveType:
+    return Nat
+
+
+def Zero() -> ConstructorApp:
+    return ConstructorApp(Nat, "Zero", ())
+
+
+def Succ(n: Term) -> ConstructorApp:
+    return ConstructorApp(Nat, "Succ", (n,))
+
+
+def NatRec(P: Term, base: Term, step: Term, n: Term) -> InductiveElim:
+    """Recursor for Nat expressed via the generalized inductive eliminator."""
+
+    return InductiveElim(
+        inductive=Nat,
+        motive=P,
+        cases={
+            "Zero": base,
+            "Succ": step,
+        },
+        scrutinee=n,
+    )
 
 
 def numeral(value: int) -> Term:
