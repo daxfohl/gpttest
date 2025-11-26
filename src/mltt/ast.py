@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 
-@dataclass
+@dataclass(frozen=True)
 class Var:
     """De Bruijn variable pointing to the binder at ``k``.
 
@@ -22,7 +22,7 @@ class Var:
             raise ValueError("De Bruijn indices must be non-negative")
 
 
-@dataclass
+@dataclass(frozen=True)
 class Lam:
     """Dependent lambda term with an argument type and body.
 
@@ -35,7 +35,7 @@ class Lam:
     body: Term
 
 
-@dataclass
+@dataclass(frozen=True)
 class Pi:
     """Dependent function type (Pi-type).
 
@@ -48,7 +48,7 @@ class Pi:
     body: Term
 
 
-@dataclass
+@dataclass(frozen=True)
 class App:
     """Function application.
 
@@ -61,7 +61,7 @@ class App:
     arg: Term
 
 
-@dataclass
+@dataclass(frozen=True)
 class Univ:
     """A universe ``Type(level)``."""
 
@@ -72,7 +72,7 @@ class Univ:
             raise ValueError("Universe level must be non-negative")
 
 
-@dataclass(eq=False)
+@dataclass(frozen=True)
 class InductiveConstructor:
     """A constructor for an inductive type."""
 
@@ -80,7 +80,7 @@ class InductiveConstructor:
     arg_types: Sequence["Term"]
 
 
-@dataclass(eq=False)
+@dataclass(frozen=True)
 class InductiveType:
     """A generalized inductive type with constructors."""
 
@@ -88,7 +88,7 @@ class InductiveType:
     level: int = 0
 
 
-@dataclass
+@dataclass(frozen=True)
 class InductiveElim:
     """Elimination principle for an inductive type.
 
@@ -105,7 +105,7 @@ class InductiveElim:
     scrutinee: Term
 
 
-@dataclass
+@dataclass(frozen=True)
 class Id:
     """Identity type over ``ty`` relating ``lhs`` and ``rhs``.
 
@@ -120,7 +120,7 @@ class Id:
     rhs: Term
 
 
-@dataclass
+@dataclass(frozen=True)
 class Refl:
     """Canonical inhabitant of an identity type.
 
@@ -133,7 +133,7 @@ class Refl:
     t: Term
 
 
-@dataclass
+@dataclass(frozen=True)
 class IdElim:
     """Identity elimination principle (J).
 

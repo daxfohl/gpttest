@@ -21,7 +21,7 @@ from .typing import type_check
 Nat = InductiveType(level=0)
 ZeroCtor = InductiveConstructor(Nat, ())
 SuccCtor = InductiveConstructor(Nat, (Nat,))
-Nat.constructors = (ZeroCtor, SuccCtor)
+object.__setattr__(Nat, "constructors", (ZeroCtor, SuccCtor))
 
 
 def NatType() -> InductiveType:
