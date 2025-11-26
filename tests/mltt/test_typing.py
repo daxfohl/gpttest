@@ -1,12 +1,12 @@
 import pytest
 
-from mltt.ast import App, Id, IdElim, Lam, Pi, Refl, Univ, Var
+from mltt.ast import App, Id, IdElim, Lam, Pi, Refl, Term, Univ, Var
 from mltt.normalization import normalize
 from mltt.typing import infer_type, type_check, type_equal
 from mltt.nat import NatRec, NatType, Zero, Succ, add_terms, numeral
 
 
-def test_infer_var():
+def test_infer_var() -> None:
     a = Var(0)
     with pytest.raises(TypeError, match="Unbound variable"):
         assert infer_type(a)
@@ -14,7 +14,7 @@ def test_infer_var():
     assert infer_type(a, [t]) == t
 
 
-def test_infer_lam():
+def test_infer_lam() -> None:
     assert infer_type(Lam(Var(0), Var(0))) == Pi(Var(0), Var(1))
     assert infer_type(Lam(Var(10), Var(0))) == Pi(Var(10), Var(11))
     assert infer_type(Lam(Univ(0), Var(0))) == Pi(Univ(0), Univ(0))
@@ -37,8 +37,8 @@ def test_infer_lam():
     assert infer_type(Lam(Univ(10), Univ(10))) == Pi(Univ(10), Univ(11))
 
 
-def test_infer_lam_ctx():
-    def infer(t):
+def test_infer_lam_ctx() -> None:
+    def infer(t: Term) -> Term:
         return infer_type(t, [Univ(100)])
 
     assert infer(Lam(NatType(), Var(0))) == Pi(NatType(), NatType())
@@ -64,7 +64,7 @@ def test_infer_lam_ctx():
 
 
 @pytest.mark.parametrize("i", [0, 2])
-def test_infer_lam_4_level(i):
+def test_infer_lam_4_level(i: int) -> None:
     # i==0: let f x y = y
     # i==2: let f x y = x
     fxy = Lam(
@@ -86,7 +86,7 @@ def test_infer_lam_4_level(i):
 
 
 @pytest.mark.parametrize("i", [0, 1])
-def test_infer_lam_3_level(i):
+def test_infer_lam_3_level(i: int) -> None:
     # i==0: let f (x:A) (y:A) = y
     # i==1: let f (x:A) (y:A) = x
     fxy = Lam(
@@ -104,7 +104,7 @@ def test_infer_lam_3_level(i):
     assert infer_type(t) == Univ(9)
 
 
-def test_two_level_lambda_type_refers_to_previous_binder():
+def test_two_level_lambda_type_refers_to_previous_binder() -> None:
     """
     λ (A : Type₀). λ (x : A). x
 
@@ -181,7 +181,7 @@ def test_type_check_natrec_rejects_invalid_base_case() -> None:
     n = Zero()
     term = NatRec(P, z, s, n)
 
-    with pytest.raises(TypeError, match="Case for Zero has wrong type"):
+    with pytest.raises(TypeError, match="Case for constructor has wrong type"):
         type_check(term, App(P, n))
 
 

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from typing import Mapping, Sequence
+
 from .ast import (
     App,
     ConstructorApp,
     Id,
     IdElim,
+    InductiveConstructor,
     InductiveElim,
     InductiveType,
     Lam,
@@ -19,21 +22,19 @@ from .ast import (
 from .debruijn import subst
 
 
-def _lookup_constructor(inductive: InductiveType, ctor: str):
-    for ctor_def in inductive.constructors:
-        if ctor_def.name == ctor:
-            return ctor_def
-    raise TypeError(f"Unknown constructor {ctor!r} for inductive {inductive.name}")
+def _ensure_constructor(inductive: InductiveType, ctor: InductiveConstructor) -> None:
+    if not any(ctor is ctor_def for ctor_def in inductive.constructors):
+        raise TypeError("Constructor does not belong to inductive type")
 
 
 def _iota_constructor(
     inductive: InductiveType,
     motive: Term,
-    cases: dict[str, Term],
-    ctor: str,
-    args: list[Term] | tuple[Term, ...],
+    cases: Mapping[InductiveConstructor, Term],
+    ctor: InductiveConstructor,
+    args: Sequence[Term],
 ) -> Term:
-    ctor_def = _lookup_constructor(inductive, ctor)
+    _ensure_constructor(inductive, ctor)
     branch = cases.get(ctor)
     if branch is None:
         return InductiveElim(
@@ -44,9 +45,9 @@ def _iota_constructor(
         )
 
     applied_args: list[Term] = []
-    for arg_ty, arg in zip(ctor_def.arg_types, args, strict=False):
+    for arg_ty, arg in zip(ctor.arg_types, args, strict=False):
         applied_args.append(arg)
-        if isinstance(arg_ty, InductiveType) and arg_ty.name == inductive.name:
+        if isinstance(arg_ty, InductiveType) and arg_ty is inductive:
             applied_args.append(InductiveElim(inductive, motive, cases, arg))
 
     result: Term = branch

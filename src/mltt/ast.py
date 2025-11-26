@@ -72,19 +72,17 @@ class Univ:
             raise ValueError("Universe level must be non-negative")
 
 
-@dataclass
+@dataclass(eq=False)
 class InductiveConstructor:
     """A constructor for an inductive type."""
 
-    name: str
     arg_types: Sequence["Term"]
 
 
-@dataclass
+@dataclass(eq=False)
 class InductiveType:
-    """A generalized inductive type with named constructors."""
+    """A generalized inductive type with constructors."""
 
-    name: str
     constructors: Sequence[InductiveConstructor] = ()
     level: int = 0
 
@@ -94,7 +92,7 @@ class ConstructorApp:
     """Application of a constructor to its arguments."""
 
     inductive: InductiveType
-    constructor: str
+    constructor: InductiveConstructor
     args: Sequence["Term"]
 
 
@@ -105,13 +103,13 @@ class InductiveElim:
     Args:
         inductive: Inductive type being eliminated.
         motive: Motive ``λx. Type``.
-        cases: Mapping from constructor name to case branch.
+        cases: Mapping from constructor to case branch.
         scrutinee: Term of the inductive type being eliminated.
     """
 
     inductive: InductiveType
     motive: Term
-    cases: Mapping[str, Term]
+    cases: Mapping[InductiveConstructor, Term]
     scrutinee: Term
 
 

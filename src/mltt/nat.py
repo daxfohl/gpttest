@@ -19,11 +19,10 @@ from .eq import ap
 from .normalization import normalize
 from .typing import type_check
 
-Nat = InductiveType(name="Nat", level=0)
-Nat.constructors = (
-    InductiveConstructor("Zero", ()),
-    InductiveConstructor("Succ", (Nat,)),
-)
+Nat = InductiveType(level=0)
+ZeroCtor = InductiveConstructor(())
+SuccCtor = InductiveConstructor((Nat,))
+Nat.constructors = (ZeroCtor, SuccCtor)
 
 
 def NatType() -> InductiveType:
@@ -31,11 +30,11 @@ def NatType() -> InductiveType:
 
 
 def Zero() -> ConstructorApp:
-    return ConstructorApp(Nat, "Zero", ())
+    return ConstructorApp(Nat, ZeroCtor, ())
 
 
 def Succ(n: Term) -> ConstructorApp:
-    return ConstructorApp(Nat, "Succ", (n,))
+    return ConstructorApp(Nat, SuccCtor, (n,))
 
 
 def NatRec(P: Term, base: Term, step: Term, n: Term) -> InductiveElim:
@@ -45,8 +44,8 @@ def NatRec(P: Term, base: Term, step: Term, n: Term) -> InductiveElim:
         inductive=Nat,
         motive=P,
         cases={
-            "Zero": base,
-            "Succ": step,
+            ZeroCtor: base,
+            SuccCtor: step,
         },
         scrutinee=n,
     )

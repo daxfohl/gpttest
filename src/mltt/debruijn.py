@@ -40,7 +40,7 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
             return InductiveElim(
                 inductive,
                 shift(motive, by, cutoff),
-                {name: shift(branch, by, cutoff) for name, branch in cases.items()},
+                {ctor: shift(branch, by, cutoff) for ctor, branch in cases.items()},
                 shift(scrutinee, by, cutoff),
             )
         case Id(ty, l, r):
@@ -90,7 +90,7 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
             return InductiveElim(
                 inductive,
                 subst(motive, sub, j),
-                {name: subst(branch, sub, j) for name, branch in cases.items()},
+                {ctor: subst(branch, sub, j) for ctor, branch in cases.items()},
                 subst(scrutinee, sub, j),
             )
         case Id(ty, l, r):
