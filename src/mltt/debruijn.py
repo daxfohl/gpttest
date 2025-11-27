@@ -5,13 +5,10 @@ from __future__ import annotations
 from .ast import (
     App,
     InductiveConstructor,
-    Id,
-    IdElim,
     InductiveElim,
     InductiveType,
     Lam,
     Pi,
-    Refl,
     Term,
     Univ,
     Var,
@@ -39,19 +36,6 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
             )
         case InductiveConstructor():
             return term
-        case Id(ty, l, r):
-            return Id(shift(ty, by, cutoff), shift(l, by, cutoff), shift(r, by, cutoff))
-        case Refl(ty, t):
-            return Refl(shift(ty, by, cutoff), shift(t, by, cutoff))
-        case IdElim(A, x, P, d, y, p):
-            return IdElim(
-                shift(A, by, cutoff),
-                shift(x, by, cutoff),
-                shift(P, by, cutoff),
-                shift(d, by, cutoff),
-                shift(y, by, cutoff),
-                shift(p, by, cutoff),
-            )
         case Univ() | InductiveType():
             return term
 
@@ -89,23 +73,6 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
             )
         case InductiveConstructor():
             return term
-        case Id(ty, l, r):
-            return Id(
-                subst(ty, sub, j),
-                subst(l, sub, j),
-                subst(r, sub, j),
-            )
-        case Refl(ty, t):
-            return Refl(subst(ty, sub, j), subst(t, sub, j))
-        case IdElim(A, x, P, d, y, p):
-            return IdElim(
-                subst(A, sub, j),
-                subst(x, sub, j),
-                subst(P, sub, j),
-                subst(d, sub, j),
-                subst(y, sub, j),
-                subst(p, sub, j),
-            )
         case Univ() | InductiveType():
             return term
 

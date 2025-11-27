@@ -108,67 +108,8 @@ class InductiveElim:
     scrutinee: Term
 
 
-@dataclass(frozen=True)
-class Id:
-    """Identity type over ``ty`` relating ``lhs`` and ``rhs``.
-
-    Args:
-        ty: Ambient type ``A``.
-        lhs: Left endpoint ``x``.
-        rhs: Right endpoint ``y``.
-    """
-
-    ty: Term
-    lhs: Term
-    rhs: Term
-
-
-@dataclass(frozen=True)
-class Refl:
-    """Canonical inhabitant of an identity type.
-
-    Args:
-        ty: Ambient type ``A``.
-        t: Witness term ``x``; produces ``Id A x x``.
-    """
-
-    ty: Term
-    t: Term
-
-
-@dataclass(frozen=True)
-class IdElim:
-    """Identity elimination principle (J).
-
-    Args:
-        A: Ambient type ``A``.
-        x: Base point ``x : A``.
-        P: Motive ``λy. Id A x y -> Type``.
-        d: Proof of ``P x (Refl x)``.
-        y: Target point ``y : A``.
-        p: Proof of ``Id A x y`` being eliminated.
-    """
-
-    A: Term
-    x: Term
-    P: Term
-    d: Term
-    y: Term
-    p: Term
-
-
 type Term = (
-    Var
-    | Lam
-    | Pi
-    | App
-    | Univ
-    | InductiveConstructor
-    | InductiveType
-    | InductiveElim
-    | Id
-    | Refl
-    | IdElim
+    Var | Lam | Pi | App | Univ | InductiveConstructor | InductiveType | InductiveElim
 )
 
 
@@ -182,7 +123,4 @@ __all__ = [
     "InductiveConstructor",
     "InductiveType",
     "InductiveElim",
-    "Id",
-    "Refl",
-    "IdElim",
 ]

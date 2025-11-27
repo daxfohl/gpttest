@@ -1,6 +1,7 @@
 import pytest
 
-from mltt.ast import App, Id, IdElim, Lam, Pi, Refl, Term, Univ, Var
+from mltt.ast import App, Lam, Pi, Term, Univ, Var
+from mltt.eq import Id, IdElim, Refl
 from mltt.normalization import normalize
 from mltt.typing import infer_type, type_check, type_equal
 from mltt.nat import NatRec, NatType, Zero, Succ, add_terms, numeral

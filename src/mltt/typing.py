@@ -6,14 +6,11 @@ from typing import Sequence
 
 from .ast import (
     App,
-    Id,
-    IdElim,
     InductiveConstructor,
     InductiveElim,
     InductiveType,
     Lam,
     Pi,
-    Refl,
     Term,
     Univ,
     Var,
@@ -209,16 +206,6 @@ def infer_type(term: Term, ctx: list[Term] | None = None) -> Term:
             return _ctor_type(term)
         case InductiveElim(_, motive, _, scrutinee):
             return App(motive, scrutinee)
-        case Id(ty, lhs, rhs):
-            if not type_check(lhs, ty, ctx) or not type_check(rhs, ty, ctx):
-                raise TypeError("Id sides must have given type")
-            return Univ(_expect_universe(ty, ctx))
-        case Refl(ty, t):
-            if not type_check(t, ty, ctx):
-                raise TypeError("Refl term not of stated type")
-            return Id(ty, t, t)
-        case IdElim(A, x, P, d, y, p):
-            return App(App(P, y), p)
 
     raise TypeError(f"Unexpected term in infer_type: {term!r}")
 
@@ -288,24 +275,6 @@ def type_check(term: Term, ty: Term, ctx: list[Term] | None = None) -> bool:
             if target_level > motive_level:
                 raise TypeError("InductiveElim motive returns too small a universe")
             return type_equal(expected_ty, target_ty)
-        case Id(id_ty, l, r):
-            if not type_check(l, id_ty, ctx) or not type_check(r, id_ty, ctx):
-                raise TypeError("Id sides not of given type")
-            return isinstance(expected_ty, Univ)
-        case Refl(rty, t):
-            if not type_check(t, rty, ctx):
-                raise TypeError("Refl term not of stated type")
-            return type_equal(expected_ty, Id(rty, t, t))
-        case IdElim(A, x, P, d, y, p):
-            if not type_check(x, A, ctx):
-                raise TypeError("IdElim: x : A fails")
-            if not type_check(y, A, ctx):
-                raise TypeError("IdElim: y : A fails")
-            if not type_check(p, Id(A, x, y), ctx):
-                raise TypeError("IdElim: p : Id(A,x,y) fails")
-            if not type_check(d, App(App(P, x), Refl(A, x)), ctx):
-                raise TypeError("IdElim: d : P x (Refl x) fails")
-            return type_equal(expected_ty, App(App(P, y), p))
         case Univ(_):
             return isinstance(expected_ty, Univ)
 

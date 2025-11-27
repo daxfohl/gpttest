@@ -4,17 +4,15 @@ from __future__ import annotations
 
 from .ast import (
     App,
-    Id,
     InductiveConstructor,
     InductiveElim,
     InductiveType,
     Lam,
     Pi,
-    Refl,
     Term,
     Var,
 )
-from .eq import ap
+from .eq import Id, Refl, ap
 from .normalization import normalize
 from .typing import type_check
 
@@ -105,7 +103,7 @@ def add_n_0() -> Term:
                 Id(NatType(), add_terms(Var(0), Zero()), Var(0)),
             ),
             # base: add 0 0 ≡ 0  ⇒ refl
-            base=Refl(ty=NatType(), t=Zero()),
+            base=Refl(NatType(), Zero()),
             # step: ih : Id Nat (add k 0) k  ⇒ need Id Nat (add (Succ k) 0) (Succ k)
             # definitional eqn: add (Succ k) 0 ≡ Succ (add k 0)
             # so use ap Succ ih : Id Nat (Succ (add k 0)) (Succ k)

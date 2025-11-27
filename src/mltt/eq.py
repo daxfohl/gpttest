@@ -1,25 +1,56 @@
-"""Basic equality combinators for the identity type."""
+"""Basic equality combinators defined via the inductive identity type."""
 
 from __future__ import annotations
 
-from .ast import App, Id, IdElim, Lam, Refl, Term, Var
+from .ast import (
+    App,
+    InductiveConstructor,
+    InductiveElim,
+    InductiveType,
+    Lam,
+    Term,
+    Univ,
+    Var,
+)
 from .debruijn import shift
+
+Eq = InductiveType(param_types=(Univ(0), Var(0)), index_types=(Var(1),), level=0)
+ReflCtor = InductiveConstructor(Eq, (), (Var(1),))
+object.__setattr__(Eq, "constructors", (ReflCtor,))
+
+
+def Id(A: Term, x: Term, y: Term) -> Term:
+    return App(App(App(Eq, A), x), y)
+
+
+def Refl(A: Term, x: Term) -> Term:
+    return App(App(App(ReflCtor, A), x), x)
+
+
+def IdElim(A: Term, x: Term, P: Term, d: Term, y: Term, p: Term) -> InductiveElim:
+    """
+    Identity elimination (J) built from the generic inductive eliminator.
+
+    Args mirror the previous native IdElim constructor:
+      A: Ambient type.
+      x: Base point.
+      P: Motive ``λy. Id A x y -> Type``.
+      d: Proof of ``P x (Refl x)``.
+      y: Target point.
+      p: Proof of ``Id A x y`` being eliminated.
+    """
+
+    motive = Lam(Id(A, x, y), App(App(P, y), Var(0)))
+    return InductiveElim(
+        inductive=Eq,
+        motive=motive,
+        cases=[d],
+        scrutinee=p,
+    )
 
 
 def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
-    """Dependent congruence for arbitrary codomains.
-
-    Args:
-        f: Dependent function ``(a : A) -> B a`` whose action on equal terms we lift.
-        A: Domain type of ``f`` and the type witnessing ``p``.
-        B: Dependent codomain family over ``A``.
-        x: Left endpoint of the given equality proof.
-        y: Right endpoint of the given equality proof.
-        p: Proof of ``Id A x y``.
-
-    Returns:
-        A term of type ``Id (B y) (f x) (f y)`` justifying that ``f`` preserves ``p``.
-    """
+    """Dependent congruence for arbitrary codomains."""
 
     P = Lam(
         A,
@@ -36,19 +67,7 @@ def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
 
 
 def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
-    """Standard dependent congruence.
-
-    Args:
-        f: Dependent function ``(a : A) -> B a``.
-        A: Domain type.
-        B: Codomain family depending on ``A``.
-        x: Left endpoint of ``p``.
-        y: Right endpoint of ``p``.
-        p: Proof of ``Id A x y``.
-
-    Returns:
-        Proof of ``Id (B y) (f x) (f y)`` obtained by lifting ``p`` through ``f``.
-    """
+    """Standard dependent congruence."""
 
     A1 = shift(A, 1)
     x1 = shift(x, 1)
@@ -69,35 +88,13 @@ def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
 
 
 def ap(f: Term, A: Term, B0: Term, x: Term, y: Term, p: Term) -> Term:
-    """Non-dependent congruence (``ap``).
-
-    Args:
-        f: Plain function ``A -> B0``.
-        A: Domain type.
-        B0: Codomain type (constant family).
-        x: Left endpoint of ``p``.
-        y: Right endpoint of ``p``.
-        p: Proof of ``Id A x y``.
-
-    Returns:
-        Proof of ``Id B0 (f x) (f y)`` asserting ``f`` preserves equality.
-    """
+    """Non-dependent congruence (``ap``)."""
 
     return cong(f, A, Lam(A, B0), x, y, p)
 
 
 def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
-    """Symmetry of identity proofs.
-
-    Args:
-        A: Ambient type.
-        x: Left endpoint.
-        y: Right endpoint.
-        p: Proof of ``Id A x y``.
-
-    Returns:
-        A proof of ``Id A y x`` obtained by flipping ``p``.
-    """
+    """Symmetry of identity proofs."""
 
     A1 = shift(A, 1)
     x1 = shift(x, 1)
@@ -116,19 +113,7 @@ def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
 
 
 def trans(A: Term, x: Term, y: Term, z: Term, p: Term, q: Term) -> Term:
-    """Transitivity of identity proofs.
-
-    Args:
-        A: Ambient type.
-        x: First element.
-        y: Middle element shared between the two proofs.
-        z: Final element.
-        p: Proof of ``Id A x y``.
-        q: Proof of ``Id A y z``.
-
-    Returns:
-        A proof of ``Id A x z`` composing ``p`` and ``q``.
-    """
+    """Transitivity of identity proofs."""
 
     A1 = shift(A, 1)
     y1 = shift(y, 1)
@@ -145,4 +130,4 @@ def trans(A: Term, x: Term, y: Term, z: Term, p: Term, q: Term) -> Term:
     return IdElim(A, y, Q, p, z, q)
 
 
-__all__ = ["cong", "sym", "trans"]
+__all__ = ["Eq", "Id", "Refl", "IdElim", "cong", "sym", "trans"]

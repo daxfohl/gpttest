@@ -1,4 +1,5 @@
-from mltt.ast import App, Id, IdElim, Lam, Refl, Var
+from mltt.ast import App, Lam, Var
+from mltt.eq import Id, IdElim, Refl
 from mltt.eq import cong, sym, trans
 from mltt.nat import NatType, Succ, Zero
 

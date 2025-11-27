@@ -1,4 +1,5 @@
-from mltt.ast import App, Id, Pi, Refl, Term, Var
+from mltt.ast import App, Pi, Term, Var
+from mltt.eq import Id, Refl
 from mltt.nat import NatType, Succ, Zero, add, add_terms, add_n_0, numeral
 from mltt.normalization import normalize
 from mltt.typing import type_check
