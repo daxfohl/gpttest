@@ -26,10 +26,6 @@ def _apply_term(term: Term, args: tuple[Term, ...]) -> Term:
     return result
 
 
-def _apply_ctor(ctor: InductiveConstructor, args: tuple[Term, ...]) -> Term:
-    return _apply_term(ctor, args)
-
-
 def _decompose_ctor_app(
     term: Term,
 ) -> tuple[InductiveConstructor, tuple[Term, ...]] | None:
@@ -96,16 +92,16 @@ def _iota_constructor(
     index_count = len(inductive.index_types)
     index = _ctor_index(inductive, ctor)
     if index >= len(cases):
-        return InductiveElim(inductive, motive, cases, _apply_ctor(ctor, args))
+        return InductiveElim(inductive, motive, cases, _apply_term(ctor, args))
     branch = cases[index]
 
     if len(args) < param_count + index_count:
-        return InductiveElim(inductive, motive, cases, _apply_ctor(ctor, args))
+        return InductiveElim(inductive, motive, cases, _apply_term(ctor, args))
     param_args = args[:param_count]
     index_args = args[param_count : param_count + index_count]
     ctor_args = args[param_count + index_count :]
     if len(ctor_args) != len(ctor.arg_types):
-        return InductiveElim(inductive, motive, cases, _apply_ctor(ctor, args))
+        return InductiveElim(inductive, motive, cases, _apply_term(ctor, args))
 
     instantiated_arg_types = [
         _instantiate_params_indices(arg_ty, param_args, index_args, offset=idx)
@@ -238,7 +234,7 @@ def beta_step(term: Term) -> Term:
                 return InductiveElim(inductive, motive, cases, scrutinee1)
             return term
 
-        case Var(_) | Univ() | InductiveType() | InductiveConstructor():
+        case Var() | Univ() | InductiveType() | InductiveConstructor():
             return term
 
     raise TypeError(f"Unexpected term in beta_step: {term!r}")

@@ -37,8 +37,6 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
                 [shift(branch, by, cutoff) for branch in cases],
                 shift(scrutinee, by, cutoff),
             )
-        case InductiveConstructor():
-            return term
         case Id(ty, l, r):
             return Id(shift(ty, by, cutoff), shift(l, by, cutoff), shift(r, by, cutoff))
         case Refl(ty, t):
@@ -52,7 +50,7 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
                 shift(y, by, cutoff),
                 shift(p, by, cutoff),
             )
-        case Univ() | InductiveType():
+        case Univ() | InductiveType() | InductiveConstructor():
             return term
 
     raise TypeError(f"Unexpected term in shift: {term!r}")
@@ -87,8 +85,6 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
                 [subst(branch, sub, j) for branch in cases],
                 subst(scrutinee, sub, j),
             )
-        case InductiveConstructor():
-            return term
         case Id(ty, l, r):
             return Id(
                 subst(ty, sub, j),
@@ -106,7 +102,7 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
                 subst(y, sub, j),
                 subst(p, sub, j),
             )
-        case Univ() | InductiveType():
+        case Univ() | InductiveType() | InductiveConstructor():
             return term
 
     raise TypeError(f"Unexpected term in subst: {term!r}")
