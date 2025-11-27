@@ -45,11 +45,39 @@ def _decompose_ctor_app(
     return None
 
 
-def _instantiate_params(term: Term, params: Sequence[Term], offset: int = 0) -> Term:
+def _decompose_app(term: Term) -> tuple[Term, tuple[Term, ...]]:
+    args: list[Term] = []
+    head = term
+    while isinstance(head, App):
+        args.insert(0, head.arg)
+        head = head.func
+    return head, tuple(args)
+
+
+def _instantiate_params_indices(
+    term: Term,
+    params: Sequence[Term],
+    indices: Sequence[Term],
+    offset: int = 0,
+) -> Term:
     result = term
-    for param in reversed(params):
-        result = subst(result, param, j=offset)
+    for idx, param in enumerate(reversed(params)):
+        result = subst(result, param, j=offset + len(indices) + idx)
+    for idx, index in enumerate(reversed(indices)):
+        result = subst(result, index, j=offset + idx)
     return result
+
+
+def _match_inductive_application(
+    term: Term, inductive: InductiveType
+) -> tuple[tuple[Term, ...], tuple[Term, ...]] | None:
+    head, args = _decompose_app(term)
+    param_count = len(inductive.param_types)
+    index_count = len(inductive.index_types)
+    total = param_count + index_count
+    if head is inductive and len(args) == total:
+        return args[:param_count], args[param_count:]
+    return None
 
 
 def _ctor_index(inductive: InductiveType, ctor: InductiveConstructor) -> int:
@@ -67,28 +95,36 @@ def _iota_constructor(
     args: Sequence[Term],
 ) -> Term:
     param_count = len(inductive.param_types)
+    index_count = len(inductive.index_types)
     index = _ctor_index(inductive, ctor)
     if index >= len(cases):
         return InductiveElim(inductive, motive, cases, _apply_ctor(ctor, args))
     branch = cases[index]
 
-    if len(args) < param_count:
+    if len(args) < param_count + index_count:
         return InductiveElim(inductive, motive, cases, _apply_ctor(ctor, args))
     param_args = args[:param_count]
-    ctor_args = args[param_count:]
+    index_args = args[param_count : param_count + index_count]
+    ctor_args = args[param_count + index_count :]
     if len(ctor_args) != len(ctor.arg_types):
         return InductiveElim(inductive, motive, cases, _apply_ctor(ctor, args))
 
     instantiated_arg_types = [
-        _instantiate_params(arg_ty, param_args, offset=idx)
+        _instantiate_params_indices(arg_ty, param_args, index_args, offset=idx)
         for idx, arg_ty in enumerate(ctor.arg_types)
     ]
-    inductive_applied = _apply_term(inductive, param_args)
     applied_args: list[Term] = []
     for arg_ty, arg in zip(instantiated_arg_types, ctor_args, strict=False):
         applied_args.append(arg)
-        if arg_ty == inductive_applied:
-            applied_args.append(InductiveElim(inductive, motive, cases, arg))
+        match _match_inductive_application(arg_ty, inductive):
+            case (ctor_params, _):
+                if len(ctor_params) == len(param_args) and all(
+                    param == arg_param
+                    for param, arg_param in zip(ctor_params, param_args)
+                ):
+                    applied_args.append(InductiveElim(inductive, motive, cases, arg))
+            case _:
+                pass
 
     result: Term = branch
     for a in applied_args:
@@ -216,7 +252,11 @@ def iota_head_step(t: Term) -> Term:
             decomposition = _decompose_ctor_app(scrutinee)
             if decomposition:
                 ctor, args = decomposition
-                expected_args = len(inductive.param_types) + len(ctor.arg_types)
+                expected_args = (
+                    len(inductive.param_types)
+                    + len(inductive.index_types)
+                    + len(ctor.arg_types)
+                )
                 if ctor.inductive is inductive and len(args) == expected_args:
                     return _iota_constructor(inductive, motive, cases, ctor, args)
             scrutinee1 = iota_head_step(scrutinee)

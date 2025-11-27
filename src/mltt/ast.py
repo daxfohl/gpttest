@@ -78,6 +78,7 @@ class InductiveConstructor:
 
     inductive: "InductiveType"
     arg_types: Sequence["Term"]
+    result_indices: Sequence["Term"] = ()
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,7 @@ class InductiveType:
     """A generalized inductive type with constructors."""
 
     param_types: Sequence["Term"] = ()
+    index_types: Sequence["Term"] = ()
     constructors: Sequence[InductiveConstructor] = ()
     level: int = 0
 
