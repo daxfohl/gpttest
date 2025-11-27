@@ -1,0 +1,48 @@
+"""Helpers for building generic list terms and combinators."""
+
+from __future__ import annotations
+
+from .ast import (
+    App,
+    InductiveConstructor,
+    InductiveElim,
+    InductiveType,
+    Lam,
+    Term,
+    Univ,
+    Var,
+)
+
+List = InductiveType(param_types=(Univ(0),), level=0)
+NilCtor = InductiveConstructor(List, ())
+ConsCtor = InductiveConstructor(
+    List,
+    (
+        Var(0),
+        App(List, Var(1)),
+    ),
+)
+object.__setattr__(List, "constructors", (NilCtor, ConsCtor))
+
+
+def ListType(elem_ty: Term) -> App:
+    return App(List, elem_ty)
+
+
+def Nil(elem_ty: Term) -> App:
+    return App(NilCtor, elem_ty)
+
+
+def Cons(elem_ty: Term, head: Term, tail: Term) -> Term:
+    return App(App(App(ConsCtor, elem_ty), head), tail)
+
+
+def ListRec(elem_ty: Term, P: Term, base: Term, step: Term, xs: Term) -> InductiveElim:
+    """Recursor for ``List elem_ty`` using the generic eliminator."""
+
+    return InductiveElim(
+        inductive=List,
+        motive=P,
+        cases=[base, step],
+        scrutinee=xs,
+    )

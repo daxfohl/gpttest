@@ -84,6 +84,7 @@ class InductiveConstructor:
 class InductiveType:
     """A generalized inductive type with constructors."""
 
+    param_types: Sequence["Term"] = ()
     constructors: Sequence[InductiveConstructor] = ()
     level: int = 0
 

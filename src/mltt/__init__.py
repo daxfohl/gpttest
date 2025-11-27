@@ -1,1 +1,1 @@
-__all__ = ["ast", "debruijn", "eq", "normalization", "nat", "typing"]
+__all__ = ["ast", "debruijn", "eq", "list", "normalization", "nat", "typing"]
