@@ -1,5 +1,5 @@
 from mltt.core.ast import App, Id, Pi, Refl, Term, Var
-from mltt.core.normalization import normalize
+from mltt.core.reduce import normalize
 from mltt.core.typing import type_check
 from mltt.inductive.nat import NatType, Succ, Zero, add, add_terms, add_n_0, numeral
 

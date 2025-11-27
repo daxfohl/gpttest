@@ -1,5 +1,5 @@
 from mltt.core.ast import App, IdElim, Lam, Refl, Univ, Var
-from mltt.core.normalization import beta_step, normalize, normalize_step, whnf
+from mltt.core.reduce import beta_step, normalize, normalize_step, whnf
 from mltt.inductive.nat import NatRec, NatType, Succ, Zero, add
 
 

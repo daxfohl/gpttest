@@ -14,7 +14,7 @@ from ..core.ast import (
     Term,
     Var,
 )
-from ..core.normalization import normalize
+from ..core.reduce.normalize import normalize
 from ..core.typing import type_check
 from .eq import ap
 

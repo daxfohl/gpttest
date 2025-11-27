@@ -17,7 +17,7 @@ from .ast import (
     Var,
 )
 from .debruijn import shift, subst
-from .normalization import normalize
+from .reduce.normalize import normalize
 
 
 def _apply_term(term: Term, args: tuple[Term, ...]) -> Term:

@@ -1,6 +1,6 @@
 __all__ = [
     "ast",
     "debruijn",
-    "normalization",
+    "reduce",
     "typing",
 ]
