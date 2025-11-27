@@ -24,6 +24,7 @@ def test_fin_rec_on_fz_reduces_to_base() -> None:
     term = fin.FinRec(P, base, step, fin.FZ(Zero()))
     assert whnf(term) == base
 
+
 def test_vec_rec_preserves_length_index() -> None:
     elem_ty = NatType()
     # Motive specialized to length 0 so it matches Nil's result index.
@@ -54,4 +55,3 @@ def test_fin_rec_respects_index() -> None:
     rec = fin.FinRec(P, base, step, k)
     assert type_check(rec, NatType())
     assert normalize(rec) == Zero()
-

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
 
 
 @dataclass(frozen=True)
@@ -76,18 +75,18 @@ class Univ:
 class InductiveConstructor:
     """A constructor for an inductive type."""
 
-    inductive: "InductiveType"
-    arg_types: Sequence["Term"]
-    result_indices: Sequence["Term"] = ()
+    inductive: InductiveType
+    arg_types: tuple[Term, ...]
+    result_indices: tuple[Term, ...] = ()
 
 
 @dataclass(frozen=True)
 class InductiveType:
     """A generalized inductive type with constructors."""
 
-    param_types: Sequence["Term"] = ()
-    index_types: Sequence["Term"] = ()
-    constructors: Sequence[InductiveConstructor] = ()
+    param_types: tuple[Term, ...] = ()
+    index_types: tuple[Term, ...] = ()
+    constructors: tuple[InductiveConstructor, ...] = ()
     level: int = 0
 
 

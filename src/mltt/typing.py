@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Sequence
-
 from .ast import (
     App,
     Id,
@@ -22,7 +20,7 @@ from .debruijn import shift, subst
 from .normalization import normalize
 
 
-def _apply_term(term: Term, args: Sequence[Term]) -> Term:
+def _apply_term(term: Term, args: tuple[Term, ...]) -> Term:
     result: Term = term
     for arg in args:
         result = App(result, arg)
@@ -57,7 +55,7 @@ def _ctor_type(ctor: InductiveConstructor) -> Term:
     return result
 
 
-def _apply_ctor(ctor: InductiveConstructor, args: Sequence[Term]) -> Term:
+def _apply_ctor(ctor: InductiveConstructor, args: tuple[Term, ...]) -> Term:
     return _apply_term(ctor, args)
 
 
@@ -72,8 +70,8 @@ def _decompose_app(term: Term) -> tuple[Term, tuple[Term, ...]]:
 
 def _instantiate_params_indices(
     term: Term,
-    params: Sequence[Term],
-    indices: Sequence[Term],
+    params: tuple[Term, ...],
+    indices: tuple[Term, ...],
     offset: int = 0,
 ) -> Term:
     """Substitute ``params``/``indices`` (params outermost, indices next)."""
@@ -99,8 +97,8 @@ def _match_inductive_application(
 
 def _expected_case_type(
     inductive: InductiveType,
-    param_args: Sequence[Term],
-    index_args: Sequence[Term],
+    param_args: tuple[Term, ...],
+    index_args: tuple[Term, ...],
     motive: Term,
     ctor: InductiveConstructor,
 ) -> Term:

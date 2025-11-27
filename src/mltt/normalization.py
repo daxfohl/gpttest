@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Sequence
-
 from .ast import (
     App,
     Id,
@@ -21,14 +19,14 @@ from .ast import (
 from .debruijn import subst
 
 
-def _apply_term(term: Term, args: Sequence[Term]) -> Term:
+def _apply_term(term: Term, args: tuple[Term, ...]) -> Term:
     result: Term = term
     for arg in args:
         result = App(result, arg)
     return result
 
 
-def _apply_ctor(ctor: InductiveConstructor, args: Sequence[Term]) -> Term:
+def _apply_ctor(ctor: InductiveConstructor, args: tuple[Term, ...]) -> Term:
     return _apply_term(ctor, args)
 
 
@@ -56,8 +54,8 @@ def _decompose_app(term: Term) -> tuple[Term, tuple[Term, ...]]:
 
 def _instantiate_params_indices(
     term: Term,
-    params: Sequence[Term],
-    indices: Sequence[Term],
+    params: tuple[Term, ...],
+    indices: tuple[Term, ...],
     offset: int = 0,
 ) -> Term:
     result = term
@@ -92,7 +90,7 @@ def _iota_constructor(
     motive: Term,
     cases: list[Term],
     ctor: InductiveConstructor,
-    args: Sequence[Term],
+    args: tuple[Term, ...],
 ) -> Term:
     param_count = len(inductive.param_types)
     index_count = len(inductive.index_types)
