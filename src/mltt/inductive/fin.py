@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .ast import (
+from ..core.ast import (
     App,
     InductiveConstructor,
     InductiveElim,

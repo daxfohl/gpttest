@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .ast import App, Id, IdElim, Lam, Refl, Term, Var
-from .debruijn import shift
+from ..core.ast import App, Id, IdElim, Lam, Refl, Term, Var
+from ..core.debruijn import shift
 
 
 def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:

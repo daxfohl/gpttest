@@ -1,7 +1,7 @@
-import mltt.vec as vec
-from mltt.ast import Pi, Univ
-from mltt.nat import NatType, Succ, Zero
-from mltt.typing import infer_type, type_check
+import mltt.inductive.vec as vec
+from mltt.core.ast import Pi, Univ
+from mltt.core.typing import infer_type, type_check
+from mltt.inductive.nat import NatType, Succ, Zero
 
 
 def test_infer_vec_type() -> None:

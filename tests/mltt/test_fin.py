@@ -1,7 +1,7 @@
-import mltt.fin as fin
-from mltt.ast import Pi, Univ
-from mltt.nat import NatType, Succ, Zero
-from mltt.typing import infer_type, type_check
+import mltt.inductive.fin as fin
+from mltt.core.ast import Pi, Univ
+from mltt.inductive.nat import NatType, Succ, Zero
+from mltt.core.typing import infer_type, type_check
 
 
 def test_infer_fin_type() -> None:

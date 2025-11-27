@@ -1,7 +1,7 @@
-from mltt.ast import App, Id, Lam, Pi, Refl, Term, Var
-from mltt.eq import ap
-from mltt.nat import NatType, Succ, add_terms, numeral
-from mltt.typing import infer_type, type_check, type_equal
+from mltt.core.ast import App, Id, Lam, Pi, Refl, Term, Var
+from mltt.core.typing import infer_type, type_check, type_equal
+from mltt.inductive.eq import ap
+from mltt.inductive.nat import NatType, Succ, add_terms, numeral
 
 
 def test_refl_proves_succ_self_equality() -> None:

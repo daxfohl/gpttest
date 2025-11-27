@@ -1,9 +1,9 @@
-import mltt.vec as vec
-import mltt.fin as fin
-from mltt.ast import Lam, Var
-from mltt.nat import NatType, Zero, Succ
-from mltt.normalization import whnf, normalize
-from mltt.typing import type_check
+import mltt.inductive.fin as fin
+import mltt.inductive.vec as vec
+from mltt.core.ast import Lam, Var
+from mltt.inductive.nat import NatType, Zero, Succ
+from mltt.core.normalization import normalize, whnf
+from mltt.core.typing import type_check
 
 
 def test_vec_rec_on_nil_reduces_to_base() -> None:

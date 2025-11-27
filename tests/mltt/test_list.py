@@ -1,8 +1,8 @@
-import mltt.list as listm
-from mltt.ast import App, Lam, Pi, Univ, Var
-from mltt.nat import NatType, Succ, Zero
-from mltt.normalization import normalize
-from mltt.typing import infer_type, type_check
+import mltt.inductive.list as listm
+from mltt.core.ast import App, Lam, Pi, Univ, Var
+from mltt.inductive.nat import NatType, Succ, Zero
+from mltt.core.normalization import normalize
+from mltt.core.typing import infer_type, type_check
 
 
 def test_infer_list_type_constructor() -> None:

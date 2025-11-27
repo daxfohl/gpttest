@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .ast import (
+from ..core.ast import (
     App,
     Id,
     InductiveConstructor,
@@ -14,9 +14,9 @@ from .ast import (
     Term,
     Var,
 )
+from ..core.normalization import normalize
+from ..core.typing import type_check
 from .eq import ap
-from .normalization import normalize
-from .typing import type_check
 
 Nat = InductiveType(level=0)
 ZeroCtor = InductiveConstructor(Nat, ())

@@ -1,7 +1,7 @@
-from mltt.ast import App, Id, Pi, Refl, Term, Var
-from mltt.nat import NatType, Succ, Zero, add, add_terms, add_n_0, numeral
-from mltt.normalization import normalize
-from mltt.typing import type_check
+from mltt.core.ast import App, Id, Pi, Refl, Term, Var
+from mltt.core.normalization import normalize
+from mltt.core.typing import type_check
+from mltt.inductive.nat import NatType, Succ, Zero, add, add_terms, add_n_0, numeral
 
 
 def test_add_has_expected_pi_type() -> None:

@@ -1,6 +1,6 @@
-from mltt.ast import App, Id, IdElim, InductiveElim, Lam, Pi, Term, Univ, Var
-from mltt.debruijn import shift, subst
-from mltt.nat import NatRec, Succ, Zero
+from mltt.core.ast import App, Id, IdElim, InductiveElim, Lam, Pi, Term, Univ, Var
+from mltt.core.debruijn import shift, subst
+from mltt.inductive.nat import NatRec, Succ, Zero
 
 
 # ------------- Shift: basic behavior -------------

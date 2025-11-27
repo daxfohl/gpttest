@@ -1,6 +1,6 @@
-from mltt.ast import App, Id, IdElim, Lam, Refl, Var
-from mltt.eq import cong, sym, trans
-from mltt.nat import NatType, Succ, Zero
+from mltt.core.ast import App, Id, IdElim, Lam, Refl, Var
+from mltt.inductive.eq import cong, sym, trans
+from mltt.inductive.nat import NatType, Succ, Zero
 
 
 def test_cong_builds_identity_elimination_over_function_application() -> None:

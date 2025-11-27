@@ -1,6 +1,6 @@
-from mltt.ast import App, IdElim, Lam, Refl, Univ, Var
-from mltt.nat import NatRec, NatType, Succ, Zero, add
-from mltt.normalization import beta_step, normalize, whnf, normalize_step
+from mltt.core.ast import App, IdElim, Lam, Refl, Univ, Var
+from mltt.core.normalization import beta_step, normalize, normalize_step, whnf
+from mltt.inductive.nat import NatRec, NatType, Succ, Zero, add
 
 
 def test_normalize_performs_nested_reduction() -> None:
