@@ -32,13 +32,16 @@ def _iota_constructor(
     ctor: InductiveConstructor,
     args: tuple[Term, ...],
 ) -> Term:
+    """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
     param_count = len(inductive.param_types)
     index_count = len(inductive.index_types)
     index = ctor_index(inductive, ctor)
+    # If we don't have a branch for this constructor, leave it untouched.
     if index >= len(cases):
         return InductiveElim(inductive, motive, cases, apply_term(ctor, args))
     branch = cases[index]
 
+    # Need at least params+indices present to proceed; otherwise keep stuck.
     if len(args) < param_count + index_count:
         return InductiveElim(inductive, motive, cases, apply_term(ctor, args))
     param_args = args[:param_count]
@@ -57,6 +60,7 @@ def _iota_constructor(
         for idx, arg_ty in enumerate(ctor.arg_types)
     ]
 
+    # Count recursive occurrences to know how many IH binders we expect.
     recursive_counts = sum(
         1
         for arg_ty in instantiated_arg_types
@@ -77,6 +81,8 @@ def _iota_constructor(
 
     extra_needed = max(0, lam_count - binder_count)
     branch_for_indices = branch
+    # Some eliminators allow index arguments to be implicit; try to feed them
+    # if the branch starts with lambdas matching the index argument types.
     for idx_arg, idx_ty in zip(index_args, index_arg_types):
         if extra_needed <= 0:
             break
@@ -87,6 +93,7 @@ def _iota_constructor(
         else:
             break
 
+    # Now thread ctor payloads and insert recursive calls for recursive args.
     for arg_ty, arg in zip(instantiated_arg_types, ctor_args, strict=False):
         applied_args.append(arg)
         match match_inductive_application(arg_ty, inductive):
@@ -106,8 +113,10 @@ def _iota_constructor(
 
 
 def iota_head_step(t: Term) -> Term:
+    """Perform one iota step at the head position, if possible."""
     match t:
         case InductiveElim(inductive, motive, cases, scrutinee):
+            # Try to reduce when the scrutinee is a fully-applied constructor.
             decomposition = decompose_ctor_app(scrutinee)
             if decomposition:
                 ctor, args = decomposition
@@ -118,6 +127,7 @@ def iota_head_step(t: Term) -> Term:
                 )
                 if ctor.inductive is inductive and len(args) == expected_args:
                     return _iota_constructor(inductive, motive, cases, ctor, args)
+            # Otherwise, attempt to reduce inside the scrutinee.
             scrutinee1 = iota_head_step(scrutinee)
             if scrutinee1 != scrutinee:
                 return InductiveElim(inductive, motive, cases, scrutinee1)
@@ -125,6 +135,7 @@ def iota_head_step(t: Term) -> Term:
         case IdElim(A, x, P, d, y, Refl(_, _)):
             return d
         case IdElim(A, x, P, d, y, p):
+            # Push reduction into the proof if the head does not expose a Refl.
             p1 = iota_head_step(p)
             if p1 != p:
                 return IdElim(A, x, P, d, y, p1)
@@ -134,7 +145,11 @@ def iota_head_step(t: Term) -> Term:
 
 
 def iota_step(term: Term) -> Term:
-    """One iota-reduction step anywhere (InductiveElim / IdElim)."""
+    """One iota-reduction step anywhere (InductiveElim / IdElim).
+
+    Tries a head step first; if that fails, walks the term recursively to find
+    a reducible subterm.
+    """
 
     t1 = iota_head_step(term)
     if t1 != term:
