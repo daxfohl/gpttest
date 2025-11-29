@@ -1,9 +1,10 @@
 import pytest
 
 from mltt.core.ast import App, Id, IdElim, Lam, Pi, Refl, Term, Univ, Var
+from mltt.core.debruijn import Ctx
 from mltt.core.reduce import normalize
 from mltt.core.typing import infer_type, type_check, type_equal
-from mltt.inductive.nat import NatRec, NatType, Zero, Succ, add_terms, numeral
+from mltt.inductive.nat import NatRec, NatType, Zero, add_terms, numeral
 
 
 def test_infer_var() -> None:
@@ -11,7 +12,7 @@ def test_infer_var() -> None:
     with pytest.raises(TypeError, match="Unbound variable"):
         assert infer_type(a)
     t = NatType()
-    assert infer_type(a, [t]) == t
+    assert infer_type(a, Ctx.as_ctx([t])) == t
 
 
 def test_infer_lam() -> None:
@@ -39,7 +40,7 @@ def test_infer_lam() -> None:
 
 def test_infer_lam_ctx() -> None:
     def infer(t: Term) -> Term:
-        return infer_type(t, [Univ(100)])
+        return infer_type(t, Ctx.as_ctx([Univ(100)]))
 
     assert infer(Lam(NatType(), Var(0))) == Pi(NatType(), NatType())
     assert infer(Lam(NatType(), Zero())) == Pi(NatType(), NatType())
@@ -126,7 +127,7 @@ def test_two_level_lambda_type_refers_to_previous_binder() -> None:
     )
 
     # Empty context
-    ctx: list = []
+    ctx = Ctx()
 
     ty = infer_type(term, ctx)
 

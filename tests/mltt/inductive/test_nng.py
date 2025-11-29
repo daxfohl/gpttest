@@ -1,4 +1,5 @@
-from mltt.core.ast import App, Id, Lam, Pi, Refl, Term, Var
+from mltt.core.ast import Id, Lam, Pi, Refl, Var
+from mltt.core.debruijn import Ctx
 from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.eq import ap
 from mltt.inductive.nat import NatType, Succ, add_terms, numeral
@@ -8,7 +9,7 @@ def test_refl_proves_succ_self_equality() -> None:
     witness = Succ(Var(0))
     ty = NatType()
     proof = Refl(ty, witness)
-    ctx: list[Term] = [ty]
+    ctx = Ctx.as_ctx([ty])
     assert type_check(proof, Id(ty, witness, witness), ctx)
 
 

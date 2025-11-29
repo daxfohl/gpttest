@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Iterable
 
 from .ast import (
     App,
@@ -31,7 +32,7 @@ class CtxEntry:
 class Ctx:
     """Immutable context wrapper with convenient accessors."""
 
-    entries: tuple[CtxEntry, ...]
+    entries: tuple[CtxEntry, ...] = ()
 
     def __iter__(self):
         return iter(self.entries)
@@ -42,22 +43,26 @@ class Ctx:
     def __getitem__(self, idx: int) -> CtxEntry:
         return self.entries[idx]
 
-    def extend(self, ty: Term) -> "Ctx":
-        """Extend with ``ty``, shifting existing entries so indices stay valid."""
+    def extend(self, ty: Term) -> Ctx:
+        """Extend ``ctx`` with ``ty`` while keeping indices for outer vars stable.
 
-        shifted_new = CtxEntry(shift(ty, 1))
-        shifted_rest = tuple(CtxEntry(shift(entry.ty, 1)) for entry in self.entries)
-        return Ctx((shifted_new, *shifted_rest))
+        Every term is shifted by one so existing De Bruijn references still point
+        to their original binders after the new binding is inserted at index 0.
+        """
 
+        prepended = (CtxEntry(ty), *self.entries)
+        return Ctx.as_ctx(CtxEntry(shift(entry.ty, 1)) for entry in prepended)
 
-def as_ctx(ctx: tuple[CtxEntry | Term, ...] | list[CtxEntry | Term]) -> Ctx:
-    """Coerce a sequence of entries or terms into a ``Ctx`` of ``CtxEntry``."""
+    @staticmethod
+    def as_ctx(ctx: Iterable[CtxEntry | Term]) -> Ctx:
+        """Coerce a sequence of entries or terms into a ``Ctx`` of ``CtxEntry``."""
+        return Ctx(tuple(Ctx.as_ctx_entry(entry) for entry in ctx))
 
-    return Ctx(
-        tuple(
-            entry if isinstance(entry, CtxEntry) else CtxEntry(entry) for entry in ctx
-        )
-    )
+    @staticmethod
+    def as_ctx_entry(entry: CtxEntry | Term) -> CtxEntry:
+        """Coerce an entry or term into a ``CtxEntry``."""
+
+        return entry if isinstance(entry, CtxEntry) else CtxEntry(entry)
 
 
 def shift(term: Term, by: int, cutoff: int = 0) -> Term:
@@ -160,17 +165,4 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
     raise TypeError(f"Unexpected term in subst: {term!r}")
 
 
-def extend_ctx(ctx: Ctx, ty: Term) -> Ctx:
-    """Extend ``ctx`` with ``ty`` while keeping indices for outer vars stable.
-
-    Every term is shifted by one so existing De Bruijn references still point
-    to their original binders after the new binding is inserted at index 0.
-    """
-
-    return Ctx(
-        (CtxEntry(shift(ty, 1)),)
-        + tuple(CtxEntry(shift(entry.ty, 1)) for entry in ctx.entries)
-    )
-
-
-__all__ = ["Ctx", "CtxEntry", "as_ctx", "extend_ctx", "shift", "subst"]
+__all__ = ["Ctx", "CtxEntry", "shift", "subst"]
