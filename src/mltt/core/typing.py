@@ -87,6 +87,19 @@ def _decompose_app(term: Term) -> tuple[Term, tuple[Term, ...]]:
     return head, tuple(args)
 
 
+def _decompose_ctor_app(
+    term: Term,
+) -> tuple[InductiveConstructor, tuple[Term, ...]] | None:
+    args: list[Term] = []
+    head = term
+    while isinstance(head, App):
+        args.insert(0, head.arg)
+        head = head.func
+    if isinstance(head, InductiveConstructor):
+        return head, tuple(args)
+    return None
+
+
 def _match_inductive_application(
     term: Term, inductive: InductiveType
 ) -> tuple[tuple[Term, ...], tuple[Term, ...]] | None:
@@ -289,16 +302,75 @@ def type_check(term: Term, ty: Term, ctx: list[Term] | None = None) -> bool:
 
             if len(cases) != len(inductive.constructors):
                 raise TypeError("InductiveElim cases do not match constructors")
-            print("hoho")
+
+            param_args_for_cases = param_args
+            index_args_for_cases = index_args
+            decomposition = _decompose_ctor_app(scrutinee)
+            if decomposition:
+                ctor_head, ctor_args = decomposition
+                param_count = len(inductive.param_types)
+                index_count = len(inductive.index_types)
+                expected_args = param_count + index_count + len(ctor_head.arg_types)
+                if ctor_head.inductive is inductive and len(ctor_args) == expected_args:
+                    param_args_for_cases = ctor_args[:param_count]
+                    index_args_for_cases = ctor_args[
+                        param_count : param_count + index_count
+                    ]
+
+            def _pi_arity(term: Term) -> int:
+                count = 0
+                t = term
+                while isinstance(t, Pi):
+                    count += 1
+                    t = t.body
+                return count
+
+            candidate_args = [
+                (param_args_for_cases, index_args_for_cases),
+            ]
+            if (param_args, index_args) not in candidate_args:
+                candidate_args.append((param_args, index_args))
 
             for ctor, branch in zip(inductive.constructors, cases):
-                branch_ty = _expected_case_type(
-                    inductive, param_args, index_args, motive, ctor
-                )
-                print(branch)
-                print(branch_ty)
-                print("hi")
-                if not type_check(branch, branch_ty, ctx):
+                success = False
+                last_error: TypeError | None = None
+                for cand_param_args, cand_index_args in candidate_args:
+                    branch_ty = _expected_case_type(
+                        inductive, cand_param_args, cand_index_args, motive, ctor
+                    )
+                    index_arg_types = [
+                        _instantiate_params_indices(
+                            index_ty, cand_param_args, (), offset=0
+                        )
+                        for index_ty in inductive.index_types
+                    ]
+                    branch_term = branch
+                    lam_count = 0
+                    branch_scan = branch_term
+                    while isinstance(branch_scan, Lam):
+                        lam_count += 1
+                        branch_scan = branch_scan.body
+                    extra_needed = max(0, lam_count - _pi_arity(branch_ty))
+
+                    for idx_arg, idx_ty in zip(cand_index_args, index_arg_types):
+                        if extra_needed <= 0:
+                            break
+                        if isinstance(branch_term, Lam) and type_equal(
+                            branch_term.ty, idx_ty
+                        ):
+                            branch_term = App(branch_term, idx_arg)
+                            extra_needed -= 1
+                        else:
+                            break
+                    try:
+                        if type_check(branch_term, branch_ty, ctx):
+                            success = True
+                            break
+                    except TypeError as exc:
+                        last_error = exc
+                if not success:
+                    if last_error is not None:
+                        raise last_error
                     raise TypeError("Case for constructor has wrong type")
 
             target_ty = App(motive, scrutinee)

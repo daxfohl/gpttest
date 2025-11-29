@@ -103,11 +103,46 @@ def _iota_constructor(
     if len(ctor_args) != len(ctor.arg_types):
         return InductiveElim(inductive, motive, cases, _apply_term(ctor, args))
 
+    index_arg_types = [
+        _instantiate_params_indices(index_ty, param_args, (), offset=0)
+        for index_ty in inductive.index_types
+    ]
+
     instantiated_arg_types = [
         _instantiate_params_indices(arg_ty, param_args, index_args, offset=idx)
         for idx, arg_ty in enumerate(ctor.arg_types)
     ]
+
+    recursive_counts = sum(
+        1
+        for arg_ty in instantiated_arg_types
+        if (match := _match_inductive_application(arg_ty, inductive))
+        and len(match[0]) == len(param_args)
+        and all(param == arg_param for param, arg_param in zip(match[0], param_args))
+    )
+    binder_count = len(instantiated_arg_types) + recursive_counts
+
     applied_args: list[Term] = []
+    branch = cases[index]
+
+    lam_count = 0
+    branch_scan = branch
+    while isinstance(branch_scan, Lam):
+        lam_count += 1
+        branch_scan = branch_scan.body
+
+    extra_needed = max(0, lam_count - binder_count)
+    branch_for_indices = branch
+    for idx_arg, idx_ty in zip(index_args, index_arg_types):
+        if extra_needed <= 0:
+            break
+        if isinstance(branch_for_indices, Lam) and branch_for_indices.ty == idx_ty:
+            applied_args.append(idx_arg)
+            branch_for_indices = branch_for_indices.body
+            extra_needed -= 1
+        else:
+            break
+
     for arg_ty, arg in zip(instantiated_arg_types, ctor_args, strict=False):
         applied_args.append(arg)
         match _match_inductive_application(arg_ty, inductive):
