@@ -19,7 +19,12 @@ from .ast import (
 
 
 def shift(term: Term, by: int, cutoff: int = 0) -> Term:
-    """Shift free variables in ``term`` by ``by`` starting at ``cutoff``."""
+    """Shift free variables in ``term`` by ``by`` starting at ``cutoff``.
+
+    De Bruijn convention: index 0 refers to the innermost binder. When adding
+    a binder, shift outer references up to keep them pointing at the same
+    syntactic entity. ``cutoff`` shields inner binders so they are unaffected.
+    """
 
     match term:
         case Var(k):
@@ -57,7 +62,12 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
 
 
 def subst(term: Term, sub: Term, j: int = 0) -> Term:
-    """Substitute ``sub`` for ``Var(j)`` inside ``term``, and squash it."""
+    """Substitute ``sub`` for ``Var(j)`` inside ``term``, and squash it.
+
+    Standard de Bruijn substitution: replacing ``Var(j)`` drops indices above
+    ``j`` by 1 to fill the gap, and shifts ``sub`` when descending under a
+    binder so its free variables stay referentially correct.
+    """
     match term:
         case Var(k):
             if k == j:
@@ -108,4 +118,14 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
     raise TypeError(f"Unexpected term in subst: {term!r}")
 
 
-__all__ = ["subst"]
+def extend_ctx(ctx: list[Term], ty: Term) -> list[Term]:
+    """Extend ``ctx`` with ``ty`` while keeping indices for outer vars stable.
+
+    Every term is shifted by one so existing De Bruijn references still point
+    to their original binders after the new binding is inserted at index 0.
+    """
+
+    return [shift(ty, 1)] + [shift(x, 1) for x in ctx]
+
+
+__all__ = ["subst", "shift", "extend_ctx"]

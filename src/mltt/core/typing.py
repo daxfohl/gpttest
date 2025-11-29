@@ -16,7 +16,7 @@ from .ast import (
     Univ,
     Var,
 )
-from .debruijn import shift, subst
+from .debruijn import extend_ctx, subst
 from .inductive_utils import (
     apply_term,
     decompose_ctor_app,
@@ -156,7 +156,7 @@ def _type_check_inductive_elim(
         raise TypeError("InductiveElim motive not a function")
     if not type_equal(motive_ty.ty, inductive_applied):
         raise TypeError("InductiveElim motive domain mismatch")
-    motive_level = _expect_universe(motive_ty.body, _extend_ctx(ctx, inductive_applied))
+    motive_level = _expect_universe(motive_ty.body, extend_ctx(ctx, inductive_applied))
 
     if len(cases) != len(inductive.constructors):
         raise TypeError("InductiveElim cases do not match constructors")
@@ -245,15 +245,6 @@ def type_equal(t1: Term, t2: Term) -> bool:
     return normalize(t1) == normalize(t2)
 
 
-def _extend_ctx(ctx: list[Term], ty: Term) -> list[Term]:
-    """Extend ``ctx`` with ``ty`` while keeping indices for outer vars stable.
-
-    Every term is shifted by one so existing De Bruijn references still point
-    to their original binders after the new binding is inserted at index 0.
-    """
-    return [shift(ty, 1)] + [shift(x, 1) for x in ctx]
-
-
 def _expect_universe(term: Term, ctx: list[Term]) -> int:
     """Return the universe level of ``term`` or raise if it is not a type.
 
@@ -284,7 +275,7 @@ def infer_type(term: Term, ctx: list[Term] | None = None) -> Term:
                 raise TypeError(f"Unbound variable {i}")
         case Lam(arg_ty, body):
             # Lambdas infer to Pis: infer the body under an extended context.
-            body_ty = infer_type(body, _extend_ctx(ctx, arg_ty))
+            body_ty = infer_type(body, extend_ctx(ctx, arg_ty))
             return Pi(arg_ty, body_ty)
         case App(f, a):
             # Application: infer the function, ensure it is a Pi, and that the
@@ -298,7 +289,7 @@ def infer_type(term: Term, ctx: list[Term] | None = None) -> Term:
         case Pi(arg_ty, body):
             # Pi formation: both sides must be types; universe level is max.
             arg_level = _expect_universe(arg_ty, ctx)
-            body_level = _expect_universe(body, _extend_ctx(ctx, arg_ty))
+            body_level = _expect_universe(body, extend_ctx(ctx, arg_ty))
             return Univ(max(arg_level, body_level))
         case Univ(level):
             return Univ(level + 1)
@@ -314,10 +305,10 @@ def infer_type(term: Term, ctx: list[Term] | None = None) -> Term:
             ctx1 = ctx
             for param_ty in param_types:
                 _expect_universe(param_ty, ctx1)
-                ctx1 = _extend_ctx(ctx1, param_ty)
+                ctx1 = extend_ctx(ctx1, param_ty)
             for index_ty in index_types:
                 _expect_universe(index_ty, ctx1)
-                ctx1 = _extend_ctx(ctx1, index_ty)
+                ctx1 = extend_ctx(ctx1, index_ty)
             result: Term = Univ(level)
             for index_ty in reversed(index_types):
                 result = Pi(index_ty, result)
@@ -365,7 +356,7 @@ def type_check(term: Term, ty: Term, ctx: list[Term] | None = None) -> bool:
                         print(arg_ty)
                         print(dom)
                         raise TypeError("Lambda domain mismatch")
-                    return type_check(body, cod, _extend_ctx(ctx, arg_ty))
+                    return type_check(body, cod, extend_ctx(ctx, arg_ty))
                 case _:
                     raise TypeError("Lambda expected to have Pi type")
         case App(f, a):
