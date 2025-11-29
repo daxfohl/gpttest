@@ -3,6 +3,7 @@ __all__ = [
     "fin",
     "list",
     "nat",
+    "sigma",
     "tree",
     "vec",
 ]
