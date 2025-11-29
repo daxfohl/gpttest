@@ -75,6 +75,7 @@ class Univ:
 class InductiveConstructor:
     """A constructor for an inductive type."""
 
+    name: str
     inductive: InductiveType
     arg_types: tuple[Term, ...]
     result_indices: tuple[Term, ...] = ()
@@ -82,8 +83,13 @@ class InductiveConstructor:
 
 @dataclass(frozen=True)
 class InductiveType:
-    """A generalized inductive type with constructors."""
+    """A generalized inductive type with constructors.
 
+    Args:
+        name: Human-readable identifier used by pretty-printers.
+    """
+
+    name: str
     param_types: tuple[Term, ...] = ()
     index_types: tuple[Term, ...] = ()
     constructors: tuple[InductiveConstructor, ...] = ()
@@ -185,3 +191,26 @@ __all__ = [
     "Refl",
     "IdElim",
 ]
+
+
+def _repr(self: Term) -> str:
+    # Deferred import to avoid cycles when pretty-printing from dataclass repr.
+    from .pretty import pretty
+
+    return pretty(self)
+
+
+for _cls in (
+    Var,
+    Lam,
+    Pi,
+    App,
+    Univ,
+    InductiveConstructor,
+    InductiveType,
+    InductiveElim,
+    Id,
+    Refl,
+    IdElim,
+):
+    _cls.__repr__ = _repr  # type: ignore[attr-defined]

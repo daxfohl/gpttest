@@ -13,9 +13,10 @@ from ..core.ast import (
     Var,
 )
 
-List = InductiveType(param_types=(Univ(0),), level=0)
-NilCtor = InductiveConstructor(List, ())
+List = InductiveType(name="List", param_types=(Univ(0),), level=0)
+NilCtor = InductiveConstructor("Nil", List, ())
 ConsCtor = InductiveConstructor(
+    "Cons",
     List,
     (
         Var(0),

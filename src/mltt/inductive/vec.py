@@ -13,9 +13,12 @@ from ..core.ast import (
 )
 from .nat import NatType, Succ, Zero
 
-Vec = InductiveType(param_types=(Univ(0),), index_types=(NatType(),), level=0)
-NilCtor = InductiveConstructor(Vec, (), (Zero(),))
+Vec = InductiveType(
+    name="Vec", param_types=(Univ(0),), index_types=(NatType(),), level=0
+)
+NilCtor = InductiveConstructor("Nil", Vec, (), (Zero(),))
 ConsCtor = InductiveConstructor(
+    "Cons",
     Vec,
     (
         Var(1),  # head : A

@@ -13,9 +13,10 @@ from ..core.ast import (
 )
 from .nat import NatType, Succ, Zero
 
-Fin = InductiveType(index_types=(NatType(),), level=0)
-FZCtor = InductiveConstructor(Fin, (), (Succ(Var(0)),))
+Fin = InductiveType(name="Fin", index_types=(NatType(),), level=0)
+FZCtor = InductiveConstructor("FZ", Fin, (), (Succ(Var(0)),))
 FSCtor = InductiveConstructor(
+    "FS",
     Fin,
     (App(Fin, Var(0)),),
     (Succ(Var(1)),),

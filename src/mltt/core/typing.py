@@ -27,47 +27,6 @@ def _apply_term(term: Term, args: tuple[Term, ...]) -> Term:
     return result
 
 
-def _ctor_type(ctor: InductiveConstructor) -> Term:
-    param_count = len(ctor.inductive.param_types)
-    index_count = len(ctor.inductive.index_types)
-    if len(ctor.result_indices) != index_count:
-        raise TypeError("Constructor result indices must match inductive index arity")
-    arg_count = len(ctor.arg_types)
-    param_vars = tuple(
-        Var(arg_count + index_count + param_count - 1 - idx)
-        for idx in range(param_count)
-    )
-    index_vars = tuple(
-        Var(arg_count + index_count - 1 - idx) for idx in range(index_count)
-    )
-    result_indices = tuple(
-        _instantiate_params_indices(idx_term, param_vars, index_vars, offset=arg_count)
-        for idx_term in ctor.result_indices
-    )
-    result: Term = _apply_term(ctor.inductive, (*param_vars, *result_indices))
-
-    for arg_ty in reversed(ctor.arg_types):
-        result = Pi(arg_ty, result)
-    for index_ty in reversed(ctor.inductive.index_types):
-        result = Pi(index_ty, result)
-    for param_ty in reversed(ctor.inductive.param_types):
-        result = Pi(param_ty, result)
-    return result
-
-
-def _apply_ctor(ctor: InductiveConstructor, args: tuple[Term, ...]) -> Term:
-    return _apply_term(ctor, args)
-
-
-def _decompose_app(term: Term) -> tuple[Term, tuple[Term, ...]]:
-    args: list[Term] = []
-    head = term
-    while isinstance(head, App):
-        args.insert(0, head.arg)
-        head = head.func
-    return head, tuple(args)
-
-
 def _instantiate_params_indices(
     term: Term,
     params: tuple[Term, ...],
@@ -81,6 +40,51 @@ def _instantiate_params_indices(
     for idx, index in enumerate(reversed(indices)):
         result = subst(result, index, j=offset + idx)
     return result
+
+
+def _ctor_type(ctor: InductiveConstructor) -> Term:
+    ind = ctor.inductive
+    types = ind.param_types + ind.index_types + ctor.arg_types
+    param_count = len(ind.param_types)
+    index_count = len(ind.index_types)
+    if len(ctor.result_indices) != index_count:
+        raise TypeError("Constructor result indices must match inductive index arity")
+    arg_count = len(ctor.arg_types)
+    param_vars = tuple(
+        Var(arg_count + index_count + param_count - 1 - idx)
+        for idx in range(param_count)
+    )
+    index_vars = tuple(
+        Var(arg_count + index_count - 1 - idx) for idx in range(index_count)
+    )
+    # print(param_vars)
+    # print(index_vars)
+    result_indices = tuple(
+        _instantiate_params_indices(idx_term, param_vars, index_vars, offset=arg_count)
+        for idx_term in ctor.result_indices
+    )
+    assert ctor.result_indices == result_indices
+    result: Term = _apply_term(ctor.inductive, (*param_vars, *result_indices))
+    # print(result)
+    # print(ind)
+    # print('done')
+
+    for arg_ty in reversed(ctor.arg_types):
+        result = Pi(arg_ty, result)
+    for index_ty in reversed(ctor.inductive.index_types):
+        result = Pi(index_ty, result)
+    for param_ty in reversed(ctor.inductive.param_types):
+        result = Pi(param_ty, result)
+    return result
+
+
+def _decompose_app(term: Term) -> tuple[Term, tuple[Term, ...]]:
+    args: list[Term] = []
+    head = term
+    while isinstance(head, App):
+        args.insert(0, head.arg)
+        head = head.func
+    return head, tuple(args)
 
 
 def _match_inductive_application(
@@ -124,9 +128,8 @@ def _expected_case_type(
 
     total_binders = len(binder_roles)
     ctor_args = tuple(Var(total_binders - 1 - arg_pos) for arg_pos in arg_positions)
-    target: Term = App(
-        motive, _apply_ctor(ctor, (*param_args, *index_args, *ctor_args))
-    )
+    args = (*param_args, *index_args, *ctor_args)
+    target: Term = App(motive, _apply_term(ctor, args))
 
     binder_types: list[Term] = []
     for pos, (role, arg_idx, maybe_arg_ty) in enumerate(binder_roles):
@@ -177,7 +180,9 @@ def infer_type(term: Term, ctx: list[Term] | None = None) -> Term:
             body_ty = infer_type(body, _extend_ctx(ctx, arg_ty))
             return Pi(arg_ty, body_ty)
         case App(f, a):
+            # print(f)
             f_ty = infer_type(f, ctx)
+            # print(f_ty)
             if not isinstance(f_ty, Pi):
                 raise TypeError("Application of non-function")
             if not type_check(a, f_ty.ty, ctx):
@@ -189,7 +194,13 @@ def infer_type(term: Term, ctx: list[Term] | None = None) -> Term:
             return Univ(max(arg_level, body_level))
         case Univ(level):
             return Univ(level + 1)
-        case InductiveType(param_types, index_types, _, level):
+        case InductiveType(
+            name=_,
+            param_types=param_types,
+            index_types=index_types,
+            constructors=_,
+            level=level,
+        ):
             ctx1 = ctx
             for param_ty in param_types:
                 _expect_universe(param_ty, ctx1)
@@ -235,6 +246,8 @@ def type_check(term: Term, ty: Term, ctx: list[Term] | None = None) -> bool:
             match expected_ty:
                 case Pi(dom, cod):
                     if not type_equal(arg_ty, dom):
+                        print(arg_ty)
+                        print(dom)
                         raise TypeError("Lambda domain mismatch")
                     return type_check(body, cod, _extend_ctx(ctx, arg_ty))
                 case _:
@@ -248,12 +261,15 @@ def type_check(term: Term, ty: Term, ctx: list[Term] | None = None) -> bool:
             return type_equal(expected_ty, subst(f_ty.body, a))
         case Pi(_, _):
             return type_equal(expected_ty, infer_type(term, ctx))
-        case InductiveType(_, _, _, _):
+        case InductiveType():
             return type_equal(expected_ty, infer_type(term, ctx))
         case InductiveConstructor():
             return type_equal(expected_ty, _ctor_type(term))
         case InductiveElim(inductive, motive, cases, scrutinee):
+            # print()
+            # print(scrutinee)
             scrutinee_ty = normalize(infer_type(scrutinee, ctx))
+            # print(scrutinee_ty)
             application = _match_inductive_application(scrutinee_ty, inductive)
             if application is None:
                 raise TypeError("InductiveElim scrutinee has wrong type")
@@ -273,11 +289,15 @@ def type_check(term: Term, ty: Term, ctx: list[Term] | None = None) -> bool:
 
             if len(cases) != len(inductive.constructors):
                 raise TypeError("InductiveElim cases do not match constructors")
+            print("hoho")
 
             for ctor, branch in zip(inductive.constructors, cases):
                 branch_ty = _expected_case_type(
                     inductive, param_args, index_args, motive, ctor
                 )
+                print(branch)
+                print(branch_ty)
+                print("hi")
                 if not type_check(branch, branch_ty, ctx):
                     raise TypeError("Case for constructor has wrong type")
 

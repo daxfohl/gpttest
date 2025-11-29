@@ -18,9 +18,9 @@ from ..core.reduce.normalize import normalize
 from ..core.typing import type_check
 from .eq import ap
 
-Nat = InductiveType(level=0)
-ZeroCtor = InductiveConstructor(Nat, ())
-SuccCtor = InductiveConstructor(Nat, (Nat,))
+Nat = InductiveType(name="Nat", level=0)
+ZeroCtor = InductiveConstructor("Zero", Nat, ())
+SuccCtor = InductiveConstructor("Succ", Nat, (Nat,))
 object.__setattr__(Nat, "constructors", (ZeroCtor, SuccCtor))
 
 
