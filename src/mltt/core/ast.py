@@ -213,4 +213,4 @@ for _cls in (
     Refl,
     IdElim,
 ):
-    _cls.__repr__ = _repr  # type: ignore[attr-defined]
+    _cls.__repr__ = _repr  # type: ignore

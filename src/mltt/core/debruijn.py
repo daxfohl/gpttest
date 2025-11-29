@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Iterator
 
 from .ast import (
     App,
@@ -34,7 +34,7 @@ class Ctx:
 
     entries: tuple[CtxEntry, ...] = ()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[CtxEntry]:
         return iter(self.entries)
 
     def __len__(self) -> int:

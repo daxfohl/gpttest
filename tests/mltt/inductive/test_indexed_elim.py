@@ -4,13 +4,11 @@ import mltt.inductive.fin as fin
 import mltt.inductive.vec as vec
 from mltt.core.ast import Lam, Var, Term
 from mltt.core.reduce import normalize, whnf
-from mltt.core.typing import type_check, _ctor_type, infer_type
+from mltt.core.typing import type_check
 from mltt.inductive.nat import (
     NatType,
     Zero,
     Succ,
-    ZeroCtor,
-    SuccCtor,
     numeral,
     add_terms,
 )
@@ -35,20 +33,10 @@ def test_fin_rec_on_fz_reduces_to_base() -> None:
     assert whnf(term) == base
 
 
-def numeral(value: int) -> Term:
-    """Return the canonical term representing the natural number ``value``."""
-
-    term: Term = Zero()
-    for _ in range(value):
-        term = Succ(term)
-    return term
-
-
 @pytest.mark.parametrize("vec_len", range(4))
 @pytest.mark.parametrize("b", range(4))
 @pytest.mark.parametrize("v", range(4))
 def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
-    n = numeral(vec_len)
     elem_ty = NatType()
     P = Lam(
         NatType(),  # n : Nat
@@ -70,17 +58,16 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
         ),
     )
 
-    xs = vec.Nil(elem_ty)
+    xs: Term = vec.Nil(elem_ty)
     for i in range(vec_len):
         xs = vec.Cons(elem_ty, numeral(i), numeral(v), xs)
     rec = vec.VecRec(P, base, step, xs)
-    n = normalize(rec)
-    assert n == numeral(v * vec_len + b)
+    normalized = normalize(rec)
+    assert normalized == numeral(v * vec_len + b)
     # assert type_check(rec, NatType())
 
 
-@pytest.mark.parametrize("n", range(4))
-def test_vec_rec_preserves_length_index(n: int) -> None:
+def test_vec_rec_preserves_length_index() -> None:
     elem_ty = NatType()
     # Motive specialized to length 0 so it matches Nil's result index.
     P = Lam(vec.VecType(elem_ty, Succ(Succ(Zero()))), NatType())
@@ -94,13 +81,13 @@ def test_vec_rec_preserves_length_index(n: int) -> None:
         ),
     )
 
-    xs = vec.Nil(elem_ty)
+    xs: Term = vec.Nil(elem_ty)
     xs = vec.Cons(elem_ty, Zero(), Zero(), xs)  # say Vec A 1
     xs = vec.Cons(elem_ty, Succ(Zero()), Succ(Zero()), xs)  # say Vec A 1
 
     rec = vec.VecRec(P, base, step, xs)
-    n = normalize(rec)
-    assert n == Succ(Zero())
+    normalized = normalize(rec)
+    assert normalized == Succ(Zero())
     assert type_check(rec, NatType())
 
 
