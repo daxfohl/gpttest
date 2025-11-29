@@ -22,7 +22,7 @@ def test_vec_rec_on_nil_reduces_to_base() -> None:
     base = Zero()
     step = Lam(elem_ty, Lam(vec.VecType(elem_ty, Zero()), Lam(NatType(), Var(0))))
 
-    term = vec.VecRec(elem_ty, P, base, step, vec.Nil(elem_ty))
+    term = vec.VecRec(P, base, step, vec.Nil(elem_ty))
     assert whnf(term) == base
 
 
@@ -73,7 +73,7 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
     xs = vec.Nil(elem_ty)
     for i in range(vec_len):
         xs = vec.Cons(elem_ty, numeral(i), numeral(v), xs)
-    rec = vec.VecRec(elem_ty, P, base, step, xs)
+    rec = vec.VecRec(P, base, step, xs)
     n = normalize(rec)
     assert n == numeral(v * vec_len + b)
     # assert type_check(rec, NatType())
@@ -98,7 +98,7 @@ def test_vec_rec_preserves_length_index(n: int) -> None:
     xs = vec.Cons(elem_ty, Zero(), Zero(), xs)  # say Vec A 1
     xs = vec.Cons(elem_ty, Succ(Zero()), Succ(Zero()), xs)  # say Vec A 1
 
-    rec = vec.VecRec(elem_ty, P, base, step, xs)
+    rec = vec.VecRec(P, base, step, xs)
     n = normalize(rec)
     assert n == Succ(Zero())
     assert type_check(rec, NatType())

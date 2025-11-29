@@ -38,7 +38,7 @@ def Cons(elem_ty: Term, head: Term, tail: Term) -> Term:
     return App(App(App(ConsCtor, elem_ty), head), tail)
 
 
-def ListRec(elem_ty: Term, P: Term, base: Term, step: Term, xs: Term) -> InductiveElim:
+def ListRec(P: Term, base: Term, step: Term, xs: Term) -> InductiveElim:
     """Recursor for ``List elem_ty`` using the generic eliminator."""
 
     return InductiveElim(

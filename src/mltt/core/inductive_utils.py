@@ -42,10 +42,10 @@ def instantiate_params_indices(
 ) -> Term:
     """Substitute ``params``/``indices`` (params outermost, indices next)."""
     result = term
-    for idx, param in enumerate(reversed(params)):
-        result = subst(result, param, j=offset + len(indices) + idx)
-    for idx, index in enumerate(reversed(indices)):
-        result = subst(result, index, j=offset + idx)
+    for idx in reversed(range(len(params))):
+        result = subst(result, params[idx], j=offset + len(indices) + idx)
+    for idx in reversed(range(len(indices))):
+        result = subst(result, indices[idx], j=offset + idx)
     return result
 
 

@@ -35,7 +35,7 @@ def test_listrec_length_of_singleton() -> None:
         ),
     )
 
-    length_term = listm.ListRec(elem_ty, P, base, step, xs)
+    length_term = listm.ListRec(P, base, step, xs)
 
     assert type_check(length_term, NatType())
     assert normalize(length_term) == Succ(Zero())

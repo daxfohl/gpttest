@@ -41,7 +41,7 @@ def Cons(elem_ty: Term, n: Term, head: Term, tail: Term) -> Term:
     return App(App(App(App(ConsCtor, elem_ty), n), head), tail)
 
 
-def VecRec(elem_ty: Term, P: Term, base: Term, step: Term, xs: Term) -> InductiveElim:
+def VecRec(P: Term, base: Term, step: Term, xs: Term) -> InductiveElim:
     """Recursor for vectors."""
 
     return InductiveElim(
