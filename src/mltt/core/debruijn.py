@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from .ast import (
     App,
     InductiveConstructor,
@@ -16,6 +18,46 @@ from .ast import (
     Univ,
     Var,
 )
+
+
+@dataclass(frozen=True)
+class CtxEntry:
+    """Single context entry containing the type of a bound variable."""
+
+    ty: Term
+
+
+@dataclass(frozen=True)
+class Ctx:
+    """Immutable context wrapper with convenient accessors."""
+
+    entries: tuple[CtxEntry, ...]
+
+    def __iter__(self):
+        return iter(self.entries)
+
+    def __len__(self) -> int:
+        return len(self.entries)
+
+    def __getitem__(self, idx: int) -> CtxEntry:
+        return self.entries[idx]
+
+    def extend(self, ty: Term) -> "Ctx":
+        """Extend with ``ty``, shifting existing entries so indices stay valid."""
+
+        shifted_new = CtxEntry(shift(ty, 1))
+        shifted_rest = tuple(CtxEntry(shift(entry.ty, 1)) for entry in self.entries)
+        return Ctx((shifted_new, *shifted_rest))
+
+
+def as_ctx(ctx: tuple[CtxEntry | Term, ...] | list[CtxEntry | Term]) -> Ctx:
+    """Coerce a sequence of entries or terms into a ``Ctx`` of ``CtxEntry``."""
+
+    return Ctx(
+        tuple(
+            entry if isinstance(entry, CtxEntry) else CtxEntry(entry) for entry in ctx
+        )
+    )
 
 
 def shift(term: Term, by: int, cutoff: int = 0) -> Term:
@@ -118,14 +160,17 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
     raise TypeError(f"Unexpected term in subst: {term!r}")
 
 
-def extend_ctx(ctx: list[Term], ty: Term) -> list[Term]:
+def extend_ctx(ctx: Ctx, ty: Term) -> Ctx:
     """Extend ``ctx`` with ``ty`` while keeping indices for outer vars stable.
 
     Every term is shifted by one so existing De Bruijn references still point
     to their original binders after the new binding is inserted at index 0.
     """
 
-    return [shift(ty, 1)] + [shift(x, 1) for x in ctx]
+    return Ctx(
+        (CtxEntry(shift(ty, 1)),)
+        + tuple(CtxEntry(shift(entry.ty, 1)) for entry in ctx.entries)
+    )
 
 
-__all__ = ["subst", "shift", "extend_ctx"]
+__all__ = ["Ctx", "CtxEntry", "as_ctx", "extend_ctx", "shift", "subst"]

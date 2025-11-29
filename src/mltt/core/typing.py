@@ -16,7 +16,7 @@ from .ast import (
     Univ,
     Var,
 )
-from .debruijn import extend_ctx, subst
+from .debruijn import Ctx, as_ctx, extend_ctx, subst
 from .inductive_utils import (
     apply_term,
     decompose_ctor_app,
@@ -128,7 +128,7 @@ def _type_check_inductive_elim(
     cases: list[Term],
     scrutinee: Term,
     expected_ty: Term,
-    ctx: list[Term],
+    ctx: Ctx,
 ) -> bool:
     """Type-check an ``InductiveElim`` against ``expected_ty``.
 
@@ -245,7 +245,7 @@ def type_equal(t1: Term, t2: Term) -> bool:
     return normalize(t1) == normalize(t2)
 
 
-def _expect_universe(term: Term, ctx: list[Term]) -> int:
+def _expect_universe(term: Term, ctx: Ctx) -> int:
     """Return the universe level of ``term`` or raise if it is not a type.
 
     Normalizes and infers ``term`` so universe annotations reflect canonical
@@ -258,19 +258,22 @@ def _expect_universe(term: Term, ctx: list[Term]) -> int:
     return ty.level
 
 
-def infer_type(term: Term, ctx: list[Term] | None = None) -> Term:
+def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
     """Infer the type of ``term`` under the optional De Bruijn context ``ctx``.
 
     Follows the syntax-directed typing rules; raises on ill-formed terms
     instead of returning ``None`` so callers don't silently accept mistakes.
     """
 
-    ctx = ctx or []
+    if ctx is None:
+        ctx = Ctx(())
+    elif not isinstance(ctx, Ctx):
+        ctx = as_ctx(tuple(ctx))
     match term:
         case Var(i):
             # A variable is well-typed only if a binder exists at that index.
             if i < len(ctx):
-                return ctx[i]
+                return ctx[i].ty
             else:
                 raise TypeError(f"Unbound variable {i}")
         case Lam(arg_ty, body):
@@ -336,17 +339,20 @@ def infer_type(term: Term, ctx: list[Term] | None = None) -> Term:
     raise TypeError(f"Unexpected term in infer_type: {term!r}")
 
 
-def type_check(term: Term, ty: Term, ctx: list[Term] | None = None) -> bool:
+def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
     """Check that ``term`` has type ``ty`` under ``ctx``, raising on mismatches."""
 
-    ctx = ctx or []
+    if ctx is None:
+        ctx = Ctx(())
+    elif not isinstance(ctx, Ctx):
+        ctx = as_ctx(tuple(ctx))
     expected_ty = normalize(ty)
     match term:
         case Var(i):
             # A variable is well-typed only if a binder exists at that index.
             if i >= len(ctx):
                 raise TypeError(f"Unbound variable {i}")
-            return type_equal(ctx[i], expected_ty)
+            return type_equal(ctx[i].ty, expected_ty)
         case Lam(arg_ty, body):
             # Lambdas must check against a Pi; ensure domains align, then check
             # the body under the extended context.
