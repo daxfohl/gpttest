@@ -46,8 +46,9 @@ class Ctx:
     def extend(self, ty: Term) -> Ctx:
         """Extend ``ctx`` with ``ty`` while keeping indices for outer vars stable.
 
-        Every term is shifted by one so existing De Bruijn references still point
-        to their original binders after the new binding is inserted at index 0.
+        The new binder lives at index 0; every stored type, including ``ty``, is
+        shifted by one so references to outer binders keep pointing at the same
+        definitions after widening the context.
         """
 
         prepended = (CtxEntry(ty), *self.entries)
@@ -112,8 +113,8 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
     """Substitute ``sub`` for ``Var(j)`` inside ``term``, and squash it.
 
     Standard de Bruijn substitution: replacing ``Var(j)`` drops indices above
-    ``j`` by 1 to fill the gap, and shifts ``sub`` when descending under a
-    binder so its free variables stay referentially correct.
+    ``j`` by 1 to fill the gap and shifts ``sub`` when descending under binders
+    so its free variables remain aligned.
     """
     match term:
         case Var(k):
