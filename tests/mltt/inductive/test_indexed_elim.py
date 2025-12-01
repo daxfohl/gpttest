@@ -2,7 +2,7 @@ import pytest
 
 import mltt.inductive.fin as fin
 import mltt.inductive.vec as vec
-from mltt.core.ast import Lam, Var, Term
+from mltt.core.ast import Lam, Var, Term, Univ
 from mltt.core.reduce import normalize, whnf
 from mltt.core.typing import type_check
 from mltt.inductive.nat import (
@@ -45,15 +45,12 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
 
     base = numeral(b)
     step = Lam(
-        NatType(),  # n : Nat
+        elem_ty,  # x : A
         Lam(
-            elem_ty,  # x : A
+            vec.VecType(elem_ty, Var(1)),  # xs : Vec A n (Var(1) = n)
             Lam(
-                vec.VecType(elem_ty, Var(1)),  # xs : Vec A n (Var(1) = n)
-                Lam(
-                    NatType(),  # acc : Nat
-                    add_terms(Var(0), Var(2)),  # acc + x
-                ),
+                NatType(),  # ih : Nat
+                add_terms(Var(0), Var(2)),  # acc + x
             ),
         ),
     )

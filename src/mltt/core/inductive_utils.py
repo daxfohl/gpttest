@@ -14,6 +14,7 @@ def apply_term(term: Term, args: tuple[Term, ...]) -> Term:
     keeps those call sites readable and centralizes the left-associative
     application pattern.
     """
+    #  e.g. term = \x->(\y->z). args = [x, y]
     result: Term = term
     for arg in args:
         result = App(result, arg)
@@ -28,12 +29,12 @@ def decompose_app(term: Term) -> tuple[Term, tuple[Term, ...]]:
     (which may itself be an inductive type or constructor) and the ordered
     argument tuple.
     """
+    #  e.g. input = ((((\x->(\y->z)) x) y). output: [\x->(\y->z), [x, y]]
     args: list[Term] = []
-    head = term
-    while isinstance(head, App):
-        args.insert(0, head.arg)
-        head = head.func
-    return head, tuple(args)
+    while isinstance(term, App):
+        args.append(term.arg)
+        term = term.func
+    return term, tuple(reversed(args))
 
 
 def decompose_ctor_app(
@@ -47,6 +48,7 @@ def decompose_ctor_app(
     head, args = decompose_app(term)
     if isinstance(head, InductiveConstructor):
         return head, args
+    # For example, it could be a Var, or an axiom like LEM.
     return None
 
 
@@ -89,9 +91,9 @@ def match_inductive_application(
     return None
 
 
-def ctor_index(inductive: InductiveType, ctor: InductiveConstructor) -> int:
+def ctor_index(ctor: InductiveConstructor) -> int:
     """Position of ``ctor`` inside ``inductive.constructors``."""
-    for idx, ctor_def in enumerate(inductive.constructors):
+    for idx, ctor_def in enumerate(ctor.inductive.constructors):
         if ctor is ctor_def:
             return idx
     raise TypeError("Constructor does not belong to inductive type")

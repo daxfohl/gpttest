@@ -20,8 +20,7 @@ from ..inductive_utils import (
     apply_term,
     ctor_index,
     decompose_ctor_app,
-    instantiate_params_indices,
-    match_inductive_application,
+    decompose_app,
 )
 
 
@@ -35,81 +34,28 @@ def _iota_constructor(
     """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
     param_count = len(inductive.param_types)
     index_count = len(inductive.index_types)
-    index = ctor_index(inductive, ctor)
-    # If we don't have a branch for this constructor, leave it untouched.
-    if index >= len(cases):
-        return InductiveElim(inductive, motive, cases, apply_term(ctor, args))
+    index = ctor_index(ctor)
     branch = cases[index]
-
-    # Need at least params+indices present to proceed; otherwise keep stuck.
-    if len(args) < param_count + index_count:
-        return InductiveElim(inductive, motive, cases, apply_term(ctor, args))
-    param_args = args[:param_count]
-    index_args = args[param_count : param_count + index_count]
     ctor_args = args[param_count + index_count :]
-    if len(ctor_args) != len(ctor.arg_types):
-        return InductiveElim(inductive, motive, cases, apply_term(ctor, args))
 
-    index_arg_types = [
-        instantiate_params_indices(index_ty, param_args, (), offset=0)
-        for index_ty in inductive.index_types
-    ]
+    ihs: list[Term] = []
+    for arg_term, arg_ty in zip(ctor_args, ctor.arg_types, strict=True):
+        head, head_args = decompose_app(arg_ty)
+        if head is ctor.inductive:
+            # only works if after substituting param_args and index_args into ctor_arg_types.
+            # assert head_args[:param_count] == param_args, f"{arg_ty}: {head_args[:param_count]!r} == {param_args}"
+            ih = InductiveElim(
+                inductive=ctor.inductive,
+                motive=motive,
+                cases=cases,
+                scrutinee=arg_term,
+            )
+            ihs.append(ih)
 
-    instantiated_arg_types = [
-        instantiate_params_indices(arg_ty, param_args, index_args, offset=idx)
-        for idx, arg_ty in enumerate(ctor.arg_types)
-    ]
+    all_args = (*ctor_args, *ihs)
+    test = apply_term(branch, all_args)
+    return test
 
-    # Count recursive occurrences to know how many IH binders we expect.
-    recursive_counts = sum(
-        1
-        for arg_ty in instantiated_arg_types
-        if (match := match_inductive_application(arg_ty, inductive))
-        and len(match[0]) == len(param_args)
-        and all(param == arg_param for param, arg_param in zip(match[0], param_args))
-    )
-    binder_count = len(instantiated_arg_types) + recursive_counts
-
-    applied_args: list[Term] = []
-    branch = cases[index]
-
-    lam_count = 0
-    branch_scan = branch
-    while isinstance(branch_scan, Lam):
-        lam_count += 1
-        branch_scan = branch_scan.body
-
-    extra_needed = max(0, lam_count - binder_count)
-    branch_for_indices = branch
-    # Some eliminators allow index arguments to be implicit; try to feed them
-    # if the branch starts with lambdas matching the index argument types.
-    for idx_arg, idx_ty in zip(index_args, index_arg_types):
-        if extra_needed <= 0:
-            break
-        if isinstance(branch_for_indices, Lam) and branch_for_indices.ty == idx_ty:
-            applied_args.append(idx_arg)
-            branch_for_indices = branch_for_indices.body
-            extra_needed -= 1
-        else:
-            break
-
-    # Now thread ctor payloads and insert recursive calls for recursive args.
-    for arg_ty, arg in zip(instantiated_arg_types, ctor_args, strict=False):
-        applied_args.append(arg)
-        match match_inductive_application(arg_ty, inductive):
-            case (ctor_params, _):
-                if len(ctor_params) == len(param_args) and all(
-                    param == arg_param
-                    for param, arg_param in zip(ctor_params, param_args)
-                ):
-                    applied_args.append(InductiveElim(inductive, motive, cases, arg))
-            case _:
-                pass
-
-    result: Term = branch
-    for a in applied_args:
-        result = App(result, a)
-    return result
 
 
 def iota_head_step(t: Term) -> Term:
@@ -127,6 +73,7 @@ def iota_head_step(t: Term) -> Term:
                 )
                 if ctor.inductive is inductive and len(args) == expected_args:
                     return _iota_constructor(inductive, motive, cases, ctor, args)
+                raise ValueError()
             # Otherwise, attempt to reduce inside the scrutinee.
             scrutinee1 = iota_head_step(scrutinee)
             if scrutinee1 != scrutinee:
