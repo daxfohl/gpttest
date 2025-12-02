@@ -16,15 +16,12 @@ def iota_reduce(
     motive: Term,
 ) -> Term:
     """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
-    inductive = ctor.inductive
-    param_count = len(inductive.param_types)
-    index_count = len(inductive.index_types)
-    index = ctor_index(ctor)
-    branch = cases[index]
-    ctor_args = args[param_count + index_count :]
+    arg_types = ctor.arg_types
+    args_count = len(arg_types)
+    ctor_args = args[-args_count :] if args_count else ()
 
     ihs: list[Term] = []
-    for arg_term, arg_ty in zip(ctor_args, ctor.arg_types, strict=True):
+    for arg_term, arg_ty in zip(ctor_args, arg_types, strict=True):
         head, head_args = decompose_app(arg_ty)
         if head is ctor.inductive:
             # only works if after substituting param_args and index_args into ctor_arg_types.
@@ -37,9 +34,9 @@ def iota_reduce(
             )
             ihs.append(ih)
 
-    all_args = (*ctor_args, *ihs)
-    test = apply_term(branch, all_args)
-    return test
+    index = ctor_index(ctor)
+    branch = cases[index]
+    return apply_term(branch, (*ctor_args, *ihs))
 
 
 def whnf(term: Term) -> Term:
@@ -52,14 +49,14 @@ def whnf(term: Term) -> Term:
                 case _:
                     return App(f_whnf, a)
 
-        case InductiveElim(params, motive, cases, scrutinee):
+        case InductiveElim(inductive, motive, cases, scrutinee):
             scrutinee_whnf = whnf(scrutinee)
             match decompose_ctor_app(scrutinee_whnf):
-                case (ctor, args):
+                case (ctor, args) if ctor.inductive is inductive:
                     return whnf(iota_reduce(ctor, cases, args, motive))
                 case _:
                     # Decomposition terminates in Var or Axiom, etc.
-                    return InductiveElim(params, motive, cases, scrutinee_whnf)
+                    return InductiveElim(inductive, motive, cases, scrutinee_whnf)
 
         case IdElim(A, x, P, d, y, Refl(_, _)):
             return d
