@@ -57,7 +57,6 @@ def _iota_constructor(
     return test
 
 
-
 def iota_head_step(t: Term) -> Term:
     """Perform one iota step at the head position, if possible."""
     match t:

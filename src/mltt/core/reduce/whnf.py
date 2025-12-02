@@ -18,7 +18,7 @@ def iota_reduce(
     """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
     arg_types = ctor.arg_types
     args_count = len(arg_types)
-    ctor_args = args[-args_count :] if args_count else ()
+    ctor_args = args[-args_count:] if args_count else ()
 
     ihs: list[Term] = []
     for arg_term, arg_ty in zip(ctor_args, arg_types, strict=True):
@@ -164,5 +164,6 @@ def reduce_inside_step(term: Term, red: Callable[[Term], Term]) -> Term:
             return term
 
     raise TypeError(f"Unexpected term in reducer: {term!r}")
+
 
 __all__ = ["whnf", "reduce_inside_step"]

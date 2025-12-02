@@ -13,9 +13,7 @@ from ..core.ast import (
 )
 from .nat import NatType, Succ, Zero
 
-Vec = I(
-    name="Vec", param_types=(Univ(0),), index_types=(NatType(),), level=0
-)
+Vec = I(name="Vec", param_types=(Univ(0),), index_types=(NatType(),), level=0)
 NilCtor = Ctor("Nil", Vec, (), (Zero(),))
 ConsCtor = Ctor(
     "Cons",

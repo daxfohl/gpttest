@@ -162,19 +162,7 @@ class IdElim:
     p: Term
 
 
-type Term = (
-        Var
-        | Lam
-        | Pi
-        | App
-        | Univ
-        | Ctor
-        | I
-        | Elim
-        | Id
-        | Refl
-        | IdElim
-)
+type Term = (Var | Lam | Pi | App | Univ | Ctor | I | Elim | Id | Refl | IdElim)
 
 
 __all__ = [
@@ -201,16 +189,16 @@ def _repr(self: Term) -> str:
 
 
 for _cls in (
-        Var,
-        Lam,
-        Pi,
-        App,
-        Univ,
-        Ctor,
-        I,
-        Elim,
-        Id,
-        Refl,
-        IdElim,
+    Var,
+    Lam,
+    Pi,
+    App,
+    Univ,
+    Ctor,
+    I,
+    Elim,
+    Id,
+    Refl,
+    IdElim,
 ):
     _cls.__repr__ = _repr  # type: ignore
