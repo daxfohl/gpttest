@@ -7,11 +7,11 @@ from typing import Iterable, Iterator
 
 from .ast import (
     App,
-    InductiveConstructor,
+    Ctor,
     Id,
     IdElim,
-    InductiveElim,
-    InductiveType,
+    Elim,
+    I,
     Lam,
     Pi,
     Refl,
@@ -83,8 +83,8 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
             return Pi(shift(ty, by, cutoff), shift(body, by, cutoff + 1))
         case App(f, a):
             return App(shift(f, by, cutoff), shift(a, by, cutoff))
-        case InductiveElim(inductive, motive, cases, scrutinee):
-            return InductiveElim(
+        case Elim(inductive, motive, cases, scrutinee):
+            return Elim(
                 inductive,
                 shift(motive, by, cutoff),
                 [shift(branch, by, cutoff) for branch in cases],
@@ -103,7 +103,7 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
                 shift(y, by, cutoff),
                 shift(p, by, cutoff),
             )
-        case Univ() | InductiveType() | InductiveConstructor():
+        case Univ() | I() | Ctor():
             return term
 
     raise TypeError(f"Unexpected term in shift: {term!r}")
@@ -136,8 +136,8 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
             )
         case App(f, a):
             return App(subst(f, sub, j), subst(a, sub, j))
-        case InductiveElim(inductive, motive, cases, scrutinee):
-            return InductiveElim(
+        case Elim(inductive, motive, cases, scrutinee):
+            return Elim(
                 inductive,
                 subst(motive, sub, j),
                 [subst(branch, sub, j) for branch in cases],
@@ -160,7 +160,7 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
                 subst(y, sub, j),
                 subst(p, sub, j),
             )
-        case Univ() | InductiveType() | InductiveConstructor():
+        case Univ() | I() | Ctor():
             return term
 
     raise TypeError(f"Unexpected term in subst: {term!r}")

@@ -72,17 +72,17 @@ class Univ:
 
 
 @dataclass(frozen=True)
-class InductiveConstructor:
+class Ctor:
     """A constructor for an inductive type."""
 
     name: str
-    inductive: InductiveType
+    inductive: I
     arg_types: tuple[Term, ...]
     result_indices: tuple[Term, ...] = ()
 
 
 @dataclass(frozen=True)
-class InductiveType:
+class I:
     """A generalized inductive type with constructors.
 
     Args:
@@ -92,12 +92,12 @@ class InductiveType:
     name: str
     param_types: tuple[Term, ...] = ()
     index_types: tuple[Term, ...] = ()
-    constructors: tuple[InductiveConstructor, ...] = ()
+    constructors: tuple[Ctor, ...] = ()
     level: int = 0
 
 
 @dataclass(frozen=True)
-class InductiveElim:
+class Elim:
     """Elimination principle for an inductive type.
 
     Args:
@@ -107,7 +107,7 @@ class InductiveElim:
         scrutinee: Term of the inductive type being eliminated.
     """
 
-    inductive: InductiveType
+    inductive: I
     motive: Term
     cases: list[Term]
     scrutinee: Term
@@ -163,17 +163,17 @@ class IdElim:
 
 
 type Term = (
-    Var
-    | Lam
-    | Pi
-    | App
-    | Univ
-    | InductiveConstructor
-    | InductiveType
-    | InductiveElim
-    | Id
-    | Refl
-    | IdElim
+        Var
+        | Lam
+        | Pi
+        | App
+        | Univ
+        | Ctor
+        | I
+        | Elim
+        | Id
+        | Refl
+        | IdElim
 )
 
 
@@ -184,9 +184,9 @@ __all__ = [
     "Pi",
     "App",
     "Univ",
-    "InductiveConstructor",
-    "InductiveType",
-    "InductiveElim",
+    "Ctor",
+    "I",
+    "Elim",
     "Id",
     "Refl",
     "IdElim",
@@ -201,16 +201,16 @@ def _repr(self: Term) -> str:
 
 
 for _cls in (
-    Var,
-    Lam,
-    Pi,
-    App,
-    Univ,
-    InductiveConstructor,
-    InductiveType,
-    InductiveElim,
-    Id,
-    Refl,
-    IdElim,
+        Var,
+        Lam,
+        Pi,
+        App,
+        Univ,
+        Ctor,
+        I,
+        Elim,
+        Id,
+        Refl,
+        IdElim,
 ):
     _cls.__repr__ = _repr  # type: ignore

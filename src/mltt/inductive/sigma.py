@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from ..core.ast import (
     App,
-    InductiveConstructor,
-    InductiveElim,
-    InductiveType,
+    Ctor,
+    Elim,
+    I,
     Pi,
     Term,
     Univ,
     Var,
 )
 
-Sigma = InductiveType(
+Sigma = I(
     name="Sigma",
     param_types=(
         Univ(0),  # A : Type
@@ -21,7 +21,7 @@ Sigma = InductiveType(
     ),
     level=0,
 )
-PairCtor = InductiveConstructor(
+PairCtor = Ctor(
     "Pair",
     Sigma,
     (
@@ -40,10 +40,10 @@ def Pair(A: Term, B: Term, a: Term, b: Term) -> Term:
     return App(App(App(App(PairCtor, A), B), a), b)
 
 
-def SigmaRec(P: Term, pair_case: Term, pair: Term) -> InductiveElim:
+def SigmaRec(P: Term, pair_case: Term, pair: Term) -> Elim:
     """Recursor for ``Sigma A B`` using the generic eliminator."""
 
-    return InductiveElim(
+    return Elim(
         inductive=Sigma,
         motive=P,
         cases=[pair_case],

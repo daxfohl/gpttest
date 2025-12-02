@@ -6,9 +6,9 @@ from ..ast import (
     App,
     Id,
     IdElim,
-    InductiveConstructor,
-    InductiveElim,
-    InductiveType,
+    Ctor,
+    Elim,
+    I,
     Lam,
     Pi,
     Refl,
@@ -25,10 +25,10 @@ from ..inductive_utils import (
 
 
 def _iota_constructor(
-    inductive: InductiveType,
+    inductive: I,
     motive: Term,
     cases: list[Term],
-    ctor: InductiveConstructor,
+    ctor: Ctor,
     args: tuple[Term, ...],
 ) -> Term:
     """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
@@ -44,7 +44,7 @@ def _iota_constructor(
         if head is ctor.inductive:
             # only works if after substituting param_args and index_args into ctor_arg_types.
             # assert head_args[:param_count] == param_args, f"{arg_ty}: {head_args[:param_count]!r} == {param_args}"
-            ih = InductiveElim(
+            ih = Elim(
                 inductive=ctor.inductive,
                 motive=motive,
                 cases=cases,
@@ -61,7 +61,7 @@ def _iota_constructor(
 def iota_head_step(t: Term) -> Term:
     """Perform one iota step at the head position, if possible."""
     match t:
-        case InductiveElim(inductive, motive, cases, scrutinee):
+        case Elim(inductive, motive, cases, scrutinee):
             # Try to reduce when the scrutinee is a fully-applied constructor.
             decomposition = decompose_ctor_app(scrutinee)
             if decomposition:
@@ -77,7 +77,7 @@ def iota_head_step(t: Term) -> Term:
             # Otherwise, attempt to reduce inside the scrutinee.
             scrutinee1 = iota_head_step(scrutinee)
             if scrutinee1 != scrutinee:
-                return InductiveElim(inductive, motive, cases, scrutinee1)
+                return Elim(inductive, motive, cases, scrutinee1)
             return t
         case IdElim(A, x, P, d, y, Refl(_, _)):
             return d
@@ -172,19 +172,19 @@ def iota_step(term: Term) -> Term:
                 return IdElim(A, x, P, d, y, p1)
             return term
 
-        case InductiveElim(inductive, motive, cases, scrutinee):
+        case Elim(inductive, motive, cases, scrutinee):
             motive1 = iota_step(motive)
             if motive1 != motive:
-                return InductiveElim(inductive, motive1, cases, scrutinee)
+                return Elim(inductive, motive1, cases, scrutinee)
             cases1 = [iota_step(branch) for branch in cases]
             if cases1 != cases:
-                return InductiveElim(inductive, motive, cases1, scrutinee)
+                return Elim(inductive, motive, cases1, scrutinee)
             scrutinee1 = iota_step(scrutinee)
             if scrutinee1 != scrutinee:
-                return InductiveElim(inductive, motive, cases, scrutinee1)
+                return Elim(inductive, motive, cases, scrutinee1)
             return term
 
-        case Var(_) | Univ() | InductiveType() | InductiveConstructor():
+        case Var(_) | Univ() | I() | Ctor():
             return term
 
     raise TypeError(f"Unexpected term in iota_step: {term!r}")

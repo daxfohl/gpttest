@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from ..core.ast import (
     App,
-    InductiveConstructor,
-    InductiveElim,
-    InductiveType,
+    Ctor,
+    Elim,
+    I,
     Term,
     Univ,
     Var,
 )
 
-Tree = InductiveType(
+Tree = I(
     name="Tree",
     param_types=(
         Univ(0),  # A : Type
@@ -20,12 +20,12 @@ Tree = InductiveType(
     ),
     level=0,
 )
-LeafCtor = InductiveConstructor(
+LeafCtor = Ctor(
     "Leaf",
     Tree,
     (Var(1),),  # payload : A
 )
-NodeCtor = InductiveConstructor(
+NodeCtor = Ctor(
     "Node",
     Tree,
     (
@@ -54,10 +54,10 @@ def TreeRec(
     leaf_case: Term,
     node_case: Term,
     tree: Term,
-) -> InductiveElim:
+) -> Elim:
     """Recursor for ``Tree leaf_ty node_ty`` using the generic eliminator."""
 
-    return InductiveElim(
+    return Elim(
         inductive=Tree,
         motive=P,
         cases=[

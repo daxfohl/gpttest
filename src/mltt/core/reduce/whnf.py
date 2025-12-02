@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Callable
 
-from ..ast import Term, App, Lam, InductiveElim, InductiveConstructor, InductiveType, IdElim, Refl, Var, Univ, Id, Pi
+from ..ast import Term, App, Lam, Elim, Ctor, I, IdElim, Refl, Var, Univ, Id, Pi
 from ..debruijn import subst
 from ..inductive_utils import decompose_ctor_app, ctor_index, decompose_app, apply_term
 
 
 def iota_reduce(
-    ctor: InductiveConstructor,
+    ctor: Ctor,
     cases: list[Term],
     args: tuple[Term, ...],
     motive: Term,
@@ -26,7 +26,7 @@ def iota_reduce(
         if head is ctor.inductive:
             # only works if after substituting param_args and index_args into ctor_arg_types.
             # assert head_args[:param_count] == param_args, f"{arg_ty}: {head_args[:param_count]!r} == {param_args}"
-            ih = InductiveElim(
+            ih = Elim(
                 inductive=ctor.inductive,
                 motive=motive,
                 cases=cases,
@@ -49,14 +49,14 @@ def whnf(term: Term) -> Term:
                 case _:
                     return App(f_whnf, a)
 
-        case InductiveElim(inductive, motive, cases, scrutinee):
+        case Elim(inductive, motive, cases, scrutinee):
             scrutinee_whnf = whnf(scrutinee)
             match decompose_ctor_app(scrutinee_whnf):
                 case (ctor, args) if ctor.inductive is inductive:
                     return whnf(iota_reduce(ctor, cases, args, motive))
                 case _:
                     # Decomposition terminates in Var or Axiom, etc.
-                    return InductiveElim(inductive, motive, cases, scrutinee_whnf)
+                    return Elim(inductive, motive, cases, scrutinee_whnf)
 
         case IdElim(A, x, P, d, y, Refl(_, _)):
             return d
@@ -148,19 +148,19 @@ def reduce_inside_step(term: Term, red: Callable[[Term], Term]) -> Term:
                 return IdElim(A, x, P, d, y, p1)
             return term
 
-        case InductiveElim(inductive, motive, cases, scrutinee):
+        case Elim(inductive, motive, cases, scrutinee):
             motive1 = reducer(motive)
             if motive1 != motive:
-                return InductiveElim(inductive, motive1, cases, scrutinee)
+                return Elim(inductive, motive1, cases, scrutinee)
             cases1 = [reducer(branch) for branch in cases]
             if cases1 != cases:
-                return InductiveElim(inductive, motive, cases1, scrutinee)
+                return Elim(inductive, motive, cases1, scrutinee)
             scrutinee1 = reducer(scrutinee)
             if scrutinee1 != scrutinee:
-                return InductiveElim(inductive, motive, cases, scrutinee1)
+                return Elim(inductive, motive, cases, scrutinee1)
             return term
 
-        case Var() | Univ() | InductiveType() | InductiveConstructor():
+        case Var() | Univ() | I() | Ctor():
             return term
 
     raise TypeError(f"Unexpected term in reducer: {term!r}")

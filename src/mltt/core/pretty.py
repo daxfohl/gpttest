@@ -6,9 +6,9 @@ from .ast import (
     App,
     Id,
     IdElim,
-    InductiveConstructor,
-    InductiveElim,
-    InductiveType,
+    Ctor,
+    Elim,
+    I,
     Lam,
     Pi,
     Refl,
@@ -44,7 +44,7 @@ def _uses_var(term: Term, target: int, depth: int = 0) -> bool:
             return _uses_var(ty, target, depth) or _uses_var(body, target, depth + 1)
         case App(f, a):
             return _uses_var(f, target, depth) or _uses_var(a, target, depth)
-        case InductiveElim(inductive, motive, cases, scrutinee):
+        case Elim(inductive, motive, cases, scrutinee):
             return (
                 _uses_var(inductive, target, depth)
                 or _uses_var(motive, target, depth)
@@ -73,11 +73,11 @@ def _maybe_paren(
     return text
 
 
-def _inductive_label(inductive: InductiveType) -> str:
+def _inductive_label(inductive: I) -> str:
     return inductive.name or "Inductive"
 
 
-def _ctor_label(ctor: InductiveConstructor) -> str:
+def _ctor_label(ctor: Ctor) -> str:
     if ctor.name:
         return ctor.name
 
@@ -107,10 +107,10 @@ def pretty(term: Term) -> str:
             case Univ(level):
                 return ("Type" if level == 0 else f"Type{level}"), ATOM_PREC
 
-            case InductiveType() as inductive:
+            case I() as inductive:
                 return _inductive_label(inductive), ATOM_PREC
 
-            case InductiveConstructor() as ctor:
+            case Ctor() as ctor:
                 return _ctor_label(ctor), ATOM_PREC
 
             case App(f, a):
@@ -145,7 +145,7 @@ def pretty(term: Term) -> str:
                 )
                 return f"Pi {binder} : {arg_disp}. {body_disp}", PI_PREC
 
-            case InductiveElim(inductive, motive, cases, scrutinee):
+            case Elim(inductive, motive, cases, scrutinee):
                 motive_text, motive_prec = fmt(motive, ctx)
                 scrutinee_text, scrutinee_prec = fmt(scrutinee, ctx)
                 cases_text = ", ".join(fmt(branch, ctx)[0] for branch in cases)

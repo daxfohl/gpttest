@@ -4,20 +4,20 @@ from __future__ import annotations
 
 from ..core.ast import (
     App,
-    InductiveConstructor,
-    InductiveElim,
-    InductiveType,
+    Ctor,
+    Elim,
+    I,
     Term,
     Univ,
     Var,
 )
 from .nat import NatType, Succ, Zero
 
-Vec = InductiveType(
+Vec = I(
     name="Vec", param_types=(Univ(0),), index_types=(NatType(),), level=0
 )
-NilCtor = InductiveConstructor("Nil", Vec, (), (Zero(),))
-ConsCtor = InductiveConstructor(
+NilCtor = Ctor("Nil", Vec, (), (Zero(),))
+ConsCtor = Ctor(
     "Cons",
     Vec,
     (
@@ -41,10 +41,10 @@ def Cons(elem_ty: Term, n: Term, head: Term, tail: Term) -> Term:
     return App(App(App(App(ConsCtor, elem_ty), n), head), tail)
 
 
-def VecRec(P: Term, base: Term, step: Term, xs: Term) -> InductiveElim:
+def VecRec(P: Term, base: Term, step: Term, xs: Term) -> Elim:
     """Recursor for vectors."""
 
-    return InductiveElim(
+    return Elim(
         inductive=Vec,
         motive=P,
         cases=[

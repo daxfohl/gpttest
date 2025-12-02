@@ -6,9 +6,9 @@ from ..ast import (
     App,
     Id,
     IdElim,
-    InductiveConstructor,
-    InductiveElim,
-    InductiveType,
+    Ctor,
+    Elim,
+    I,
     Lam,
     Pi,
     Refl,
@@ -109,19 +109,19 @@ def beta_step(term: Term) -> Term:
                 return IdElim(A, x, P, d, y, p1)
             return term
 
-        case InductiveElim(inductive, motive, cases, scrutinee):
+        case Elim(inductive, motive, cases, scrutinee):
             motive1 = beta_step(motive)
             if motive1 != motive:
-                return InductiveElim(inductive, motive1, cases, scrutinee)
+                return Elim(inductive, motive1, cases, scrutinee)
             cases1 = [beta_step(branch) for branch in cases]
             if cases1 != cases:
-                return InductiveElim(inductive, motive, cases1, scrutinee)
+                return Elim(inductive, motive, cases1, scrutinee)
             scrutinee1 = beta_step(scrutinee)
             if scrutinee1 != scrutinee:
-                return InductiveElim(inductive, motive, cases, scrutinee1)
+                return Elim(inductive, motive, cases, scrutinee1)
             return term
 
-        case Var() | Univ() | InductiveType() | InductiveConstructor():
+        case Var() | Univ() | I() | Ctor():
             return term
 
     raise TypeError(f"Unexpected term in beta_step: {term!r}")

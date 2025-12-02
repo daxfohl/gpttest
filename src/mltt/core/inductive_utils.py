@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .ast import App, InductiveConstructor, InductiveType, Term
+from .ast import App, Ctor, I, Term
 from .debruijn import subst
 
 
@@ -39,14 +39,14 @@ def decompose_app(term: Term) -> tuple[Term, tuple[Term, ...]]:
 
 def decompose_ctor_app(
     term: Term,
-) -> tuple[InductiveConstructor, tuple[Term, ...]] | None:
+) -> tuple[Ctor, tuple[Term, ...]] | None:
     """Return the constructor head and arguments if ``term`` is applied.
 
     Returns ``None`` when the head is not a constructor or the term is not an
     application chain.
     """
     head, args = decompose_app(term)
-    if isinstance(head, InductiveConstructor):
+    if isinstance(head, Ctor):
         return head, args
     # For example, it could be a Var, or an axiom like LEM.
     return None
@@ -76,7 +76,7 @@ def instantiate_params_indices(
 
 
 def match_inductive_application(
-    term: Term, inductive: InductiveType
+    term: Term, inductive: I
 ) -> tuple[tuple[Term, ...], tuple[Term, ...]] | None:
     """Return param/index args when ``term`` is an applied ``inductive``.
 
@@ -91,7 +91,7 @@ def match_inductive_application(
     return None
 
 
-def ctor_index(ctor: InductiveConstructor) -> int:
+def ctor_index(ctor: Ctor) -> int:
     """Position of ``ctor`` inside ``inductive.constructors``."""
     for idx, ctor_def in enumerate(ctor.inductive.constructors):
         if ctor is ctor_def:

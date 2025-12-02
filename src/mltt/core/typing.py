@@ -6,9 +6,9 @@ from .ast import (
     App,
     Id,
     IdElim,
-    InductiveConstructor,
-    InductiveElim,
-    InductiveType,
+    Ctor,
+    Elim,
+    I,
     Lam,
     Pi,
     Refl,
@@ -26,7 +26,7 @@ from .inductive_utils import (
 from .reduce.normalize import normalize
 
 
-def _ctor_type(ctor: InductiveConstructor) -> Term:
+def _ctor_type(ctor: Ctor) -> Term:
     """Compute the dependent function type of a constructor.
 
     The resulting Pi-tower has parameters outermost, then indices, then
@@ -67,11 +67,11 @@ def _ctor_type(ctor: InductiveConstructor) -> Term:
 
 
 def _expected_case_type(
-    inductive: InductiveType,
+    inductive: I,
     param_args: tuple[Term, ...],
     index_args: tuple[Term, ...],
     motive: Term,
-    ctor: InductiveConstructor,
+    ctor: Ctor,
 ) -> Term:
     """Return the required branch type for ``ctor`` under given params/indices.
 
@@ -123,7 +123,7 @@ def _expected_case_type(
 
 
 def _type_check_inductive_elim(
-    inductive: InductiveType,
+    inductive: I,
     motive: Term,
     cases: list[Term],
     scrutinee: Term,
@@ -293,7 +293,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             return Univ(max(arg_level, body_level))
         case Univ(level):
             return Univ(level + 1)
-        case InductiveType(
+        case I(
             name=_,
             param_types=param_types,
             index_types=index_types,
@@ -315,9 +315,9 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             for param_ty in reversed(param_types):
                 result = Pi(param_ty, result)
             return result
-        case InductiveConstructor():
+        case Ctor():
             return _ctor_type(term)
-        case InductiveElim(_, motive, _, scrutinee):
+        case Elim(_, motive, _, scrutinee):
             return App(motive, scrutinee)
         case Id(ty, lhs, rhs):
             # Identity type is a type when both endpoints check against ``ty``.
@@ -369,11 +369,11 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
         case Pi(_, _):
             # Pi formation uses inference for its type; just compare expected.
             return type_equal(expected_ty, infer_type(term, ctx))
-        case InductiveType():
+        case I():
             return type_equal(expected_ty, infer_type(term, ctx))
-        case InductiveConstructor():
+        case Ctor():
             return type_equal(expected_ty, _ctor_type(term))
-        case InductiveElim(inductive, motive, cases, scrutinee):
+        case Elim(inductive, motive, cases, scrutinee):
             return _type_check_inductive_elim(
                 inductive, motive, cases, scrutinee, expected_ty, ctx
             )

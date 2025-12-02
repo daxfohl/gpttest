@@ -4,18 +4,18 @@ from __future__ import annotations
 
 from ..core.ast import (
     App,
-    InductiveConstructor,
-    InductiveElim,
-    InductiveType,
+    Ctor,
+    Elim,
+    I,
     Lam,
     Term,
     Univ,
     Var,
 )
 
-List = InductiveType(name="List", param_types=(Univ(0),), level=0)
-NilCtor = InductiveConstructor("Nil", List, ())
-ConsCtor = InductiveConstructor(
+List = I(name="List", param_types=(Univ(0),), level=0)
+NilCtor = Ctor("Nil", List, ())
+ConsCtor = Ctor(
     "Cons",
     List,
     (
@@ -38,10 +38,10 @@ def Cons(elem_ty: Term, head: Term, tail: Term) -> Term:
     return App(App(App(ConsCtor, elem_ty), head), tail)
 
 
-def ListRec(P: Term, base: Term, step: Term, xs: Term) -> InductiveElim:
+def ListRec(P: Term, base: Term, step: Term, xs: Term) -> Elim:
     """Recursor for ``List elem_ty`` using the generic eliminator."""
 
-    return InductiveElim(
+    return Elim(
         inductive=List,
         motive=P,
         cases=[base, step],

@@ -5,9 +5,9 @@ from __future__ import annotations
 from ..core.ast import (
     App,
     Id,
-    InductiveConstructor,
-    InductiveElim,
-    InductiveType,
+    Ctor,
+    Elim,
+    I,
     Lam,
     Pi,
     Refl,
@@ -18,17 +18,17 @@ from ..core.reduce.normalize import normalize
 from ..core.typing import type_check
 from .eq import ap
 
-Nat = InductiveType(name="Nat", level=0)
-ZeroCtor = InductiveConstructor("Zero", Nat, ())
-SuccCtor = InductiveConstructor("Succ", Nat, (Nat,))
+Nat = I(name="Nat", level=0)
+ZeroCtor = Ctor("Zero", Nat, ())
+SuccCtor = Ctor("Succ", Nat, (Nat,))
 object.__setattr__(Nat, "constructors", (ZeroCtor, SuccCtor))
 
 
-def NatType() -> InductiveType:
+def NatType() -> I:
     return Nat
 
 
-def Zero() -> InductiveConstructor:
+def Zero() -> Ctor:
     return ZeroCtor
 
 
@@ -36,10 +36,10 @@ def Succ(n: Term) -> App:
     return App(SuccCtor, n)
 
 
-def NatRec(P: Term, base: Term, step: Term, n: Term) -> InductiveElim:
+def NatRec(P: Term, base: Term, step: Term, n: Term) -> Elim:
     """Recursor for Nat expressed via the generalized inductive eliminator."""
 
-    return InductiveElim(
+    return Elim(
         inductive=Nat,
         motive=P,
         cases=[
