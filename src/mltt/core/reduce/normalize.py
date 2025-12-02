@@ -2,20 +2,13 @@
 
 from __future__ import annotations
 
+from .whnf import reduce_inside_step, whnf
 from ..ast import Term
-from .beta import beta_step
-from .iota import iota_step
 
 
 def normalize_step(term: Term) -> Term:
     """One small-step using beta or iota."""
-    t1 = beta_step(term)
-    if t1 != term:
-        return t1
-    t2 = iota_step(term)
-    if t2 != term:
-        return t2
-    return term
+    return reduce_inside_step(term, whnf)
 
 
 def normalize(term: Term) -> Term:

@@ -3,7 +3,7 @@
 from .beta import beta_head_step, beta_step
 from .iota import iota_head_step, iota_step
 from .normalize import normalize, normalize_step
-from .whnf import whnf, whnf_step
+from .whnf import whnf
 
 __all__ = [
     "beta_head_step",
@@ -13,5 +13,4 @@ __all__ = [
     "normalize",
     "normalize_step",
     "whnf",
-    "whnf_step",
 ]
