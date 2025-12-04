@@ -20,8 +20,10 @@ from .debruijn import Ctx, subst
 from .inductive_utils import (
     apply_term,
     decompose_ctor_app,
+    match_inductive_application,
+    decompose_app,
+    instantiate_into,
     instantiate_params_indices,
-    match_inductive_application, decompose_app,
 )
 from .reduce.normalize import normalize
 
@@ -54,7 +56,7 @@ def _ctor_type(ctor: Ctor) -> Term:
         instantiate_params_indices(idx_term, param_vars, index_vars, offset=arg_count)
         for idx_term in ctor.result_indices
     )
-    assert ctor.result_indices == result_indices
+    assert ctor.result_indices == result_indices  # So why do we do this?
     result: Term = apply_term(ctor.inductive, (*param_vars, *result_indices))
 
     for arg_ty in reversed(ctor.arg_types):
@@ -85,10 +87,9 @@ def _expected_case_type(
     # fully-applied constructor to produce the case result type.
     binder_roles: list[tuple[str, int, Term | None]] = []
     arg_positions: list[int] = []
-    instantiated_arg_types = [
-        instantiate_params_indices(arg_ty, param_args, index_args, offset=idx)
-        for idx, arg_ty in enumerate(ctor.arg_types)
-    ]
+    instantiated_arg_types = instantiate_into(
+        (*param_args, *index_args), ctor.arg_types
+    )
 
     for idx, arg_ty in enumerate(instantiated_arg_types):
         arg_positions.append(len(binder_roles))
@@ -122,7 +123,7 @@ def _expected_case_type(
     return result
 
 
-def _type_check_inductive_elim1(
+def _type_check_inductive_elim(
     inductive: I,
     motive: Term,
     cases: tuple[Term, ...],
@@ -151,19 +152,56 @@ def _type_check_inductive_elim1(
     if not isinstance(motive_ty, Pi):
         raise TypeError("InductiveElim motive not a function")
     if not type_equal(motive_ty.ty, scrutinee_ty):
-        raise TypeError("InductiveElim motive domain mismatch")
+        raise TypeError(f"InductiveElim motive domain mismatch\n{motive_ty.ty}\n{scrutinee_ty}")
     motive_level = _expect_universe(motive_ty.body, ctx.extend(scrutinee_ty))
 
     # 3. For each constructor, compute the expected branch type and check
     for ctor, case in zip(inductive.constructors, cases):
         # 3.1 instantiate arg types with the actual params/indices
-        inst_arg_types = tuple(
-            instantiate_params_indices(arg_ty, params, indices)
-            for arg_ty in ctor.arg_types
-        )
+        inst_arg_types = instantiate_into(args, ctor.arg_types)
+
+        # 3.2 identify recursive positions (like in Step 2 of iota, but on types)
+        ihs: list[int] = []
+        for j, arg_ty in enumerate(inst_arg_types):
+            head_j, _ = decompose_app(arg_ty)
+            if head_j is inductive:
+                ihs.append(len(inst_arg_types) + len(ihs) - j - 1)
+
+        # 3.3 build the expected branch type telescope
+        m = len(inst_arg_types)
+        r = len(ihs)
+        hypotheticals = tuple(Var(r + m - 1 - j) for j in range(m))
+        scrut_like = ctor
+        for arg in (*args, *hypotheticals):
+            scrut_like = App(func=scrut_like, arg=arg)
+
+        # 4 args, ih at [1,2]
+        # ihs = [1, 2]
+        # hyps = [v5, v4, v3, v2]
+        # ctor v2 v3 v4 v5 | Av4 Av3 | A3 A2 A1 A0
+        # fun
+
+        # 3.4 Add binders, right-to-left
+        body = App(motive, scrut_like)
+        for j in reversed(ihs):
+            # IH for arg_j : motive arg_j
+            ih_ty = App(motive, Var(j))
+            body = Pi(ty=ih_ty, body=body)
+        for arg_ty in reversed(inst_arg_types):
+            body = Pi(ty=arg_ty, body=body)
+
+        expected_branch_ty = body
+        if not type_check(case, expected_branch_ty, ctx):
+            raise TypeError("Case for constructor has wrong type")
+
+    target_ty = App(motive, scrutinee)
+    target_level = _expect_universe(target_ty, ctx)
+    if target_level > motive_level:
+        raise TypeError("InductiveElim motive returns too small a universe")
+    return type_equal(expected_ty, target_ty)
 
 
-def _type_check_inductive_elim(
+def _type_check_inductive_elim1(
     inductive: I,
     motive: Term,
     cases: tuple[Term, ...],
@@ -241,10 +279,8 @@ def _type_check_inductive_elim(
             )
             # Index arguments may be left implicit in casees; we opportunistically
             # feed them when the case is a lambda expecting exactly those types.
-            index_arg_types = [
-                instantiate_params_indices(index_ty, cand_param_args, (), offset=0)
-                for index_ty in inductive.index_types
-            ]
+
+            index_arg_types = instantiate_into(cand_param_args, inductive.index_types)
             case_term = case
             lam_count = 0
             case_scan = case_term

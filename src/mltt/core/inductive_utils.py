@@ -52,6 +52,29 @@ def decompose_ctor_app(
     return None
 
 
+def instantiate_params_indices2(
+    params: tuple[Term, ...],
+) -> tuple[Term, ...]:
+    output = []
+    for i, param in enumerate(params):
+        for j in range(0, i):
+            param = subst(param, output[j], i - j - 1)
+        output.append(param)
+    return tuple(output)
+
+
+def instantiate_into(
+    params: tuple[Term, ...], target: tuple[Term, ...]
+) -> tuple[Term, ...]:
+    output = []
+    for i, arg in enumerate(target):
+        for j, param in enumerate(params):
+            index = len(params) + i - j - 1
+            arg = subst(arg, param, index)
+        output.append(arg)
+    return tuple(output)
+
+
 def instantiate_params_indices(
     term: Term,
     params: tuple[Term, ...],
@@ -108,6 +131,6 @@ __all__ = [
     "ctor_index",
     "decompose_app",
     "decompose_ctor_app",
-    "instantiate_params_indices",
+    "instantiate_into",
     "match_inductive_application",
 ]

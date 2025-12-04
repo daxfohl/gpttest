@@ -2,7 +2,7 @@ import pytest
 
 import mltt.inductive.fin as fin
 import mltt.inductive.vec as vec
-from mltt.core.ast import Lam, Var, Term, Univ
+from mltt.core.ast import Lam, Var, Term, Univ, App
 from mltt.core.reduce import normalize, whnf
 from mltt.core.typing import type_check
 from mltt.inductive.nat import (
@@ -40,7 +40,10 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
     elem_ty = NatType()
     P = Lam(
         NatType(),  # n : Nat
-        Lam(vec.VecType(elem_ty, Var(0)), NatType()),  # xs : Vec A n
+        Lam(
+            vec.VecType(elem_ty, Var(0)),
+            NatType(),
+        ),  # xs : Vec A n
     )
 
     base = numeral(b)
@@ -49,8 +52,8 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
         Lam(
             vec.VecType(elem_ty, Var(1)),  # xs : Vec A n (Var(1) = n)
             Lam(
-                NatType(),  # ih : Nat
-                add_terms(Var(0), Var(2)),  # acc + x
+                App(P, Var(0)),  # ih : P xs
+                add_terms(Var(0), Var(2)),  # ih + x
             ),
         ),
     )
@@ -61,7 +64,7 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
     rec = vec.VecRec(P, base, step, xs)
     normalized = normalize(rec)
     assert normalized == numeral(v * vec_len + b)
-    # assert type_check(rec, NatType())
+    assert type_check(rec, NatType())
 
 
 def test_vec_rec_preserves_length_index() -> None:
@@ -96,9 +99,10 @@ def test_fin_rec_respects_index() -> None:
     # return
     # Motive specialized to the index produced by FZ 0 (i.e., Fin (Succ 0)).
     print()
-    P = Lam(fin.FinType(Succ(Zero())), NatType())
+    f1 = fin.FinType(Succ(Zero()))
+    P = Lam(f1, NatType())
     base = Zero()
-    step = Lam(fin.FinType(Zero()), Lam(NatType(), Var(0)))
+    step = Lam(f1, Lam(NatType(), Var(0)))
     k = fin.FZ(Zero())
     rec = fin.FinRec(P, base, step, k)
     assert normalize(rec) == Zero()
