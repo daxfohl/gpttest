@@ -46,6 +46,6 @@ def SigmaRec(P: Term, pair_case: Term, pair: Term) -> Elim:
     return Elim(
         inductive=Sigma,
         motive=P,
-        cases=[pair_case],
+        cases=(pair_case,),
         scrutinee=pair,
     )

@@ -109,7 +109,7 @@ class Elim:
 
     inductive: I
     motive: Term
-    cases: list[Term]
+    cases: tuple[Term, ...]
     scrutinee: Term
 
 

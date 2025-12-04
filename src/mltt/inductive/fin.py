@@ -42,6 +42,6 @@ def FinRec(P: Term, base: Term, step: Term, k: Term) -> Elim:
     return Elim(
         inductive=Fin,
         motive=P,
-        cases=[base, step],
+        cases=(base, step),
         scrutinee=k,
     )

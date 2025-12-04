@@ -87,7 +87,7 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
             return Elim(
                 inductive,
                 shift(motive, by, cutoff),
-                [shift(branch, by, cutoff) for branch in cases],
+                tuple(shift(branch, by, cutoff) for branch in cases),
                 shift(scrutinee, by, cutoff),
             )
         case Id(ty, l, r):
@@ -140,7 +140,7 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
             return Elim(
                 inductive,
                 subst(motive, sub, j),
-                [subst(branch, sub, j) for branch in cases],
+                tuple(subst(branch, sub, j) for branch in cases),
                 subst(scrutinee, sub, j),
             )
         case Id(ty, l, r):

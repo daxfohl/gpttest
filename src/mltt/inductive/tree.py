@@ -60,9 +60,9 @@ def TreeRec(
     return Elim(
         inductive=Tree,
         motive=P,
-        cases=[
+        cases=(
             leaf_case,
             node_case,
-        ],
+        ),
         scrutinee=tree,
     )

@@ -42,10 +42,7 @@ def NatRec(P: Term, base: Term, step: Term, n: Term) -> Elim:
     return Elim(
         inductive=Nat,
         motive=P,
-        cases=[
-            base,
-            step,
-        ],
+        cases=(base, step),
         scrutinee=n,
     )
 

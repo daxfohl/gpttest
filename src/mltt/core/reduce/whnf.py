@@ -11,7 +11,7 @@ from ..inductive_utils import decompose_ctor_app, ctor_index, decompose_app, app
 
 def iota_reduce(
     ctor: Ctor,
-    cases: list[Term],
+    cases: tuple[Term, ...],
     args: tuple[Term, ...],
     motive: Term,
 ) -> Term:
@@ -52,11 +52,13 @@ def whnf(term: Term) -> Term:
         case Elim(inductive, motive, cases, scrutinee):
             scrutinee_whnf = whnf(scrutinee)
             match decompose_ctor_app(scrutinee_whnf):
-                case (ctor, args) if ctor.inductive is inductive:
-                    return whnf(iota_reduce(ctor, cases, args, motive))
-                case _:
+                case None:
                     # Decomposition terminates in Var or Axiom, etc.
                     return Elim(inductive, motive, cases, scrutinee_whnf)
+                case ctor, args if ctor.inductive is inductive:
+                    return whnf(iota_reduce(ctor, cases, args, motive))
+                case _:
+                    raise ValueError()
 
         case IdElim(A, x, P, d, y, Refl(_, _)):
             return d
@@ -152,7 +154,7 @@ def reduce_inside_step(term: Term, red: Callable[[Term], Term]) -> Term:
             motive1 = reducer(motive)
             if motive1 != motive:
                 return Elim(inductive, motive1, cases, scrutinee)
-            cases1 = [reducer(branch) for branch in cases]
+            cases1 = tuple(reducer(branch) for branch in cases)
             if cases1 != cases:
                 return Elim(inductive, motive, cases1, scrutinee)
             scrutinee1 = reducer(scrutinee)

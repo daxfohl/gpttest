@@ -27,7 +27,7 @@ from ..inductive_utils import (
 def _iota_constructor(
     inductive: I,
     motive: Term,
-    cases: list[Term],
+    cases: tuple[Term, ...],
     ctor: Ctor,
     args: tuple[Term, ...],
 ) -> Term:
@@ -175,7 +175,7 @@ def iota_step(term: Term) -> Term:
             motive1 = iota_step(motive)
             if motive1 != motive:
                 return Elim(inductive, motive1, cases, scrutinee)
-            cases1 = [iota_step(branch) for branch in cases]
+            cases1 = tuple(iota_step(branch) for branch in cases)
             if cases1 != cases:
                 return Elim(inductive, motive, cases1, scrutinee)
             scrutinee1 = iota_step(scrutinee)

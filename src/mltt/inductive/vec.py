@@ -45,9 +45,6 @@ def VecRec(P: Term, base: Term, step: Term, xs: Term) -> Elim:
     return Elim(
         inductive=Vec,
         motive=P,
-        cases=[
-            base,
-            step,
-        ],
+        cases=(base, step),
         scrutinee=xs,
     )

@@ -125,7 +125,7 @@ def _expected_case_type(
 def _type_check_inductive_elim(
     inductive: I,
     motive: Term,
-    cases: list[Term],
+    cases: tuple[Term, ...],
     scrutinee: Term,
     expected_ty: Term,
     ctx: Ctx,
@@ -140,7 +140,6 @@ def _type_check_inductive_elim(
       • The resulting motive application must live in a universe no larger than
         the motive's codomain.
     """
-
     scrutinee_ty = normalize(infer_type(scrutinee, ctx))
     # Recover param/index arguments from the scrutinee type.
     application = match_inductive_application(scrutinee_ty, inductive)
@@ -293,13 +292,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             return Univ(max(arg_level, body_level))
         case Univ(level):
             return Univ(level + 1)
-        case I(
-            name=_,
-            param_types=param_types,
-            index_types=index_types,
-            constructors=_,
-            level=level,
-        ):
+        case I(name, param_types, index_types, constructors, level):
             # Inductive type: check parameter and index kinds, build its
             # telescope (params then indices) ending in the inductive's level.
             ctx1 = ctx
@@ -317,7 +310,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             return result
         case Ctor():
             return _ctor_type(term)
-        case Elim(_, motive, _, scrutinee):
+        case Elim(inductive, motive, cases, scrutinee):
             return App(motive, scrutinee)
         case Id(ty, lhs, rhs):
             # Identity type is a type when both endpoints check against ``ty``.
@@ -353,8 +346,6 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
             match expected_ty:
                 case Pi(dom, cod):
                     if not type_equal(arg_ty, dom):
-                        print(arg_ty)
-                        print(dom)
                         raise TypeError("Lambda domain mismatch")
                     return type_check(body, cod, ctx.extend(arg_ty))
                 case _:

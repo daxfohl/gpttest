@@ -44,6 +44,6 @@ def ListRec(P: Term, base: Term, step: Term, xs: Term) -> Elim:
     return Elim(
         inductive=List,
         motive=P,
-        cases=[base, step],
+        cases=(base, step),
         scrutinee=xs,
     )
