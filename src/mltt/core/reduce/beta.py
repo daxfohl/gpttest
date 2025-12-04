@@ -113,7 +113,7 @@ def beta_step(term: Term) -> Term:
             motive1 = beta_step(motive)
             if motive1 != motive:
                 return Elim(inductive, motive1, cases, scrutinee)
-            cases1 = tuple(beta_step(branch) for branch in cases)
+            cases1 = tuple(beta_step(case) for case in cases)
             if cases1 != cases:
                 return Elim(inductive, motive, cases1, scrutinee)
             scrutinee1 = beta_step(scrutinee)

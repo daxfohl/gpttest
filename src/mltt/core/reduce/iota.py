@@ -35,7 +35,7 @@ def _iota_constructor(
     param_count = len(inductive.param_types)
     index_count = len(inductive.index_types)
     index = ctor_index(ctor)
-    branch = cases[index]
+    case = cases[index]
     ctor_args = args[param_count + index_count :]
 
     ihs: list[Term] = []
@@ -53,7 +53,7 @@ def _iota_constructor(
             ihs.append(ih)
 
     all_args = (*ctor_args, *ihs)
-    test = apply_term(branch, all_args)
+    test = apply_term(case, all_args)
     return test
 
 
@@ -175,7 +175,7 @@ def iota_step(term: Term) -> Term:
             motive1 = iota_step(motive)
             if motive1 != motive:
                 return Elim(inductive, motive1, cases, scrutinee)
-            cases1 = tuple(iota_step(branch) for branch in cases)
+            cases1 = tuple(iota_step(case) for case in cases)
             if cases1 != cases:
                 return Elim(inductive, motive, cases1, scrutinee)
             scrutinee1 = iota_step(scrutinee)

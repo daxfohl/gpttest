@@ -35,8 +35,8 @@ def iota_reduce(
             ihs.append(ih)
 
     index = ctor_index(ctor)
-    branch = cases[index]
-    return apply_term(branch, (*ctor_args, *ihs))
+    case = cases[index]
+    return apply_term(case, (*ctor_args, *ihs))
 
 
 def whnf(term: Term) -> Term:
@@ -154,7 +154,7 @@ def reduce_inside_step(term: Term, red: Callable[[Term], Term]) -> Term:
             motive1 = reducer(motive)
             if motive1 != motive:
                 return Elim(inductive, motive1, cases, scrutinee)
-            cases1 = tuple(reducer(branch) for branch in cases)
+            cases1 = tuple(reducer(case) for case in cases)
             if cases1 != cases:
                 return Elim(inductive, motive, cases1, scrutinee)
             scrutinee1 = reducer(scrutinee)

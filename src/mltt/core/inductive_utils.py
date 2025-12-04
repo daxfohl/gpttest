@@ -68,8 +68,12 @@ def instantiate_params_indices(
     result = term
     for idx, param in enumerate(params):
         j = offset + len(indices) + (len(params) - 1 - idx)
+        # j=0+2+2-1-0=3
+        # j=0+2+2-1-1=2
         result = subst(result, param, j=j)
     for idx, index in enumerate(indices):
+        # j=0+2-1-0=1
+        # j=0+2-1-1=0
         j = offset + (len(indices) - 1 - idx)
         result = subst(result, index, j=j)
     return result

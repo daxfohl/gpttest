@@ -21,7 +21,7 @@ from .inductive_utils import (
     apply_term,
     decompose_ctor_app,
     instantiate_params_indices,
-    match_inductive_application,
+    match_inductive_application, decompose_app,
 )
 from .reduce.normalize import normalize
 
@@ -73,16 +73,16 @@ def _expected_case_type(
     motive: Term,
     ctor: Ctor,
 ) -> Term:
-    """Return the required branch type for ``ctor`` under given params/indices.
+    """Return the required case type for ``ctor`` under given params/indices.
 
-    The branch receives one binder per constructor argument, plus an induction
+    The case receives one binder per constructor argument, plus an induction
     hypothesis for each recursive argument that matches the current params.
-    The branch ultimately returns ``motive (ctor params indices args)``.
+    The case ultimately returns ``motive (ctor params indices args)``.
     """
-    # Build the Pi type the branch must inhabit for this constructor.
+    # Build the Pi type the case must inhabit for this constructor.
     # We interleave constructor arguments with any recursive occurrences
     # (marking those as needing an IH). The motive is applied to the
-    # fully-applied constructor to produce the branch result type.
+    # fully-applied constructor to produce the case result type.
     binder_roles: list[tuple[str, int, Term | None]] = []
     arg_positions: list[int] = []
     instantiated_arg_types = [
@@ -122,6 +122,47 @@ def _expected_case_type(
     return result
 
 
+def _type_check_inductive_elim1(
+    inductive: I,
+    motive: Term,
+    cases: tuple[Term, ...],
+    scrutinee: Term,
+    expected_ty: Term,
+    ctx: Ctx,
+) -> bool:
+    """Type-check an ``InductiveElim`` against ``expected_ty``.
+
+    The structure closely follows the informal typing rule:
+      • The scrutinee must be an application of the inductive with the right
+        parameter/index arguments.
+      • The motive must quantify over that instantiated inductive.
+      • Each case must have the eliminator-specific case type for its ctor.
+      • The resulting motive application must live in a universe no larger than
+        the motive's codomain.
+    """
+    # 1. Infer type of scrutinee and extract params/indices.
+    scrutinee_ty = normalize(infer_type(scrutinee, ctx))
+    head, args = decompose_app(scrutinee_ty)
+    if head is not inductive:
+        raise TypeError("Eliminator scrutinee not of the right inductive type")
+
+    # 2. Check the motive’s type
+    motive_ty = infer_type(motive, ctx)
+    if not isinstance(motive_ty, Pi):
+        raise TypeError("InductiveElim motive not a function")
+    if not type_equal(motive_ty.ty, scrutinee_ty):
+        raise TypeError("InductiveElim motive domain mismatch")
+    motive_level = _expect_universe(motive_ty.body, ctx.extend(scrutinee_ty))
+
+    # 3. For each constructor, compute the expected branch type and check
+    for ctor, case in zip(inductive.constructors, cases):
+        # 3.1 instantiate arg types with the actual params/indices
+        inst_arg_types = tuple(
+            instantiate_params_indices(arg_ty, params, indices)
+            for arg_ty in ctor.arg_types
+        )
+
+
 def _type_check_inductive_elim(
     inductive: I,
     motive: Term,
@@ -136,7 +177,7 @@ def _type_check_inductive_elim(
       • The scrutinee must be an application of the inductive with the right
         parameter/index arguments.
       • The motive must quantify over that instantiated inductive.
-      • Each branch must have the eliminator-specific case type for its ctor.
+      • Each case must have the eliminator-specific case type for its ctor.
       • The resulting motive application must live in a universe no larger than
         the motive's codomain.
     """
@@ -182,7 +223,7 @@ def _type_check_inductive_elim(
             t = t.body
         return count
 
-    # We try typing branches with either the decomposed ctor args (if available)
+    # We try typing casees with either the decomposed ctor args (if available)
     # or the scrutinee's instantiated param/index args.
     candidate_args = [
         (param_args_for_cases, index_args_for_cases),
@@ -190,38 +231,38 @@ def _type_check_inductive_elim(
     if (param_args, index_args) not in candidate_args:
         candidate_args.append((param_args, index_args))
 
-    for ctor, branch in zip(inductive.constructors, cases):
+    for ctor, case in zip(inductive.constructors, cases):
         success = False
         last_error: TypeError | None = None
         for cand_param_args, cand_index_args in candidate_args:
-            # Derive the expected branch type for this ctor under the chosen args.
-            branch_ty = _expected_case_type(
+            # Derive the expected case type for this ctor under the chosen args.
+            case_ty = _expected_case_type(
                 inductive, cand_param_args, cand_index_args, motive, ctor
             )
-            # Index arguments may be left implicit in branches; we opportunistically
-            # feed them when the branch is a lambda expecting exactly those types.
+            # Index arguments may be left implicit in casees; we opportunistically
+            # feed them when the case is a lambda expecting exactly those types.
             index_arg_types = [
                 instantiate_params_indices(index_ty, cand_param_args, (), offset=0)
                 for index_ty in inductive.index_types
             ]
-            branch_term = branch
+            case_term = case
             lam_count = 0
-            branch_scan = branch_term
-            while isinstance(branch_scan, Lam):
+            case_scan = case_term
+            while isinstance(case_scan, Lam):
                 lam_count += 1
-                branch_scan = branch_scan.body
-            extra_needed = max(0, lam_count - _pi_arity(branch_ty))
+                case_scan = case_scan.body
+            extra_needed = max(0, lam_count - _pi_arity(case_ty))
 
             for idx_arg, idx_ty in zip(cand_index_args, index_arg_types):
                 if extra_needed <= 0:
                     break
-                if isinstance(branch_term, Lam) and type_equal(branch_term.ty, idx_ty):
-                    branch_term = App(branch_term, idx_arg)
+                if isinstance(case_term, Lam) and type_equal(case_term.ty, idx_ty):
+                    case_term = App(case_term, idx_arg)
                     extra_needed -= 1
                 else:
                     break
             try:
-                if type_check(branch_term, branch_ty, ctx):
+                if type_check(case_term, case_ty, ctx):
                     success = True
                     break
             except TypeError as exc:

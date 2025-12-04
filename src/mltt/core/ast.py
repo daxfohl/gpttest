@@ -103,7 +103,7 @@ class Elim:
     Args:
         inductive: Inductive type being eliminated.
         motive: Motive ``λx. Type``.
-        cases: Branches aligned with ``inductive.constructors``.
+        cases: Casees aligned with ``inductive.constructors``.
         scrutinee: Term of the inductive type being eliminated.
     """
 

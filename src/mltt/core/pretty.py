@@ -48,7 +48,7 @@ def _uses_var(term: Term, target: int, depth: int = 0) -> bool:
             return (
                 _uses_var(inductive, target, depth)
                 or _uses_var(motive, target, depth)
-                or any(_uses_var(branch, target, depth) for branch in cases)
+                or any(_uses_var(case, target, depth) for case in cases)
                 or _uses_var(scrutinee, target, depth)
             )
         case Id(ty, lhs, rhs):
@@ -148,7 +148,7 @@ def pretty(term: Term) -> str:
             case Elim(inductive, motive, cases, scrutinee):
                 motive_text, motive_prec = fmt(motive, ctx)
                 scrutinee_text, scrutinee_prec = fmt(scrutinee, ctx)
-                cases_text = ", ".join(fmt(branch, ctx)[0] for branch in cases)
+                cases_text = ", ".join(fmt(case, ctx)[0] for case in cases)
                 parts = [
                     f"elim {_inductive_label(inductive)}",
                     _maybe_paren(motive_text, motive_prec, APP_PREC, allow_equal=False),
