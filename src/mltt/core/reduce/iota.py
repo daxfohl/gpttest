@@ -102,13 +102,13 @@ def iota_step(term: Term) -> Term:
         return t1
 
     match term:
-        case App(a, f):
+        case App(f, a):
             f1 = iota_step(f)
             if f1 != f:
-                return App(a, f1)
+                return App(f1, a)
             a1 = iota_step(a)
             if a1 != a:
-                return App(a1, f)
+                return App(f, a1)
             return term
 
         case Lam(ty, body):

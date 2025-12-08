@@ -7,8 +7,8 @@ def test_normalize_performs_nested_reduction() -> None:
     inner_identity = Lam(Univ(), Var(0))
     a = Var(0)
     b = Zero()
-    a1 = Lam(Univ(), App(b, a))
-    term = App(inner_identity, a1)
+    a1 = Lam(Univ(), App(a, b))
+    term = App(a1, inner_identity)
     assert normalize(term) == Zero()
 
 
@@ -25,24 +25,24 @@ def test_normalize_step_unfolds_add_base_case() -> None:
 
     a = add()
     b = Zero()
-    assert normalize_step(App(b, a)) == expected
+    assert normalize_step(App(a, b)) == expected
 
 
 def test_normalize_fully_reduces_application_chain() -> None:
     inner = Lam(Univ(), Succ(Var(0)))
     b = Var(0)
-    a = Lam(Univ(), App(b, inner))
+    a = Lam(Univ(), App(inner, b))
     b1 = Zero()
-    term = App(b1, a)
+    term = App(a, b1)
     assert normalize(term) == Succ(Zero())
 
 
 def test_normalize_reduces_after_normalizing_function() -> None:
     curried = Lam(Univ(), Lam(Univ(), Var(0)))
     b = Zero()
-    a = App(b, curried)
+    a = App(curried, b)
     b1 = Zero()
-    term = App(b1, a)
+    term = App(a, b1)
 
     assert normalize(term) == Zero()
 
@@ -50,7 +50,7 @@ def test_normalize_reduces_after_normalizing_function() -> None:
 def test_normalize_eta_expansion_collapses() -> None:
     a = Lam(Univ(), Var(0))
     b = Lam(Univ(), Var(0))
-    term = App(b, a)
+    term = App(a, b)
     assert normalize(term) == Lam(Univ(), Var(0))
 
 

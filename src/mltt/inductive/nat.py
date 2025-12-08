@@ -30,7 +30,7 @@ def Zero() -> Ctor:
 
 
 def Succ(n: Term) -> App:
-    return App(n, SuccCtor)
+    return App(SuccCtor, n)
 
 
 def NatRec(P: Term, base: Term, step: Term, n: Term) -> Elim:
@@ -85,7 +85,7 @@ def add() -> Lam:
 def add_terms(lhs: Term, rhs: Term) -> Term:
     """Build ``add lhs rhs`` as nested applications."""
 
-    return App(rhs, App(lhs, add()))
+    return App(App(add(), lhs), rhs)
 
 
 def add_n_0() -> Term:

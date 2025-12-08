@@ -29,5 +29,5 @@ def test_natrec_on_succ_expands_step_and_ih() -> None:
     step = Lam(NatType(), Lam(NatType(), Var(0)))
     rec = NatRec(P=P, base=base, step=step, n=Succ(Zero()))
     result = iota_head_step(rec)
-    expected = App(NatRec(P=P, base=base, step=step, n=Zero()), App(Zero(), step))
+    expected = App(App(step, Zero()), NatRec(P=P, base=base, step=step, n=Zero()))
     assert result == expected

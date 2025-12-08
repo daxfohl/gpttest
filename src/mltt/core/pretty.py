@@ -42,7 +42,7 @@ def _uses_var(term: Term, target: int, depth: int = 0) -> bool:
             return k == target + depth
         case Lam(ty, body) | Pi(ty, body):
             return _uses_var(ty, target, depth) or _uses_var(body, target, depth + 1)
-        case App(a, f):
+        case App(f, a):
             return _uses_var(f, target, depth) or _uses_var(a, target, depth)
         case Elim(inductive, motive, cases, scrutinee):
             return (
@@ -113,7 +113,7 @@ def pretty(term: Term) -> str:
             case Ctor() as ctor:
                 return _ctor_label(ctor), ATOM_PREC
 
-            case App(a, f):
+            case App(f, a):
                 func_text, func_prec = fmt(f, ctx)
                 arg_text, arg_prec = fmt(a, ctx)
                 func_disp = _maybe_paren(

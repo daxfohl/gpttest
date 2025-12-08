@@ -17,7 +17,7 @@ def apply_term(term: Term, args: tuple[Term, ...]) -> Term:
     #  e.g. term = \x->(\y->z). args = [x, y]
     result: Term = term
     for arg in args:
-        result = App(arg, result)
+        result = App(result, arg)
     return result
 
 

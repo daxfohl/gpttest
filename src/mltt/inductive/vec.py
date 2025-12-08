@@ -20,7 +20,7 @@ ConsCtor = Ctor(
     Vec,
     (
         Var(1),  # head : A
-        App(Var(1), App(Var(2), Vec)),  # tail : Vec A n
+        App(App(Vec, Var(2)), Var(1)),  # tail : Vec A n
     ),
     (Succ(Var(2)),),  # result index = Succ n
 )
@@ -28,15 +28,15 @@ object.__setattr__(Vec, "constructors", (NilCtor, ConsCtor))
 
 
 def VecType(elem_ty: Term, length: Term) -> App:
-    return App(length, App(elem_ty, Vec))
+    return App(App(Vec, elem_ty), length)
 
 
 def Nil(elem_ty: Term) -> App:
-    return App(Zero(), App(elem_ty, NilCtor))
+    return App(App(NilCtor, elem_ty), Zero())
 
 
 def Cons(elem_ty: Term, n: Term, head: Term, tail: Term) -> Term:
-    return App(tail, App(head, App(n, App(elem_ty, ConsCtor))))
+    return App(App(App(App(ConsCtor, elem_ty), n), head), tail)
 
 
 def VecRec(P: Term, base: Term, step: Term, xs: Term) -> Elim:

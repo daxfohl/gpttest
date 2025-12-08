@@ -17,22 +17,22 @@ FZCtor = Ctor("FZ", Fin, (), (Succ(Var(0)),))
 FSCtor = Ctor(
     "FS",
     Fin,
-    (App(Var(0), Fin),),
+    (App(Fin, Var(0)),),
     (Succ(Var(1)),),
 )
 object.__setattr__(Fin, "constructors", (FZCtor, FSCtor))
 
 
 def FinType(n: Term) -> App:
-    return App(n, Fin)
+    return App(Fin, n)
 
 
 def FZ(n: Term) -> App:
-    return App(n, FZCtor)
+    return App(FZCtor, n)
 
 
 def FS(n: Term, k: Term) -> Term:
-    return App(k, App(n, FSCtor))
+    return App(App(FSCtor, n), k)
 
 
 def FinRec(P: Term, base: Term, step: Term, k: Term) -> Elim:

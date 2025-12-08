@@ -39,9 +39,9 @@ def test_treerec_counts_leaves() -> None:
             Lam(
                 tree_ty,
                 Lam(
-                    App(Var(1), App(Var(3), App(Var(4), P))),  # ih for left
+                    App(App(App(P, Var(4)), Var(3)), Var(1)),  # ih for left
                     Lam(
-                        App(Var(1), App(Var(4), App(Var(5), P))),  # ih for right
+                        App(App(App(P, Var(5)), Var(4)), Var(1)),  # ih for right
                         add_terms(Var(1), Var(0)),
                     ),
                 ),

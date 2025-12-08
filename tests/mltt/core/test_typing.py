@@ -82,13 +82,13 @@ def test_infer_lam_4_level(i: int) -> None:
         ),
     )
     b = Univ(9)
-    a = App(b, fxy)
+    a = App(fxy, b)
     b1 = Univ(8)
-    a1 = App(b1, a)
+    a1 = App(a, b1)
     b2 = Univ(19)
-    a2 = App(b2, a1)
+    a2 = App(a1, b2)
     b3 = Univ(18)
-    t = App(b3, a2)
+    t = App(a2, b3)
     assert normalize(t) == Univ(18 if i == 0 else 8)
     assert infer_type(t) == Univ(19 if i == 0 else 9)
 
@@ -108,11 +108,11 @@ def test_infer_lam_3_level(i: int) -> None:
         ),
     )
     b = Univ(9)
-    a = App(b, fxy)
+    a = App(fxy, b)
     b1 = Univ(8)
-    a1 = App(b1, a)
+    a1 = App(a, b1)
     b2 = Univ(8)
-    t = App(b2, a1)
+    t = App(a1, b2)
     assert normalize(t) == Univ(8)
     assert infer_type(t) == Univ(9)
 
@@ -159,7 +159,7 @@ def test_two_level_lambda_type_refers_to_previous_binder() -> None:
 def test_type_equal_normalizes_beta_equivalent_terms() -> None:
     a = Lam(Univ(), Var(0))
     b = Univ()
-    beta_equiv = App(b, a)
+    beta_equiv = App(a, b)
 
     assert type_equal(beta_equiv, Univ())
     assert not type_equal(beta_equiv, NatType())
@@ -188,7 +188,7 @@ def test_infer_type_application_requires_function() -> None:
     with pytest.raises(TypeError, match="Application of non-function"):
         a = Zero()
         b = Zero()
-        infer_type(App(b, a))
+        infer_type(App(a, b))
 
 
 def test_type_check_natrec_rejects_invalid_base_case() -> None:
@@ -199,7 +199,7 @@ def test_type_check_natrec_rejects_invalid_base_case() -> None:
     term = NatRec(P, z, s, n)
 
     with pytest.raises(TypeError, match="Case for constructor has wrong type"):
-        type_check(term, App(n, P))
+        type_check(term, App(P, n))
 
 
 def test_type_check_accepts_add_application() -> None:
@@ -218,7 +218,7 @@ def test_type_check_lambda_with_wrong_domain() -> None:
 def test_type_check_application_argument_mismatch() -> None:
     f = Lam(NatType(), Var(0))
     b = Univ()
-    term = App(b, f)
+    term = App(f, b)
     with pytest.raises(TypeError, match="Application argument type mismatch"):
         type_check(term, NatType())
 
@@ -235,6 +235,6 @@ def test_infer_type_idelim() -> None:
     inferred = infer_type(term)
     a = Lam(Univ(), Lam(Id(Univ(), Var(0), Var(1)), Univ()))
     b = Var(1)
-    a1 = App(b, a)
+    a1 = App(a, b)
     b1 = Refl(Univ(), Var(0))
-    assert inferred == App(b1, a1)
+    assert inferred == App(a1, b1)

@@ -21,5 +21,5 @@ def test_nested_application_uses_binder_names() -> None:
     nat = NatType()
     a = Var(1)
     b = Var(0)
-    term = Lam(nat, Lam(nat, App(b, a)))
+    term = Lam(nat, Lam(nat, App(a, b)))
     assert pretty(term) == "\\x : Nat. \\x1 : Nat. x x1"

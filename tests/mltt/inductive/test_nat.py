@@ -60,7 +60,7 @@ def test_add_zero_right_typechecks() -> None:
 def test_add_zero_right_normalizes() -> None:
     lemma = add_n_0()
     b = numeral(5)
-    applied = App(b, lemma)
+    applied = App(lemma, b)
     assert normalize(applied) == Refl(NatType(), numeral(5))
 
 
@@ -69,14 +69,14 @@ def test_add_zero_right_normalizes_multiple_inputs() -> None:
 
     for value in range(6):
         b = numeral(value)
-        applied = App(b, lemma)
+        applied = App(lemma, b)
         assert normalize(applied) == Refl(NatType(), numeral(value))
 
 
 def test_add_zero_right_applied_term_typechecks() -> None:
     lemma = add_n_0()
     three = numeral(3)
-    applied = App(three, lemma)
+    applied = App(lemma, three)
     expected = Id(
         NatType(),
         add_terms(three, Zero()),

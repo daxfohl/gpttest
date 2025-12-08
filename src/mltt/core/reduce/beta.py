@@ -21,12 +21,12 @@ from ..debruijn import subst
 
 def beta_head_step(t: Term) -> Term:
     match t:
-        case App(arg, Lam(_, body)):
+        case App(Lam(_, body), arg):
             return subst(body, arg)
-        case App(a, f):
+        case App(f, a):
             f1 = beta_head_step(f)
             if f1 != f:
-                return App(a, f1)
+                return App(f1, a)
             return t
         case _:
             return t
@@ -40,13 +40,13 @@ def beta_step(term: Term) -> Term:
         return t1
 
     match term:
-        case App(a, f):
+        case App(f, a):
             f1 = beta_step(f)
             if f1 != f:
-                return App(a, f1)
+                return App(f1, a)
             a1 = beta_step(a)
             if a1 != a:
-                return App(a, f1)
+                return App(f, a1)
             return term
 
         case Lam(ty, body):

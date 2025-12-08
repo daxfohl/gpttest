@@ -107,7 +107,7 @@ def _expected_case_type(
     total_binders = len(binder_roles)
     ctor_args = tuple(Var(total_binders - 1 - arg_pos) for arg_pos in arg_positions)
     args = (*param_args, *index_args, *ctor_args)
-    target: Term = App(apply_term(ctor, args), motive)
+    target: Term = App(motive, apply_term(ctor, args))
 
     binder_types: list[Term] = []
     for pos, (role, arg_idx, maybe_arg_ty) in enumerate(binder_roles):
@@ -116,7 +116,7 @@ def _expected_case_type(
             binder_types.append(maybe_arg_ty)
         else:
             index = pos - 1 - arg_idx
-            binder_types.append(App(Var(index), motive))
+            binder_types.append(App(motive, Var(index)))
 
     result = target
     for binder_ty in reversed(binder_types):
@@ -220,19 +220,19 @@ def _type_check_inductive_elim(
         for arg in (
             scrut_args + hypotheticals
         ):  # scrut_args from decompose_app(scrutinee_ty)
-            scrut_like = App(arg=arg, func=scrut_like)
+            scrut_like = App(func=scrut_like, arg=arg)
 
         # 3.4 Add binders, right-to-left
         body = motive
         for arg in scrut_args:  # scrut_args from decompose_app(scrutinee_ty)
-            body = App(arg, body)
-        body = App(scrut_like, body)
+            body = App(body, arg)
+        body = App(body, scrut_like)
         for ref_var in reversed(recursive_refs):
             # IH for arg_j : motive arg_j
             ih_ty = motive
             for arg in scrut_args:
-                ih_ty = App(arg, ih_ty)
-            ih_ty = App(ref_var, ih_ty)
+                ih_ty = App(ih_ty, arg)
+            ih_ty = App(ih_ty, ref_var)
             body = Pi(arg_ty=ih_ty, return_ty=body)
         for arg_ty in reversed(arg_tys):
             body = Pi(arg_ty=arg_ty, return_ty=body)
@@ -245,8 +245,8 @@ def _type_check_inductive_elim(
 
     body = motive
     for arg in scrut_args:
-        body = App(arg, body)
-    target_ty = App(scrutinee, body)
+        body = App(body, arg)
+    target_ty = App(body, scrutinee)
     target_level = _expect_universe(target_ty, ctx)
     body = motive_ty
     for arg in scrut_args:
@@ -349,7 +349,7 @@ def _type_check_inductive_elim1(
                 if extra_needed <= 0:
                     break
                 if isinstance(case_term, Lam) and type_equal(case_term.arg_ty, idx_ty):
-                    case_term = App(idx_arg, case_term)
+                    case_term = App(case_term, idx_arg)
                     extra_needed -= 1
                 else:
                     break
@@ -364,7 +364,7 @@ def _type_check_inductive_elim1(
                 raise last_error
             raise TypeError("Case for constructor has wrong type")
 
-    target_ty = App(scrutinee, motive)
+    target_ty = App(motive, scrutinee)
     target_level = _expect_universe(target_ty, ctx)
     if target_level > motive_level:
         raise TypeError("InductiveElim motive returns too small a universe")
@@ -409,7 +409,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             # Lambdas infer to Pis: infer the body under an extended context.
             body_ty = infer_type(body, ctx.extend(arg_ty))
             return Pi(arg_ty, body_ty)
-        case App(a, f):
+        case App(f, a):
             # Application: infer the function, ensure it is a Pi, and that the
             # argument checks against its domain.
             f_ty = infer_type(f, ctx)
@@ -446,7 +446,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
         case Ctor():
             return _ctor_type(term)
         case Elim(inductive, motive, cases, scrutinee):
-            return App(scrutinee, motive)
+            return App(motive, scrutinee)
         case Id(ty, lhs, rhs):
             # Identity type is a type when both endpoints check against ``ty``.
             if not type_check(lhs, ty, ctx) or not type_check(rhs, ty, ctx):
@@ -459,7 +459,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             return Id(ty, t, t)
         case IdElim(A, x, P, d, y, p):
             # Eliminator returns the motive applied to the target endpoints/proof.
-            return App(p, App(y, P))
+            return App(App(P, y), p)
 
     raise TypeError(f"Unexpected term in infer_type: {term!r}")
 
@@ -485,7 +485,7 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
                     return type_check(body, cod, ctx.extend(arg_ty))
                 case _:
                     raise TypeError("Lambda expected to have Pi type")
-        case App(a, f):
+        case App(f, a):
             f_ty = infer_type(f, ctx)
             if not isinstance(f_ty, Pi):
                 raise TypeError("Application of non-function")
@@ -523,12 +523,12 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
                 raise TypeError("IdElim: y : A fails")
             if not type_check(p, Id(A, x, y), ctx):
                 raise TypeError("IdElim: p : Id(A,x,y) fails")
-            a1 = App(x, P)
+            a1 = App(P, x)
             b = Refl(A, x)
-            if not type_check(d, App(b, a1), ctx):
+            if not type_check(d, App(a1, b), ctx):
                 raise TypeError("IdElim: d : P x (Refl x) fails")
-            a2 = App(y, P)
-            return type_equal(expected_ty, App(p, a2))
+            a2 = App(P, y)
+            return type_equal(expected_ty, App(a2, p))
         case Univ(_):
             return isinstance(expected_ty, Univ)
 

@@ -33,7 +33,7 @@ def test_sigmarec_returns_first_projection() -> None:
     pair_case = Lam(
         A,
         Lam(
-            App(Var(0), B),  # b : B a
+            App(B, Var(0)),  # b : B a
             Var(1),  # return the first projection
         ),
     )

@@ -18,13 +18,13 @@ def test_shift_var_below_cutoff_unchanged() -> None:
 
 
 def test_shift_by_zero_is_identity() -> None:
-    t = App(Lam(Var(0), App(Var(0), Var(1))), Var(2))
+    t = App(Var(2), Lam(Var(0), App(Var(0), Var(1))))
     assert shift(t, by=0, cutoff=0) == t
 
 
 def test_shift_app_distributes() -> None:
-    shifted = shift(App(Var(0), Var(1)), by=1, cutoff=0)
-    assert shifted == App(Var(1), Var(2))
+    shifted = shift(App(Var(1), Var(0)), by=1, cutoff=0)
+    assert shifted == App(Var(2), Var(1))
 
 
 def test_shift_lam_body_uses_cutoff_plus_1() -> None:
@@ -50,7 +50,7 @@ def test_shift_pi_behaves_like_lam() -> None:
 
 def test_shift_negative_pops_binder_levels() -> None:
     # Equivalent to "popping" a binder layer for indices >= cutoff
-    assert shift(App(Var(1), Var(3)), by=-1, cutoff=1) == App(Var(0), Var(2))
+    assert shift(App(Var(3), Var(1)), by=-1, cutoff=1) == App(Var(2), Var(0))
     # Below cutoff index unchanged
     assert shift(Var(0), by=-1, cutoff=1) == Var(0)
 
@@ -78,10 +78,10 @@ def test_subst_var_lower_index_unchanged() -> None:
 
 def test_subst_under_lam_shifts_subterm_and_increments_j() -> None:
     # subst(λ(ty). body, sub, j) = λ(subst(ty, sub, j), subst(body, shift(sub,1,0), j+1))
-    sub = App(Var(0), Var(1))  # free vars must shift when entering the body
+    sub = App(Var(1), Var(0))  # free vars must shift when entering the body
     shifted_sub = shift(sub, 1, 0)  # app(v(2), v(1))
-    res = subst(Lam(Var(2), App(Var(0), Var(2))), sub=sub, j=1)
-    assert res == Lam(Var(1), App(Var(0), shifted_sub))
+    res = subst(Lam(Var(2), App(Var(2), Var(0))), sub=sub, j=1)
+    assert res == Lam(Var(1), App(shifted_sub, Var(0)))
 
 
 def test_subst_bound_variable_not_replaced() -> None:
@@ -96,7 +96,7 @@ def test_subst_bound_variable_not_replaced() -> None:
 
 def test_subst_free_above_j_drops_by_one_under_binder() -> None:
     # t = λ. App1(Var(2), Var(1))
-    t = Lam(Var(0), App(Var(1), Var(2)))
+    t = Lam(Var(0), App(Var(2), Var(1)))
     # substitute j=0 (the innermost free var at the top level)
     sub = Var(5)
     res = subst(t, sub, j=0)
@@ -104,19 +104,19 @@ def test_subst_free_above_j_drops_by_one_under_binder() -> None:
     # body: j becomes 1; sub becomes shift(v(5),1,0) = v(6)
     #   v(2) with j=1 -> 2 > 1 => v(1)
     #   v(1) with j=1 -> equal => replaced by v(6)
-    assert res == Lam(Var(5), App(Var(6), Var(1)))
+    assert res == Lam(Var(5), App(Var(1), Var(6)))
 
 
 def test_subst_under_pi_increments_j_and_shifts_subterm() -> None:
-    t = Pi(Var(3), App(Var(0), Var(2)))
-    sub = App(Var(1), Var(0))
+    t = Pi(Var(3), App(Var(2), Var(0)))
+    sub = App(Var(0), Var(1))
     res = subst(t, sub, j=1)
     exp_ty = Var(2)  # v(3) with j=1 -> 3>1 => 2
     shifted_sub = shift(sub, 1, 0)  # app(v(1), v(2))
     # body under binder: j -> 2
     #   v(2) == j -> replace with shifted_sub
     #   v(0) < j -> stays v(0)
-    exp_body = App(Var(0), shifted_sub)
+    exp_body = App(shifted_sub, Var(0))
     assert res == Pi(exp_ty, exp_body)
 
 
@@ -145,7 +145,7 @@ def test_beta_capture_avoidance_nontrivial() -> None:
 def test_beta_argument_with_free_vars_no_capture() -> None:
     # (λ. App1(Var(1), Var(0))) (App1(Var(1), Var(0)))
     # Should produce App1(Var(1), App1(Var(2), Var(1))) with correct shifting
-    res = subst(App(Var(0), Var(1)), App(Var(0), Var(1)))
+    res = subst(App(Var(1), Var(0)), App(Var(1), Var(0)))
     # Compute expected:
     # shift(arg,1,0) = app(v(2), v(1))
     # subst_impl(body, shift(arg,1,0), 0):
@@ -165,7 +165,7 @@ def test_beta_argument_with_free_vars_no_capture() -> None:
         match t:
             case Var(k):
                 return k >= 0
-            case App(a, f):
+            case App(f, a):
                 return no_negative_vars(f) and no_negative_vars(a)
             case Lam(ty, b):
                 return no_negative_vars(ty) and no_negative_vars(b)
@@ -186,8 +186,8 @@ def test_beta_against_nested_binders() -> None:
     #       Var(2) -> Var(1)  (since 2>1)
     #       Var(0) -> Var(0)  (since 0<1)
     #   So the result is λ. App1(Var(1), Var(0)).
-    res = subst(Lam(Var(0), App(Var(0), Var(2))), Var(3))
-    assert res == Lam(Var(3), App(Var(0), Var(1)))
+    res = subst(Lam(Var(0), App(Var(2), Var(0))), Var(3))
+    assert res == Lam(Var(3), App(Var(1), Var(0)))
 
 
 # ------------- Subst/Shift interaction laws (spot checks) -------------
@@ -198,17 +198,17 @@ def test_shift_subst_commutation_law_spotcheck() -> None:
     # We use the common special case c=0:
     left = shift(
         subst(
-            App(Lam(Var(0), App(Var(0), Var(1))), Var(2)),
+            App(Var(2), Lam(Var(0), App(Var(1), Var(0)))),
             j=1,
-            sub=App(Var(2), Var(0)),
+            sub=App(Var(0), Var(2)),
         ),
         by=2,
         cutoff=0,
     )
     right = subst(
-        shift(App(Lam(Var(0), App(Var(0), Var(1))), Var(2)), by=2, cutoff=0),
+        shift(App(Var(2), Lam(Var(0), App(Var(1), Var(0)))), by=2, cutoff=0),
         j=3,
-        sub=shift(App(Var(2), Var(0)), by=2, cutoff=0),
+        sub=shift(App(Var(0), Var(2)), by=2, cutoff=0),
     )
     assert left == right
 
@@ -218,14 +218,14 @@ def test_subst_then_subst_index_adjustment_spotcheck() -> None:
     # Check a small concrete instance
     # Left: replace 2->1, then 0->0
     left = subst(
-        subst(App(App(Var(0), Var(2)), Var(3)), j=2, sub=Var(1)),
+        subst(App(Var(3), App(Var(2), Var(0))), j=2, sub=Var(1)),
         j=0,
         sub=Var(0),
     )
     # Right: replace 0->0 first, then adjust j because replacing 0 can lower indices >0 by 1
     # After removing j=0, original j=2 becomes j' = 1
     right = subst(
-        subst(App(App(Var(0), Var(2)), Var(3)), j=0, sub=Var(0)),
+        subst(App(Var(3), App(Var(2), Var(0))), j=0, sub=Var(0)),
         j=1,
         sub=subst(Var(1), j=0, sub=Var(0)),
     )
@@ -254,14 +254,14 @@ def test_subst_ty_decrements_higher_indices() -> None:
 
 
 def test_subst_irrelevant_index_no_change() -> None:
-    t = App(Lam(Var(0), Var(0)), Var(2))
-    s = App(Var(0), Var(1))
+    t = App(Var(2), Lam(Var(0), Var(0)))
+    s = App(Var(1), Var(0))
     assert subst(t, sub=s, j=99) == t
 
 
 def test_subst_with_closed_subterm_is_well_behaved() -> None:
     # sub has no free variables relative to cutoff=0 (e.g., Var(0) under its own binder in tests via subst)
-    assert subst(App(Var(0), Var(2)), sub=Var(0), j=2) == App(Var(0), Var(0))
+    assert subst(App(Var(2), Var(0)), sub=Var(0), j=2) == App(Var(0), Var(0))
 
 
 # ------------- Regression-style edge cases -------------
@@ -269,8 +269,8 @@ def test_subst_with_closed_subterm_is_well_behaved() -> None:
 
 def test_no_negative_indices_after_subst_top() -> None:
     # Stress: ensure subst never creates negative indices
-    body = App(Var(0), Var(1))
-    arg = App(Var(1), Var(0))
+    body = App(Var(1), Var(0))
+    arg = App(Var(0), Var(1))
     res = subst(body, arg)
 
     # Walk tree to confirm
@@ -278,7 +278,7 @@ def test_no_negative_indices_after_subst_top() -> None:
         match t:
             case Var(k):
                 return k >= 0
-            case App(a, f):
+            case App(f, a):
                 return ok(f) and ok(a)
             case Lam(ty, b):
                 return ok(ty) and ok(b)
@@ -291,14 +291,14 @@ def test_no_negative_indices_after_subst_top() -> None:
 
 
 def test_shift_cutoff_beyond_all_vars_is_identity() -> None:
-    t = App(Lam(Var(0), App(Var(0), Var(1))), Var(1))
+    t = App(Var(1), Lam(Var(0), App(Var(1), Var(0))))
     # max free depth is 1 at top-level; cutoff=10 shields everything
     assert shift(t, by=3, cutoff=10) == t
 
 
 def test_subst_high_j_beyond_all_vars_identity() -> None:
-    assert subst(Lam(Var(0), App(Var(0), Var(1))), sub=Var(9), j=10) == Lam(
-        Var(0), App(Var(0), Var(1))
+    assert subst(Lam(Var(0), App(Var(1), Var(0))), sub=Var(9), j=10) == Lam(
+        Var(0), App(Var(1), Var(0))
     )
 
 
@@ -306,29 +306,29 @@ def test_subst_high_j_beyond_all_vars_identity() -> None:
 
 
 def test_shift_respects_cutoff() -> None:
-    term = App(Var(0), Var(1))
+    term = App(Var(1), Var(0))
     shifted = shift(term, by=2, cutoff=1)
-    assert shifted == App(Var(0), Var(3))
+    assert shifted == App(Var(3), Var(0))
 
 
 def test_shift_through_lambda_increments_free_variable() -> None:
-    term = Lam(Univ(), App(Var(0), Var(1)))
+    term = Lam(Univ(), App(Var(1), Var(0)))
     shifted = shift(term, by=1, cutoff=0)
-    assert shifted == Lam(Univ(), App(Var(0), Var(2)))
+    assert shifted == Lam(Univ(), App(Var(2), Var(0)))
 
 
 def test_subst_replaces_target_and_decrements_greater_indices() -> None:
-    term = App(Var(0), Var(1))
+    term = App(Var(1), Var(0))
     sub = Succ(Var(0))
     result = subst(term, sub)
-    assert result == App(Succ(Var(0)), Var(0))
+    assert result == App(Var(0), Succ(Var(0)))
 
 
 def test_subst_under_lambda_preserves_bound_variable() -> None:
-    term = Lam(Univ(), App(Var(0), Var(1)))
+    term = Lam(Univ(), App(Var(1), Var(0)))
     sub = Succ(Var(0))
     result = subst(term, sub)
-    assert result == Lam(Univ(), App(Var(0), Succ(Var(1))))
+    assert result == Lam(Univ(), App(Succ(Var(1)), Var(0)))
 
 
 def test_shift_nested_binders() -> None:

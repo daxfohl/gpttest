@@ -26,18 +26,18 @@ PairCtor = Ctor(
     Sigma,
     (
         Var(1),  # a : A
-        App(Var(0), Var(1)),  # b : B a
+        App(Var(1), Var(0)),  # b : B a
     ),
 )
 object.__setattr__(Sigma, "constructors", (PairCtor,))
 
 
 def SigmaType(A: Term, B: Term) -> App:
-    return App(B, App(A, Sigma))
+    return App(App(Sigma, A), B)
 
 
 def Pair(A: Term, B: Term, a: Term, b: Term) -> Term:
-    return App(b, App(a, App(B, App(A, PairCtor))))
+    return App(App(App(App(PairCtor, A), B), a), b)
 
 
 def SigmaRec(P: Term, pair_case: Term, pair: Term) -> Elim:

@@ -27,39 +27,39 @@ LeafCtor = Ctor(
 )
 b = Var(2)
 b1 = Var(3)
-a = App(b, Tree)
+a = App(Tree, b)
 b2 = Var(1)
-a1 = App(b1, Tree)
+a1 = App(Tree, b1)
 b3 = Var(2)
 NodeCtor = Ctor(
     "Node",
     Tree,
     (
         Var(0),  # label : B
-        App(b2, a),  # left : Tree A B
-        App(b3, a1),  # right : Tree A B
+        App(a, b2),  # left : Tree A B
+        App(a1, b3),  # right : Tree A B
     ),
 )
 object.__setattr__(Tree, "constructors", (LeafCtor, NodeCtor))
 
 
 def TreeType(leaf_ty: Term, node_ty: Term) -> App:
-    a = App(leaf_ty, Tree)
-    return App(node_ty, a)
+    a = App(Tree, leaf_ty)
+    return App(a, node_ty)
 
 
 def Leaf(leaf_ty: Term, node_ty: Term, payload: Term) -> Term:
-    a = App(leaf_ty, LeafCtor)
-    a1 = App(node_ty, a)
-    return App(payload, a1)
+    a = App(LeafCtor, leaf_ty)
+    a1 = App(a, node_ty)
+    return App(a1, payload)
 
 
 def Node(leaf_ty: Term, node_ty: Term, label: Term, left: Term, right: Term) -> Term:
-    a = App(leaf_ty, NodeCtor)
-    a1 = App(node_ty, a)
-    a2 = App(label, a1)
-    a3 = App(left, a2)
-    return App(right, a3)
+    a = App(NodeCtor, leaf_ty)
+    a1 = App(a, node_ty)
+    a2 = App(a1, label)
+    a3 = App(a2, left)
+    return App(a3, right)
 
 
 def TreeRec(

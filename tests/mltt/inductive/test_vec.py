@@ -54,7 +54,7 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
         Lam(
             vec.VecType(elem_ty, Var(1)),  # xs : Vec A n (Var(1) = n)
             Lam(
-                App(Var(0), P),  # ih : P xs
+                App(P, Var(0)),  # ih : P xs
                 add_terms(Var(0), Var(2)),  # ih + x
             ),
         ),

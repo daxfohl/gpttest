@@ -19,22 +19,22 @@ ConsCtor = Ctor(
     List,
     (
         Var(0),
-        App(Var(1), List),
+        App(List, Var(1)),
     ),
 )
 object.__setattr__(List, "constructors", (NilCtor, ConsCtor))
 
 
 def ListType(elem_ty: Term) -> App:
-    return App(elem_ty, List)
+    return App(List, elem_ty)
 
 
 def Nil(elem_ty: Term) -> App:
-    return App(elem_ty, NilCtor)
+    return App(NilCtor, elem_ty)
 
 
 def Cons(elem_ty: Term, head: Term, tail: Term) -> Term:
-    return App(tail, App(head, App(elem_ty, ConsCtor)))
+    return App(App(App(ConsCtor, elem_ty), head), tail)
 
 
 def ListRec(P: Term, base: Term, step: Term, xs: Term) -> Elim:

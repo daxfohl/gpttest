@@ -41,13 +41,13 @@ def iota_reduce(
 
 def whnf(term: Term) -> Term:
     match term:
-        case App(a, f):
+        case App(f, a):
             f_whnf = whnf(f)
             match f_whnf:
                 case Lam(_, body):
                     return whnf(subst(body, a))
                 case _:
-                    return App(a, f_whnf)
+                    return App(f_whnf, a)
 
         case Elim(inductive, motive, cases, scrutinee):
             scrutinee_whnf = whnf(scrutinee)
@@ -81,13 +81,13 @@ def reduce_inside_step(term: Term, red: Callable[[Term], Term]) -> Term:
     reducer = lambda term: reduce_inside_step(term, red)
 
     match term:
-        case App(a, f):
+        case App(f, a):
             f1 = reducer(f)
             if f1 != f:
-                return App(a, f1)
+                return App(f1, a)
             a1 = reducer(a)
             if a1 != a:
-                return App(a1, f)
+                return App(f, a1)
             return term
 
         case Lam(ty, body):

@@ -52,12 +52,12 @@ class App:
     """Function application.
 
     Attributes:
-        arg: Argument term supplied to ``func``.
         func: Term expected to reduce to a function.
+        arg: Argument term supplied to ``func``.
     """
 
-    arg: Term
     func: Term
+    arg: Term
 
 
 @dataclass(frozen=True)

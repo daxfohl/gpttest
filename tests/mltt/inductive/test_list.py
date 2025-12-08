@@ -33,7 +33,7 @@ def test_listrec_length_of_singleton() -> None:
         Lam(
             list_ty,
             Lam(
-                App(Var(0), P),
+                App(P, Var(0)),
                 Succ(Var(0)),
             ),
         ),
