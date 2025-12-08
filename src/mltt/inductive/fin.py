@@ -10,6 +10,7 @@ from ..core.ast import (
     Term,
     Var,
 )
+from ..core.inductive_utils import apply_term
 from .nat import NatType, Succ, numeral
 
 Fin = I(name="Fin", index_types=(NatType(),), level=0)
@@ -32,7 +33,7 @@ def FZ(n: Term) -> App:
 
 
 def FS(n: Term, k: Term) -> Term:
-    return App(App(FSCtor, n), k)
+    return apply_term(FSCtor, n, k)
 
 
 def FinRec(P: Term, base: Term, step: Term, k: Term) -> Elim:

@@ -11,6 +11,7 @@ from ..core.ast import (
     Univ,
     Var,
 )
+from ..core.inductive_utils import apply_term
 
 List = I(name="List", param_types=(Univ(0),), level=0)
 NilCtor = Ctor("Nil", List, ())
@@ -34,7 +35,7 @@ def Nil(elem_ty: Term) -> App:
 
 
 def Cons(elem_ty: Term, head: Term, tail: Term) -> Term:
-    return App(App(App(ConsCtor, elem_ty), head), tail)
+    return apply_term(ConsCtor, elem_ty, head, tail)
 
 
 def ListRec(P: Term, base: Term, step: Term, xs: Term) -> Elim:

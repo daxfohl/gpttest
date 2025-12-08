@@ -2,15 +2,8 @@
 
 from __future__ import annotations
 
-from ..core.ast import (
-    App,
-    Ctor,
-    Elim,
-    I,
-    Term,
-    Univ,
-    Var,
-)
+from ..core.ast import App, Ctor, Elim, I, Term, Univ, Var
+from ..core.inductive_utils import apply_term
 
 Tree = I(
     name="Tree",
@@ -30,23 +23,23 @@ NodeCtor = Ctor(
     Tree,
     (
         Var(0),  # label : B
-        App(App(Tree, Var(2)), Var(1)),  # left : Tree A B
-        App(App(Tree, Var(3)), Var(2)),  # right : Tree A B
+        apply_term(Tree, Var(2), Var(1)),  # left : Tree A B
+        apply_term(Tree, Var(3), Var(2)),  # right : Tree A B
     ),
 )
 object.__setattr__(Tree, "constructors", (LeafCtor, NodeCtor))
 
 
 def TreeType(leaf_ty: Term, node_ty: Term) -> App:
-    return App(App(Tree, leaf_ty), node_ty)
+    return apply_term(Tree, leaf_ty, node_ty)
 
 
 def Leaf(leaf_ty: Term, node_ty: Term, payload: Term) -> Term:
-    return App(App(App(LeafCtor, leaf_ty), node_ty), payload)
+    return apply_term(LeafCtor, leaf_ty, node_ty, payload)
 
 
 def Node(leaf_ty: Term, node_ty: Term, label: Term, left: Term, right: Term) -> Term:
-    return App(App(App(App(App(NodeCtor, leaf_ty), node_ty), label), left), right)
+    return apply_term(NodeCtor, leaf_ty, node_ty, label, left, right)
 
 
 def TreeRec(

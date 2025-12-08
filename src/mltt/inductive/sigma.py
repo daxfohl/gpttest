@@ -12,6 +12,7 @@ from ..core.ast import (
     Univ,
     Var,
 )
+from ..core.inductive_utils import apply_term
 
 Sigma = I(
     name="Sigma",
@@ -33,11 +34,11 @@ object.__setattr__(Sigma, "constructors", (PairCtor,))
 
 
 def SigmaType(A: Term, B: Term) -> App:
-    return App(App(Sigma, A), B)
+    return apply_term(Sigma, A, B)
 
 
 def Pair(A: Term, B: Term, a: Term, b: Term) -> Term:
-    return App(App(App(App(PairCtor, A), B), a), b)
+    return apply_term(PairCtor, A, B, a, b)
 
 
 def SigmaRec(P: Term, pair_case: Term, pair: Term) -> Elim:

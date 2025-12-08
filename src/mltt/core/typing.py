@@ -157,7 +157,7 @@ def _type_check_inductive_elim(
     # 2.1 Check param binders
     inductive_arg_schemas = inductive.param_types + inductive.index_types
     inductive_arg_tys = instantiate_forward(inductive_arg_schemas, scrut_args)
-    inductive_args = scrut_args[:len(inductive_arg_tys)]
+    inductive_args = scrut_args[: len(inductive_arg_tys)]
     ty: Pi = motive_ty
     print()
     print(inductive)
@@ -458,7 +458,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             return Id(ty, t, t)
         case IdElim(A, x, P, d, y, p):
             # Eliminator returns the motive applied to the target endpoints/proof.
-            return App(App(P, y), p)
+            return apply_term(P, y, p)
 
     raise TypeError(f"Unexpected term in infer_type: {term!r}")
 
@@ -522,9 +522,9 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
                 raise TypeError("IdElim: y : A fails")
             if not type_check(p, Id(A, x, y), ctx):
                 raise TypeError("IdElim: p : Id(A,x,y) fails")
-            if not type_check(d, App(App(P, x), Refl(A, x)), ctx):
+            if not type_check(d, apply_term(P, x, Refl(A, x)), ctx):
                 raise TypeError("IdElim: d : P x (Refl x) fails")
-            return type_equal(expected_ty, App(App(P, y), p))
+            return type_equal(expected_ty, apply_term(P, y, p))
         case Univ(_):
             return isinstance(expected_ty, Univ)
 
