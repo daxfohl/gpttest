@@ -1,4 +1,5 @@
 from mltt.core.ast import App, Id, IdElim, Lam, Refl, Var
+from mltt.core.inductive_utils import nested_lam
 from mltt.inductive.eq import cong, sym, trans
 from mltt.inductive.nat import NatType, Succ, Zero
 
@@ -13,12 +14,10 @@ def test_cong_builds_identity_elimination_over_function_application() -> None:
 
     result = cong(f, A, B, x, y, p)
 
-    P = Lam(
+    P = nested_lam(
         A,
-        Lam(
-            Id(A, x, Var(1)),
-            Id(App(B, Var(1)), App(f, x), App(f, Var(1))),
-        ),
+        Id(A, x, Var(1)),
+        body=Id(App(B, Var(1)), App(f, x), App(f, Var(1))),
     )
     d = Refl(App(B, x), App(f, x))
     expected = IdElim(A=A, x=x, P=P, d=d, y=y, p=p)
@@ -34,12 +33,10 @@ def test_sym_builds_identity_elimination_with_swapped_arguments() -> None:
 
     result = sym(A, x, y, p)
 
-    P = Lam(
+    P = nested_lam(
         A,
-        Lam(
-            Id(A, x, Var(1)),
-            Id(A, Var(1), x),
-        ),
+        Id(A, x, Var(1)),
+        body=Id(A, Var(1), x),
     )
     d = Refl(A, x)
     expected = IdElim(A=A, x=x, P=P, d=d, y=y, p=p)
@@ -57,12 +54,10 @@ def test_trans_builds_identity_elimination_for_composition() -> None:
 
     result = trans(A, x, y, z, p, q)
 
-    Q = Lam(
+    Q = nested_lam(
         A,
-        Lam(
-            Id(A, y, Var(1)),
-            Id(A, x, Var(1)),
-        ),
+        Id(A, y, Var(1)),
+        body=Id(A, x, Var(1)),
     )
     expected = IdElim(A=A, x=y, P=Q, d=p, y=z, p=q)
 

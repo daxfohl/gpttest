@@ -1,5 +1,6 @@
 from mltt.core.ast import App, Id, IdElim, Elim, Lam, Pi, Term, Univ, Var
 from mltt.core.debruijn import shift, subst
+from mltt.core.inductive_utils import nested_lam
 from mltt.inductive.nat import NatRec, Succ, Zero
 
 
@@ -39,9 +40,9 @@ def test_shift_lam_preserves_bound_var() -> None:
 
 def test_shift_nested_lams_correctly_increments_cutoff() -> None:
     # λ. λ. Var(2)  -> going under two binders raises cutoff twice
-    s = shift(Lam(Var(0), Lam(Var(1), Var(2))), by=1, cutoff=0)
+    s = shift(nested_lam(Var(0), Var(1), body=Var(2)), by=1, cutoff=0)
     # Only the Var(2) (free w.r.t both binders) becomes Var(3)
-    assert s == Lam(Var(1), Lam(Var(2), Var(3)))
+    assert s == nested_lam(Var(1), Var(2), body=Var(3))
 
 
 def test_shift_pi_behaves_like_lam() -> None:
@@ -332,16 +333,16 @@ def test_subst_under_lambda_preserves_bound_variable() -> None:
 
 
 def test_shift_nested_binders() -> None:
-    term = Lam(Univ(), Lam(Univ(), Var(2)))
+    term = nested_lam(Univ(), Univ(), body=Var(2))
     shifted = shift(term, by=1, cutoff=0)
-    assert shifted == Lam(Univ(), Lam(Univ(), Var(3)))
+    assert shifted == nested_lam(Univ(), Univ(), body=Var(3))
 
 
 def test_subst_nested_binder_chain() -> None:
-    term = Lam(Univ(), Lam(Univ(), Var(2)))
+    term = nested_lam(Univ(), Univ(), body=Var(2))
     sub = Succ(Var(0))
     result = subst(term, sub)
-    assert result == Lam(Univ(), Lam(Univ(), Succ(Var(2))))
+    assert result == nested_lam(Univ(), Univ(), body=Succ(Var(2)))
 
 
 def test_subst_pi_body() -> None:

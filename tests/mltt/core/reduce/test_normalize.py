@@ -1,4 +1,5 @@
 from mltt.core.ast import App, Lam, Univ, Var
+from mltt.core.inductive_utils import nested_lam
 from mltt.core.reduce.normalize import normalize, normalize_step
 from mltt.inductive.nat import NatRec, NatType, Succ, Zero, add
 
@@ -15,7 +16,7 @@ def test_normalize_step_unfolds_add_base_case() -> None:
         NatRec(
             P=Lam(NatType(), NatType()),
             base=Var(0),
-            step=Lam(NatType(), Lam(NatType(), Succ(Var(0)))),
+            step=nested_lam(NatType(), NatType(), body=Succ(Var(0))),
             n=Zero(),
         ),
     )
@@ -30,7 +31,7 @@ def test_normalize_fully_reduces_application_chain() -> None:
 
 
 def test_normalize_reduces_after_normalizing_function() -> None:
-    curried = Lam(Univ(), Lam(Univ(), Var(0)))
+    curried = nested_lam(Univ(), Univ(), body=Var(0))
     term = App(App(curried, Zero()), Zero())
 
     assert normalize(term) == Zero()
@@ -44,6 +45,6 @@ def test_normalize_eta_expansion_collapses() -> None:
 def test_normalize_complex_natrec() -> None:
     P = Lam(NatType(), NatType())
     z = Zero()
-    s = Lam(NatType(), Lam(NatType(), Succ(Var(0))))
+    s = nested_lam(NatType(), NatType(), body=Succ(Var(0)))
     term = NatRec(P=P, base=z, step=s, n=Succ(Succ(Zero())))
     assert normalize(term) == Succ(Succ(Zero()))

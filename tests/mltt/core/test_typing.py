@@ -2,7 +2,7 @@ import pytest
 
 from mltt.core.ast import App, Id, IdElim, Lam, Pi, Refl, Term, Univ, Var
 from mltt.core.debruijn import Ctx
-from mltt.core.inductive_utils import apply_term
+from mltt.core.inductive_utils import apply_term, nested_lam
 from mltt.core.reduce import normalize
 from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.nat import NatRec, NatType, Zero, add_terms, numeral
@@ -207,7 +207,7 @@ def test_type_check_application_argument_mismatch() -> None:
 
 
 def test_infer_type_idelim() -> None:
-    P = Lam(Univ(), Lam(Id(Univ(), Var(0), Var(1)), Univ()))
+    P = nested_lam(Univ(), Id(Univ(), Var(0), Var(1)), body=Univ())
     term = IdElim(
         A=Univ(),
         x=Var(0),
@@ -217,4 +217,4 @@ def test_infer_type_idelim() -> None:
         p=Refl(Univ(), Var(0)),
     )
     inferred = infer_type(term)
-    assert inferred == apply_term(P,Var(1), Refl(Univ(), Var(0)))
+    assert inferred == apply_term(P, Var(1), Refl(Univ(), Var(0)))

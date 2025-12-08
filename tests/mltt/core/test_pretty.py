@@ -1,4 +1,5 @@
 from mltt.core.ast import App, Lam, Pi, Var
+from mltt.core.inductive_utils import nested_lam
 from mltt.core.pretty import pretty
 from mltt.inductive.nat import NatType, Succ, Zero
 
@@ -19,5 +20,5 @@ def test_lambda_and_pi_rendering() -> None:
 
 def test_nested_application_uses_binder_names() -> None:
     nat = NatType()
-    term = Lam(nat, Lam(nat, App(Var(1), Var(0))))
+    term = nested_lam(nat, nat, body=App(Var(1), Var(0)))
     assert pretty(term) == "\\x : Nat. \\x1 : Nat. x x1"

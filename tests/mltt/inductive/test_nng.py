@@ -1,5 +1,6 @@
 from mltt.core.ast import Id, Lam, Pi, Refl, Var
 from mltt.core.debruijn import Ctx
+from mltt.core.inductive_utils import nested_lam
 from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.eq import ap
 from mltt.inductive.nat import NatType, Succ, add_terms, numeral
@@ -24,25 +25,21 @@ def test_double_preserves_y_equals_x_plus_seven() -> None:
     # so that any proof of y = x + 7 can be turned into a proof that double y = double (x+7).
     # Because `ap` already packages the standard non-dependent congruence rule,
     # the actual body is just an invocation of `ap` with the appropriate substitutions.
-    lemma = Lam(
+    lemma = nested_lam(
         NatType(),  # 1st λ: x : Nat
-        Lam(
-            NatType(),  # 2nd λ: y : Nat
-            Lam(
-                Id(
-                    NatType(),
-                    Var(1),  # y
-                    add_terms(Var(2), seven),  # x + 7
-                ),  # 3rd λ: p : Id(Nat, y, x+7)
-                ap(
-                    f=double,
-                    A=NatType(),
-                    B0=NatType(),
-                    x=Var(1),  # y
-                    y=add_terms(Var(2), seven),  # x + 7
-                    p=Var(0),  # p : y = x+7
-                ),
-            ),
+        NatType(),  # 2nd λ: y : Nat
+        Id(
+            NatType(),
+            Var(1),  # y
+            add_terms(Var(2), seven),  # x + 7
+        ),  # 3rd λ: p : Id(Nat, y, x+7)
+        body=ap(
+            f=double,
+            A=NatType(),
+            B0=NatType(),
+            x=Var(1),  # y
+            y=add_terms(Var(2), seven),  # x + 7
+            p=Var(0),  # p : y = x+7
         ),
     )
 

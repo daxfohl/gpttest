@@ -2,6 +2,7 @@ import pytest
 
 import mltt.inductive.vec as vec
 from mltt.core.ast import Pi, Univ, Term, Var, Lam, App
+from mltt.core.inductive_utils import nested_lam
 from mltt.core.reduce import normalize, whnf
 from mltt.core.typing import infer_type, type_check
 from mltt.inductive.nat import NatType, Succ, Zero, numeral, add_terms
@@ -29,7 +30,7 @@ def test_vec_rec_on_nil_reduces_to_base() -> None:
     elem_ty = NatType()
     P = Lam(vec.VecType(elem_ty, Zero()), NatType())
     base = Zero()
-    step = Lam(elem_ty, Lam(vec.VecType(elem_ty, Zero()), Lam(NatType(), Var(0))))
+    step = nested_lam(elem_ty, vec.VecType(elem_ty, Zero()), NatType(), body=Var(0))
 
     term = vec.VecRec(P, base, step, vec.Nil(elem_ty))
     assert whnf(term) == base
@@ -40,24 +41,18 @@ def test_vec_rec_on_nil_reduces_to_base() -> None:
 @pytest.mark.parametrize("v", range(4))
 def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
     elem_ty = NatType()
-    P = Lam(
+    P = nested_lam(
         NatType(),  # n : Nat
-        Lam(
-            vec.VecType(elem_ty, Var(0)),
-            NatType(),
-        ),  # xs : Vec A n
-    )
+        vec.VecType(elem_ty, Var(0)),
+        body=NatType(),
+    )  # xs : Vec A n
 
     base = numeral(b)
-    step = Lam(
+    step = nested_lam(
         elem_ty,  # x : A
-        Lam(
-            vec.VecType(elem_ty, Var(1)),  # xs : Vec A n (Var(1) = n)
-            Lam(
-                App(P, Var(0)),  # ih : P xs
-                add_terms(Var(0), Var(2)),  # ih + x
-            ),
-        ),
+        vec.VecType(elem_ty, Var(1)),  # xs : Vec A n (Var(1) = n)
+        App(P, Var(0)),  # ih : P xs
+        body=add_terms(Var(0), Var(2)),  # ih + x
     )
 
     xs: Term = vec.Nil(elem_ty)
@@ -72,17 +67,19 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
 def test_vec_rec_preserves_length_index() -> None:
     elem_ty = NatType()
     # Motive specialized to length 0 so it matches Nil's result index.
-    P = Lam(
-        Univ(0), Lam(NatType(), Lam(vec.VecType(Var(1), Succ(Succ(Zero()))), NatType()))
+    P = nested_lam(
+        Univ(0),
+        NatType(),
+        vec.VecType(Var(1), Succ(Succ(Zero()))),
+        body=NatType(),
     )
 
     base = Succ(Zero())  # P (Nil A) = Nat
-    step = Lam(
+    step = nested_lam(
         elem_ty,
-        Lam(
-            vec.VecType(elem_ty, Succ(Succ(Zero()))),
-            Lam(NatType(), Var(2)),  # ignore IH; return Nat
-        ),
+        vec.VecType(elem_ty, Succ(Succ(Zero()))),
+        NatType(),
+        body=Var(2),  # ignore IH; return Nat
     )
 
     xs: Term = vec.Nil(elem_ty)

@@ -13,7 +13,7 @@ from ..core.ast import (
     Term,
     Var,
 )
-from ..core.inductive_utils import apply_term
+from ..core.inductive_utils import apply_term, nested_lam
 from .eq import ap
 
 Nat = I(name="Nat", level=0)
@@ -66,19 +66,18 @@ def add() -> Lam:
       add Zero b = b
       add (Succ a) b = Succ (add a b)
     """
-    return Lam(
+    return nested_lam(
         NatType(),
-        Lam(
-            NatType(),
-            NatRec(
-                P=Lam(NatType(), NatType()),
-                base=Var(0),
-                step=Lam(
-                    NatType(),
-                    Lam(NatType(), Succ(Var(0))),
-                ),
-                n=Var(1),
+        NatType(),
+        body=NatRec(
+            P=Lam(NatType(), NatType()),
+            base=Var(0),
+            step=nested_lam(
+                NatType(),
+                NatType(),
+                body=Succ(Var(0)),
             ),
+            n=Var(1),
         ),
     )
 
@@ -104,18 +103,16 @@ def add_n_0() -> Term:
             # step: ih : Id Nat (add k 0) k  ⇒ need Id Nat (add (Succ k) 0) (Succ k)
             # definitional eqn: add (Succ k) 0 ≡ Succ (add k 0)
             # so use ap Succ ih : Id Nat (Succ (add k 0)) (Succ k)
-            step=Lam(
+            step=nested_lam(
                 NatType(),  # k
-                Lam(
-                    Id(NatType(), add_terms(Var(0), Zero()), Var(0)),  # ih
-                    ap(
-                        f=Lam(NatType(), Succ(Var(0))),  # Succ as a function
-                        A=NatType(),
-                        B0=NatType(),
-                        x=add_terms(Var(1), Zero()),  # add k 0
-                        y=Var(1),  # k
-                        p=Var(0),  # ih
-                    ),
+                Id(NatType(), add_terms(Var(0), Zero()), Var(0)),  # ih
+                body=ap(
+                    f=Lam(NatType(), Succ(Var(0))),  # Succ as a function
+                    A=NatType(),
+                    B0=NatType(),
+                    x=add_terms(Var(1), Zero()),  # add k 0
+                    y=Var(1),  # k
+                    p=Var(0),  # ih
                 ),
             ),
             n=Var(0),  # recurse on n

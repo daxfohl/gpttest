@@ -1,5 +1,6 @@
 import mltt.inductive.sigma as sigma
 from mltt.core.ast import App, Lam, Pi, Univ, Var
+from mltt.core.inductive_utils import nested_lam
 from mltt.core.reduce import normalize
 from mltt.core.typing import infer_type, type_check
 from mltt.inductive.nat import NatType, Succ, Zero
@@ -25,15 +26,16 @@ def test_sigmarec_returns_first_projection() -> None:
 
     pair = sigma.Pair(A, B, Succ(Zero()), Zero())
 
-    P = Lam(
-        Univ(0), Lam(Pi(Var(0), Univ(0)), Lam(sigma.SigmaType(Var(1), Var(0)), Var(2)))
+    P = nested_lam(
+        Univ(0),
+        Pi(Var(0), Univ(0)),
+        sigma.SigmaType(Var(1), Var(0)),
+        body=Var(2),
     )
-    pair_case = Lam(
+    pair_case = nested_lam(
         A,
-        Lam(
-            App(B, Var(0)),  # b : B a
-            Var(1),  # return the first projection
-        ),
+        App(B, Var(0)),  # b : B a
+        body=Var(1),  # return the first projection
     )
 
     fst = sigma.SigmaRec(P, pair_case, pair)

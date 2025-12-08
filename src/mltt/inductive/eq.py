@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..core.ast import App, Id, IdElim, Lam, Refl, Term, Var
 from ..core.debruijn import shift
+from ..core.inductive_utils import nested_lam
 
 
 def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
@@ -57,12 +58,10 @@ def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
     f2 = shift(f, 2)
     x2 = shift(x, 2)
 
-    P = Lam(
+    P = nested_lam(
         A,
-        Lam(
-            Id(A1, x1, Var(1)),
-            Id(App(B2, Var(1)), App(f2, x2), App(f2, Var(1))),
-        ),
+        Id(A1, x1, Var(1)),
+        body=Id(App(B2, Var(1)), App(f2, x2), App(f2, Var(1))),
     )
     d = Refl(App(B, x), App(f, x))
     return IdElim(A, x, P, d, y, p)
@@ -104,12 +103,10 @@ def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
     A2 = shift(A, 2)
     x2 = shift(x, 2)
 
-    P = Lam(
+    P = nested_lam(
         A,
-        Lam(
-            Id(A1, x1, Var(1)),
-            Id(A2, Var(1), x2),
-        ),
+        Id(A1, x1, Var(1)),
+        body=Id(A2, Var(1), x2),
     )
     d = Refl(A, x)
     return IdElim(A, x, P, d, y, p)
@@ -135,12 +132,10 @@ def trans(A: Term, x: Term, y: Term, z: Term, p: Term, q: Term) -> Term:
     A2 = shift(A, 2)
     x2 = shift(x, 2)
 
-    Q = Lam(
+    Q = nested_lam(
         A,
-        Lam(
-            Id(A1, y1, Var(1)),
-            Id(A2, x2, Var(1)),
-        ),
+        Id(A1, y1, Var(1)),
+        body=Id(A2, x2, Var(1)),
     )
     return IdElim(A, y, Q, p, z, q)
 

@@ -2,6 +2,7 @@ import pytest
 
 import mltt.inductive.fin as fin
 from mltt.core.ast import Pi, Univ, Var, Lam
+from mltt.core.inductive_utils import nested_lam
 from mltt.core.reduce import normalize, whnf
 from mltt.inductive.fin import FZCtor, FSCtor
 from mltt.inductive.nat import NatType, Succ, Zero, numeral
@@ -27,7 +28,7 @@ def test_fz_and_fs_types() -> None:
 def test_fin_rec_on_fz_reduces_to_base() -> None:
     P = Lam(fin.FinType(Zero()), NatType())
     base = Zero()
-    step = Lam(fin.FinType(Zero()), Lam(NatType(), Var(0)))
+    step = nested_lam(fin.FinType(Zero()), NatType(), body=Var(0))
 
     term = fin.FinRec(P, base, step, fin.FZ(Zero()))
     assert whnf(term) == base
@@ -36,9 +37,9 @@ def test_fin_rec_on_fz_reduces_to_base() -> None:
 def test_fin_rec_respects_index() -> None:
     # Motive specialized to the index produced by FZ 0 (i.e., Fin (Succ 0)).
     f1 = fin.FinType(Succ(Zero()))
-    P = Lam(NatType(), Lam(fin.FinType(Succ(Var(0))), NatType()))
+    P = nested_lam(NatType(), fin.FinType(Succ(Var(0))), body=NatType())
     base = Zero()
-    step = Lam(f1, Lam(NatType(), Var(0)))
+    step = nested_lam(f1, NatType(), body=Var(0))
     k = fin.FZ(Zero())
     rec = fin.FinRec(P, base, step, k)
     assert normalize(rec) == Zero()
