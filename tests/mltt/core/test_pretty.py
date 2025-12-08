@@ -19,7 +19,5 @@ def test_lambda_and_pi_rendering() -> None:
 
 def test_nested_application_uses_binder_names() -> None:
     nat = NatType()
-    a = Var(1)
-    b = Var(0)
-    term = Lam(nat, Lam(nat, App(a, b)))
+    term = Lam(nat, Lam(nat, App(Var(1), Var(0))))
     assert pretty(term) == "\\x : Nat. \\x1 : Nat. x x1"

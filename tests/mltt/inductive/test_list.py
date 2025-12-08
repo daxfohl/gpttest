@@ -51,10 +51,10 @@ def test_listrec_length_of_singleton() -> None:
 @pytest.mark.parametrize("n", range(5))
 def test_infer_type(elem: Term, n: int) -> None:
     elem_ty = infer_type(elem)
-    a = listm.Nil(elem_ty)
+    list = listm.Nil(elem_ty)
     for j in range(n):
-        a = listm.Cons(elem_ty, elem, a)
-    t = infer_type(a)
+        list = listm.Cons(elem_ty, elem, list)
+    t = infer_type(list)
     assert t == listm.ListType(elem_ty)
 
 

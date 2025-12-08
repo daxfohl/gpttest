@@ -101,10 +101,10 @@ def test_vec_rec_preserves_length_index() -> None:
 @pytest.mark.parametrize("n", range(5))
 def test_infer_type(elem: Term, n: int) -> None:
     elem_ty = infer_type(elem)
-    a = vec.Nil(elem_ty)
+    vector = vec.Nil(elem_ty)
     for i in range(n):
-        a = vec.Cons(elem_ty, numeral(i), elem, a)
-    t = infer_type(a)
+        vector = vec.Cons(elem_ty, numeral(i), elem, vector)
+    t = infer_type(vector)
     assert t == VecType(elem_ty, numeral(n))
 
 

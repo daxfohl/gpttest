@@ -48,8 +48,7 @@ def test_fin_rec_respects_index() -> None:
 @pytest.mark.parametrize("n", range(1, 5))
 @pytest.mark.parametrize("i", range(5))
 def test_infer_type(n: int, i: int) -> None:
-    a = fin.of_int(i, n)
-    t = infer_type(a)
+    t = infer_type(fin.of_int(i, n))
     assert t == fin.FinType(numeral(n))
 
 

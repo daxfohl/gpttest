@@ -8,11 +8,10 @@ from mltt.inductive.nat import NatRec, NatType, Zero, add_terms, numeral
 
 
 def test_infer_var() -> None:
-    a = Var(0)
     with pytest.raises(TypeError, match="Unbound variable"):
-        assert infer_type(a)
+        assert infer_type(Var(0))
     t = NatType()
-    assert infer_type(a, Ctx.as_ctx([t])) == t
+    assert infer_type(Var(0), Ctx.as_ctx([t])) == t
 
 
 def test_infer_lam() -> None:
@@ -81,14 +80,7 @@ def test_infer_lam_4_level(i: int) -> None:
             ),
         ),
     )
-    b = Univ(9)
-    a = App(fxy, b)
-    b1 = Univ(8)
-    a1 = App(a, b1)
-    b2 = Univ(19)
-    a2 = App(a1, b2)
-    b3 = Univ(18)
-    t = App(a2, b3)
+    t = App(App(App(App(fxy, Univ(9)), Univ(8)), Univ(19)), Univ(18))
     assert normalize(t) == Univ(18 if i == 0 else 8)
     assert infer_type(t) == Univ(19 if i == 0 else 9)
 
@@ -107,12 +99,7 @@ def test_infer_lam_3_level(i: int) -> None:
             ),
         ),
     )
-    b = Univ(9)
-    a = App(fxy, b)
-    b1 = Univ(8)
-    a1 = App(a, b1)
-    b2 = Univ(8)
-    t = App(a1, b2)
+    t = App(App(App(fxy, Univ(9)), Univ(8)), Univ(8))
     assert normalize(t) == Univ(8)
     assert infer_type(t) == Univ(9)
 
@@ -157,9 +144,7 @@ def test_two_level_lambda_type_refers_to_previous_binder() -> None:
 
 
 def test_type_equal_normalizes_beta_equivalent_terms() -> None:
-    a = Lam(Univ(), Var(0))
-    b = Univ()
-    beta_equiv = App(a, b)
+    beta_equiv = App(Lam(Univ(), Var(0)), Univ())
 
     assert type_equal(beta_equiv, Univ())
     assert not type_equal(beta_equiv, NatType())
@@ -186,9 +171,7 @@ def test_infer_type_of_pi_uses_maximum_universe_level() -> None:
 
 def test_infer_type_application_requires_function() -> None:
     with pytest.raises(TypeError, match="Application of non-function"):
-        a = Zero()
-        b = Zero()
-        infer_type(App(a, b))
+        infer_type(App(Zero(), Zero()))
 
 
 def test_type_check_natrec_rejects_invalid_base_case() -> None:
@@ -217,8 +200,7 @@ def test_type_check_lambda_with_wrong_domain() -> None:
 
 def test_type_check_application_argument_mismatch() -> None:
     f = Lam(NatType(), Var(0))
-    b = Univ()
-    term = App(f, b)
+    term = App(f, Univ())
     with pytest.raises(TypeError, match="Application argument type mismatch"):
         type_check(term, NatType())
 
@@ -233,8 +215,4 @@ def test_infer_type_idelim() -> None:
         p=Refl(Univ(), Var(0)),
     )
     inferred = infer_type(term)
-    a = Lam(Univ(), Lam(Id(Univ(), Var(0), Var(1)), Univ()))
-    b = Var(1)
-    a1 = App(a, b)
-    b1 = Refl(Univ(), Var(0))
-    assert inferred == App(a1, b1)
+    assert inferred == App(App(Lam(Univ(), Lam(Id(Univ(), Var(0), Var(1)), Univ())), Var(1)), Refl(Univ(), Var(0)))

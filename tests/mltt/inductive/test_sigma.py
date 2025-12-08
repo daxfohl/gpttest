@@ -23,9 +23,7 @@ def test_sigmarec_returns_first_projection() -> None:
     A = NatType()
     B = Lam(A, NatType())
 
-    a = Succ(Zero())
-    b = Zero()
-    pair = sigma.Pair(A, B, a, b)
+    pair = sigma.Pair(A, B, Succ(Zero()), Zero())
 
     P = Lam(
         Univ(0), Lam(Pi(Var(0), Univ(0)), Lam(sigma.SigmaType(Var(1), Var(0)), Var(2)))
@@ -41,4 +39,4 @@ def test_sigmarec_returns_first_projection() -> None:
     fst = sigma.SigmaRec(P, pair_case, pair)
 
     assert type_check(fst, A)
-    assert normalize(fst) == a
+    assert normalize(fst) == Succ(Zero())

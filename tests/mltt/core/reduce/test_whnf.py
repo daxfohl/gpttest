@@ -33,9 +33,5 @@ def test_whnf_simplifies_identity_elimination_on_refl() -> None:
 
 
 def test_whnf_stops_on_irreducible_function() -> None:
-    a = Var(0)
-    b = Zero()
-    term = App(a, b)
-    a1 = Var(0)
-    b1 = Zero()
-    assert whnf(term) == App(a1, b1)
+    term = App(Var(0), Zero())
+    assert whnf(term) == App(Var(0), Zero())

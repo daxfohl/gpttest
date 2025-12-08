@@ -59,8 +59,7 @@ def test_add_zero_right_typechecks() -> None:
 
 def test_add_zero_right_normalizes() -> None:
     lemma = add_n_0()
-    b = numeral(5)
-    applied = App(lemma, b)
+    applied = App(lemma, numeral(5))
     assert normalize(applied) == Refl(NatType(), numeral(5))
 
 
@@ -68,8 +67,7 @@ def test_add_zero_right_normalizes_multiple_inputs() -> None:
     lemma = add_n_0()
 
     for value in range(6):
-        b = numeral(value)
-        applied = App(lemma, b)
+        applied = App(lemma, numeral(value))
         assert normalize(applied) == Refl(NatType(), numeral(value))
 
 
@@ -88,8 +86,7 @@ def test_add_zero_right_applied_term_typechecks() -> None:
 
 @pytest.mark.parametrize("i", range(3))
 def test_infer_type(i: int) -> None:
-    a = numeral(i)
-    t = infer_type(a)
+    t = infer_type(numeral(i))
     assert t == NatType()
 
 

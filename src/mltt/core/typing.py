@@ -523,12 +523,9 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
                 raise TypeError("IdElim: y : A fails")
             if not type_check(p, Id(A, x, y), ctx):
                 raise TypeError("IdElim: p : Id(A,x,y) fails")
-            a1 = App(P, x)
-            b = Refl(A, x)
-            if not type_check(d, App(a1, b), ctx):
+            if not type_check(d, App(App(P, x), Refl(A, x)), ctx):
                 raise TypeError("IdElim: d : P x (Refl x) fails")
-            a2 = App(P, y)
-            return type_equal(expected_ty, App(a2, p))
+            return type_equal(expected_ty, App(App(P, y), p))
         case Univ(_):
             return isinstance(expected_ty, Univ)
 
