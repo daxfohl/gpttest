@@ -30,9 +30,8 @@ def test_treerec_counts_leaves() -> None:
     node_ty = NatType()
     tree_ty = treem.TreeType(leaf_ty, node_ty)
 
+    P = Lam(Univ(0), Lam(Univ(0), Lam(treem.TreeType(Var(1), Var(0)), NatType())))
     leaf_case = Lam(leaf_ty, Succ(Zero()))
-
-    P = Lam(tree_ty, NatType())
     node_case = Lam(
         node_ty,
         Lam(
@@ -40,9 +39,9 @@ def test_treerec_counts_leaves() -> None:
             Lam(
                 tree_ty,
                 Lam(
-                    App(P, Var(1)),  # ih for left
+                    App(Var(1), App(Var(3), App(Var(4), P))),  # ih for left
                     Lam(
-                        App(P, Var(1)),  # ih for right
+                        App(Var(1), App(Var(4), App(Var(5), P))),  # ih for right
                         add_terms(Var(1), Var(0)),
                     ),
                 ),

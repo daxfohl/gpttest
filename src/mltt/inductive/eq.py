@@ -26,12 +26,12 @@ def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
         shift(
             Lam(
                 Id(A, x, Var(1)),
-                shift(Id(App(B, Var(1)), App(f, x), App(f, Var(1))), 1),
+                shift(Id(App(Var(1), B), App(x, f), App(Var(1), f)), 1),
             ),
             1,
         ),
     )
-    d = Refl(App(B, x), App(f, x))
+    d = Refl(App(x, B), App(x, f))
     return IdElim(A, x, P, d, y, p)
 
 
@@ -61,10 +61,10 @@ def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
         A,
         Lam(
             Id(A1, x1, Var(1)),
-            Id(App(B2, Var(1)), App(f2, x2), App(f2, Var(1))),
+            Id(App(Var(1), B2), App(x2, f2), App(Var(1), f2)),
         ),
     )
-    d = Refl(App(B, x), App(f, x))
+    d = Refl(App(x, B), App(x, f))
     return IdElim(A, x, P, d, y, p)
 
 

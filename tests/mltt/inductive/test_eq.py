@@ -13,14 +13,16 @@ def test_cong_builds_identity_elimination_over_function_application() -> None:
 
     result = cong(f, A, B, x, y, p)
 
+    b = Var(1)
+    b1 = Var(1)
     P = Lam(
         A,
         Lam(
             Id(A, x, Var(1)),
-            Id(App(B, Var(1)), App(f, x), App(f, Var(1))),
+            Id(App(b, B), App(x, f), App(b1, f)),
         ),
     )
-    d = Refl(App(B, x), App(f, x))
+    d = Refl(App(x, B), App(x, f))
     expected = IdElim(A=A, x=x, P=P, d=d, y=y, p=p)
 
     assert result == expected

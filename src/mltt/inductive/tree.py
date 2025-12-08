@@ -25,28 +25,41 @@ LeafCtor = Ctor(
     Tree,
     (Var(1),),  # payload : A
 )
+b = Var(2)
+b1 = Var(3)
+a = App(b, Tree)
+b2 = Var(1)
+a1 = App(b1, Tree)
+b3 = Var(2)
 NodeCtor = Ctor(
     "Node",
     Tree,
     (
         Var(0),  # label : B
-        App(App(Tree, Var(2)), Var(1)),  # left : Tree A B
-        App(App(Tree, Var(3)), Var(2)),  # right : Tree A B
+        App(b2, a),  # left : Tree A B
+        App(b3, a1),  # right : Tree A B
     ),
 )
 object.__setattr__(Tree, "constructors", (LeafCtor, NodeCtor))
 
 
 def TreeType(leaf_ty: Term, node_ty: Term) -> App:
-    return App(App(Tree, leaf_ty), node_ty)
+    a = App(leaf_ty, Tree)
+    return App(node_ty, a)
 
 
 def Leaf(leaf_ty: Term, node_ty: Term, payload: Term) -> Term:
-    return App(App(App(LeafCtor, leaf_ty), node_ty), payload)
+    a = App(leaf_ty, LeafCtor)
+    a1 = App(node_ty, a)
+    return App(payload, a1)
 
 
 def Node(leaf_ty: Term, node_ty: Term, label: Term, left: Term, right: Term) -> Term:
-    return App(App(App(App(App(NodeCtor, leaf_ty), node_ty), label), left), right)
+    a = App(leaf_ty, NodeCtor)
+    a1 = App(node_ty, a)
+    a2 = App(label, a1)
+    a3 = App(left, a2)
+    return App(right, a3)
 
 
 def TreeRec(

@@ -22,17 +22,18 @@ def test_pair_type_check() -> None:
 def test_sigmarec_returns_first_projection() -> None:
     A = NatType()
     B = Lam(A, NatType())
-    sigma_ty = sigma.SigmaType(A, B)
 
     a = Succ(Zero())
     b = Zero()
     pair = sigma.Pair(A, B, a, b)
 
-    P = Lam(sigma_ty, A)
+    P = Lam(
+        Univ(0), Lam(Pi(Var(0), Univ(0)), Lam(sigma.SigmaType(Var(1), Var(0)), Var(2)))
+    )
     pair_case = Lam(
         A,
         Lam(
-            App(B, Var(0)),  # b : B a
+            App(Var(0), B),  # b : B a
             Var(1),  # return the first projection
         ),
     )

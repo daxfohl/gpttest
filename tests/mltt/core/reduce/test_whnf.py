@@ -12,9 +12,9 @@ def test_whnf_unfolds_natrec_on_successor() -> None:
 
     assert result == Succ(
         NatRec(
-            P=Lam(ty=Univ(0), body=Univ(0)),
+            P=Lam(arg_ty=Univ(0), body=Univ(0)),
             base=Zero(),
-            step=Lam(ty=Univ(0), body=Lam(ty=Univ(0), body=Succ(Var(0)))),
+            step=Lam(arg_ty=Univ(0), body=Lam(arg_ty=Univ(0), body=Succ(Var(0)))),
             n=Zero(),
         )
     )
@@ -33,5 +33,9 @@ def test_whnf_simplifies_identity_elimination_on_refl() -> None:
 
 
 def test_whnf_stops_on_irreducible_function() -> None:
-    term = App(Var(0), Zero())
-    assert whnf(term) == App(Var(0), Zero())
+    a = Var(0)
+    b = Zero()
+    term = App(b, a)
+    a1 = Var(0)
+    b1 = Zero()
+    assert whnf(term) == App(b1, a1)

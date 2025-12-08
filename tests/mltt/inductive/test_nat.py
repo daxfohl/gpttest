@@ -1,7 +1,19 @@
-from mltt.core.ast import App, Id, Pi, Refl, Term, Var
+import pytest
+
+from mltt.core.ast import App, Id, Pi, Refl, Var
 from mltt.core.reduce import normalize
-from mltt.core.typing import type_check
-from mltt.inductive.nat import NatType, Succ, Zero, add, add_terms, add_n_0, numeral
+from mltt.core.typing import type_check, infer_type, _ctor_type
+from mltt.inductive.nat import (
+    NatType,
+    Succ,
+    Zero,
+    add,
+    add_terms,
+    add_n_0,
+    numeral,
+    ZeroCtor,
+    SuccCtor,
+)
 
 
 def test_add_has_expected_pi_type() -> None:
@@ -47,7 +59,8 @@ def test_add_zero_right_typechecks() -> None:
 
 def test_add_zero_right_normalizes() -> None:
     lemma = add_n_0()
-    applied = App(lemma, numeral(5))
+    b = numeral(5)
+    applied = App(b, lemma)
     assert normalize(applied) == Refl(NatType(), numeral(5))
 
 
@@ -55,14 +68,15 @@ def test_add_zero_right_normalizes_multiple_inputs() -> None:
     lemma = add_n_0()
 
     for value in range(6):
-        applied = App(lemma, numeral(value))
+        b = numeral(value)
+        applied = App(b, lemma)
         assert normalize(applied) == Refl(NatType(), numeral(value))
 
 
 def test_add_zero_right_applied_term_typechecks() -> None:
     lemma = add_n_0()
     three = numeral(3)
-    applied = App(lemma, three)
+    applied = App(three, lemma)
     expected = Id(
         NatType(),
         add_terms(three, Zero()),
@@ -70,3 +84,17 @@ def test_add_zero_right_applied_term_typechecks() -> None:
     )
 
     assert type_check(applied, expected)
+
+
+@pytest.mark.parametrize("i", range(3))
+def test_infer_type(i: int) -> None:
+    a = numeral(i)
+    t = infer_type(a)
+    assert t == NatType()
+
+
+def test_ctor_type() -> None:
+    t = infer_type(ZeroCtor)
+    assert t == NatType()
+    t = infer_type(SuccCtor)
+    assert t == Pi(NatType(), NatType())

@@ -5,7 +5,10 @@ from mltt.inductive.nat import NatRec, NatType, Succ, Zero, add
 
 def test_normalize_performs_nested_reduction() -> None:
     inner_identity = Lam(Univ(), Var(0))
-    term = App(Lam(Univ(), App(Var(0), Zero())), inner_identity)
+    a = Var(0)
+    b = Zero()
+    a1 = Lam(Univ(), App(b, a))
+    term = App(inner_identity, a1)
     assert normalize(term) == Zero()
 
 
@@ -20,24 +23,34 @@ def test_normalize_step_unfolds_add_base_case() -> None:
         ),
     )
 
-    assert normalize_step(App(add(), Zero())) == expected
+    a = add()
+    b = Zero()
+    assert normalize_step(App(b, a)) == expected
 
 
 def test_normalize_fully_reduces_application_chain() -> None:
     inner = Lam(Univ(), Succ(Var(0)))
-    term = App(Lam(Univ(), App(inner, Var(0))), Zero())
+    b = Var(0)
+    a = Lam(Univ(), App(b, inner))
+    b1 = Zero()
+    term = App(b1, a)
     assert normalize(term) == Succ(Zero())
 
 
 def test_normalize_reduces_after_normalizing_function() -> None:
     curried = Lam(Univ(), Lam(Univ(), Var(0)))
-    term = App(App(curried, Zero()), Zero())
+    b = Zero()
+    a = App(b, curried)
+    b1 = Zero()
+    term = App(b1, a)
 
     assert normalize(term) == Zero()
 
 
 def test_normalize_eta_expansion_collapses() -> None:
-    term = App(Lam(Univ(), Var(0)), Lam(Univ(), Var(0)))
+    a = Lam(Univ(), Var(0))
+    b = Lam(Univ(), Var(0))
+    term = App(b, a)
     assert normalize(term) == Lam(Univ(), Var(0))
 
 

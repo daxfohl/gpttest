@@ -4,11 +4,11 @@ from mltt.inductive.nat import Succ, Zero
 
 
 def test_beta_step_reduces_single_application() -> None:
-    term = App(Lam(Univ(), Succ(Var(0))), Zero())
+    term = App(Zero(), Lam(Univ(), Succ(Var(0))))
     assert beta_step(term) == Succ(Zero())
 
 
 def test_beta_step_progresses_once() -> None:
-    term = App(Lam(Univ(), Succ(Var(0))), Succ(Zero()))
+    term = App(Succ(Zero()), Lam(Univ(), Succ(Var(0))))
     step = beta_step(term)
     assert step == Succ(Succ(Zero()))

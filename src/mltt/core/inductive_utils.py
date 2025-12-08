@@ -17,7 +17,7 @@ def apply_term(term: Term, args: tuple[Term, ...]) -> Term:
     #  e.g. term = \x->(\y->z). args = [x, y]
     result: Term = term
     for arg in args:
-        result = App(result, arg)
+        result = App(arg, result)
     return result
 
 
@@ -52,15 +52,17 @@ def decompose_ctor_app(
     return None
 
 
-def instantiate_params_indices2(
-    params: tuple[Term, ...],
+def instantiate_forward(
+    schema_tys: tuple[Term, ...],
+    actual_args: tuple[Term, ...],
 ) -> tuple[Term, ...]:
-    output = []
-    for i, param in enumerate(params):
-        for j in range(0, i):
-            param = subst(param, output[j], i - j - 1)
-        output.append(param)
-    return tuple(output)
+    out: list[Term] = []
+    for i, schema in enumerate(schema_tys):
+        inst = schema
+        for j in range(i):
+            inst = subst(inst, actual_args[j], i - j - 1)
+        out.append(inst)
+    return tuple(out)
 
 
 def instantiate_into(
@@ -132,5 +134,6 @@ __all__ = [
     "decompose_app",
     "decompose_ctor_app",
     "instantiate_into",
+    "instantiate_forward",
     "match_inductive_application",
 ]

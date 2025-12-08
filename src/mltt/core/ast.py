@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
 class Var:
     """De Bruijn variable pointing to the binder at ``k``.
 
-    Args:
+    Attributes
         k: Zero-based index counting binders outward from the binding site.
            ``0`` refers to the innermost binder, ``1`` to the next, etc.
     """
@@ -25,12 +25,12 @@ class Var:
 class Lam:
     """Dependent lambda term with an argument type and body.
 
-    Args:
+    Attributes
         ty: Type of the bound argument.
         body: Term evaluated with the bound argument in scope (index 0).
     """
 
-    ty: Term
+    arg_ty: Term
     body: Term
 
 
@@ -38,26 +38,26 @@ class Lam:
 class Pi:
     """Dependent function type (Pi-type).
 
-    Args:
+    Attributes
         ty: Domain type.
         body: Codomain type that may refer to the bound argument (index 0).
     """
 
-    ty: Term
-    body: Term
+    arg_ty: Term
+    return_ty: Term
 
 
 @dataclass(frozen=True)
 class App:
     """Function application.
 
-    Args:
-        func: Term expected to reduce to a function.
+    Attributes:
         arg: Argument term supplied to ``func``.
+        func: Term expected to reduce to a function.
     """
 
-    func: Term
     arg: Term
+    func: Term
 
 
 @dataclass(frozen=True)
@@ -76,7 +76,7 @@ class Ctor:
     """A constructor for an inductive type."""
 
     name: str
-    inductive: I
+    inductive: I = field(repr=False)
     arg_types: tuple[Term, ...]
     result_indices: tuple[Term, ...] = ()
 
@@ -85,14 +85,14 @@ class Ctor:
 class I:
     """A generalized inductive type with constructors.
 
-    Args:
+    Attributes
         name: Human-readable identifier used by pretty-printers.
     """
 
     name: str
     param_types: tuple[Term, ...] = ()
     index_types: tuple[Term, ...] = ()
-    constructors: tuple[Ctor, ...] = ()
+    constructors: tuple[Ctor, ...] = field(repr=False, default=())
     level: int = 0
 
 
@@ -100,7 +100,7 @@ class I:
 class Elim:
     """Elimination principle for an inductive type.
 
-    Args:
+    Attributes
         inductive: Inductive type being eliminated.
         motive: Motive ``λx. Type``.
         cases: Casees aligned with ``inductive.constructors``.
@@ -117,7 +117,7 @@ class Elim:
 class Id:
     """Identity type over ``ty`` relating ``lhs`` and ``rhs``.
 
-    Args:
+    Attributes
         ty: Ambient type ``A``.
         lhs: Left endpoint ``x``.
         rhs: Right endpoint ``y``.
@@ -132,7 +132,7 @@ class Id:
 class Refl:
     """Canonical inhabitant of an identity type.
 
-    Args:
+    Attributes
         ty: Ambient type ``A``.
         t: Witness term ``x``; produces ``Id A x x``.
     """
@@ -145,7 +145,7 @@ class Refl:
 class IdElim:
     """Identity elimination principle (J).
 
-    Args:
+    Attributes
         A: Ambient type ``A``.
         x: Base point ``x : A``.
         P: Motive ``λy. Id A x y -> Type``.

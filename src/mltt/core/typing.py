@@ -24,6 +24,7 @@ from .inductive_utils import (
     decompose_app,
     instantiate_into,
     instantiate_params_indices,
+    instantiate_forward,
 )
 from .reduce.normalize import normalize
 
@@ -106,7 +107,7 @@ def _expected_case_type(
     total_binders = len(binder_roles)
     ctor_args = tuple(Var(total_binders - 1 - arg_pos) for arg_pos in arg_positions)
     args = (*param_args, *index_args, *ctor_args)
-    target: Term = App(motive, apply_term(ctor, args))
+    target: Term = App(apply_term(ctor, args), motive)
 
     binder_types: list[Term] = []
     for pos, (role, arg_idx, maybe_arg_ty) in enumerate(binder_roles):
@@ -115,7 +116,7 @@ def _expected_case_type(
             binder_types.append(maybe_arg_ty)
         else:
             index = pos - 1 - arg_idx
-            binder_types.append(App(motive, Var(index)))
+            binder_types.append(App(Var(index), motive))
 
     result = target
     for binder_ty in reversed(binder_types):
@@ -124,10 +125,7 @@ def _expected_case_type(
 
 
 def _type_check_inductive_elim(
-    inductive: I,
-    motive: Term,
-    cases: tuple[Term, ...],
-    scrutinee: Term,
+    elim: Elim,
     expected_ty: Term,
     ctx: Ctx,
 ) -> bool:
@@ -141,61 +139,119 @@ def _type_check_inductive_elim(
       • The resulting motive application must live in a universe no larger than
         the motive's codomain.
     """
+    scrutinee = elim.scrutinee
+    motive = elim.motive
+    inductive = elim.inductive
     # 1. Infer type of scrutinee and extract params/indices.
     scrutinee_ty = normalize(infer_type(scrutinee, ctx))
-    head, args = decompose_app(scrutinee_ty)
-    if head is not inductive:
-        raise TypeError("Eliminator scrutinee not of the right inductive type")
+    scrut_head, scrut_args = decompose_app(scrutinee_ty)
+    if scrut_head is not inductive:
+        raise TypeError(
+            f"Eliminator scrutinee not of the right inductive type\n{scrutinee}\n{scrut_head}"
+        )
 
-    # 2. Check the motive’s type
+    # # 2. Check the motive’s type
     motive_ty = infer_type(motive, ctx)
     if not isinstance(motive_ty, Pi):
         raise TypeError("InductiveElim motive not a function")
-    if not type_equal(motive_ty.ty, scrutinee_ty):
-        raise TypeError(f"InductiveElim motive domain mismatch\n{motive_ty.ty}\n{scrutinee_ty}")
-    motive_level = _expect_universe(motive_ty.body, ctx.extend(scrutinee_ty))
+
+    # 2.1 Check param binders
+    inst_inductive_param_tys = instantiate_forward(
+        inductive.param_types + inductive.index_types, scrut_args
+    )
+    ty: Pi = motive_ty
+    print()
+    print(inductive)
+    print(inductive.param_types)
+    print(inductive.index_types)
+    print(scrut_args)
+    print(inst_inductive_param_tys)
+    for k, param_ty in enumerate(inductive.param_types + inductive.index_types):
+        print(k)
+        print(param_ty)
+        print(ty)
+        print(ty.arg_ty)
+        if not isinstance(ty, Pi):
+            raise TypeError("Motive missing param binder")
+        if not type_equal(ty.arg_ty, param_ty):
+            raise TypeError(
+                f"Motive param binder type mismatch\n{ty.arg_ty}\n{param_ty}"
+            )
+        ty = ty.return_ty  # move under Π
+
+    # # 2.3 Check scrutinee binder
+    # if not isinstance(ty, Pi):
+    #     raise TypeError("Motive missing scrutinee binder")
+    # scrut_dom = ty.ty
+    # # expected scrut_dom is I applied to the bound params/indices:
+    # expected_scrut_dom = apply_inductive_head(I, param_vars, index_vars)
+    # if not convertible(scrut_dom, expected_scrut_dom):
+    #     raise TypeError("Motive scrutinee domain mismatch")
+    # ty = ty.body  # body after all binders
+    #
+    # # 2.4 Final body must be a universe
+    # if not is_universe(ty):
+    #     raise TypeError("Motive codomain not a universe")
 
     # 3. For each constructor, compute the expected branch type and check
-    for ctor, case in zip(inductive.constructors, cases):
+    for ctor, case in zip(inductive.constructors, elim.cases, strict=True):
         # 3.1 instantiate arg types with the actual params/indices
-        inst_arg_types = instantiate_into(args, ctor.arg_types)
+        head, scrut_args = decompose_app(scrutinee_ty)
+        arg_tys = instantiate_into(
+            inductive.param_types + inductive.index_types, ctor.arg_types
+        )
 
-        # 3.2 identify recursive positions (like in Step 2 of iota, but on types)
-        ihs: list[int] = []
-        for j, arg_ty in enumerate(inst_arg_types):
-            head_j, _ = decompose_app(arg_ty)
-            if head_j is inductive:
-                ihs.append(len(inst_arg_types) + len(ihs) - j - 1)
+        # 3.2 create recursive references (like in Step 2 of iota, but on types)
+        recursive_refs: list[Var] = []
+        args_count = len(arg_tys)
+        for j, arg_ty in enumerate(arg_tys):
+            head, _ = decompose_app(arg_ty)
+            if head is inductive:
+                # make a reference from the IH back to the arg. It has to refer back past the earlier recursive_refs
+                # (through `len(recursive_refs)` binders), then to arg j, (but the scrut_args binders are reversed, so it must
+                # refer back `args_count-j-1` levels.
+                recursive_refs.append(Var(len(recursive_refs) + args_count - j - 1))
 
         # 3.3 build the expected branch type telescope
-        m = len(inst_arg_types)
-        r = len(ihs)
+        m = len(arg_tys)
+        r = len(recursive_refs)
         hypotheticals = tuple(Var(r + m - 1 - j) for j in range(m))
         scrut_like = ctor
-        for arg in (*args, *hypotheticals):
-            scrut_like = App(func=scrut_like, arg=arg)
-
-        # 4 args, ih at [1,2]
-        # ihs = [1, 2]
-        # hyps = [v5, v4, v3, v2]
-        # ctor v2 v3 v4 v5 | Av4 Av3 | A3 A2 A1 A0
-        # fun
+        for arg in (
+            scrut_args + hypotheticals
+        ):  # scrut_args from decompose_app(scrutinee_ty)
+            scrut_like = App(arg=arg, func=scrut_like)
 
         # 3.4 Add binders, right-to-left
-        body = App(motive, scrut_like)
-        for j in reversed(ihs):
+        body = motive
+        for arg in scrut_args:  # scrut_args from decompose_app(scrutinee_ty)
+            body = App(arg, body)
+        body = App(scrut_like, body)
+        for ref_var in reversed(recursive_refs):
             # IH for arg_j : motive arg_j
-            ih_ty = App(motive, Var(j))
-            body = Pi(ty=ih_ty, body=body)
-        for arg_ty in reversed(inst_arg_types):
-            body = Pi(ty=arg_ty, body=body)
+            ih_ty = motive
+            for arg in scrut_args:
+                ih_ty = App(arg, ih_ty)
+            ih_ty = App(ref_var, ih_ty)
+            body = Pi(arg_ty=ih_ty, return_ty=body)
+        for arg_ty in reversed(arg_tys):
+            body = Pi(arg_ty=arg_ty, return_ty=body)
 
         expected_branch_ty = body
         if not type_check(case, expected_branch_ty, ctx):
-            raise TypeError("Case for constructor has wrong type")
+            raise TypeError(
+                f"Case for constructor has wrong type\n{ctor}\n{case}\n{body}\n{ctx}"
+            )
 
-    target_ty = App(motive, scrutinee)
+    body = motive
+    for arg in scrut_args:
+        body = App(arg, body)
+    target_ty = App(scrutinee, body)
     target_level = _expect_universe(target_ty, ctx)
+    body = motive_ty
+    for arg in scrut_args:
+        body = Pi(body, arg)
+    motive_level = _expect_universe(body.return_ty, ctx.extend(scrutinee_ty))
     if target_level > motive_level:
         raise TypeError("InductiveElim motive returns too small a universe")
     return type_equal(expected_ty, target_ty)
@@ -232,9 +288,9 @@ def _type_check_inductive_elim1(
     motive_ty = infer_type(motive, ctx)
     if not isinstance(motive_ty, Pi):
         raise TypeError("InductiveElim motive not a function")
-    if not type_equal(motive_ty.ty, inductive_applied):
+    if not type_equal(motive_ty.arg_ty, inductive_applied):
         raise TypeError("InductiveElim motive domain mismatch")
-    motive_level = _expect_universe(motive_ty.body, ctx.extend(inductive_applied))
+    motive_level = _expect_universe(motive_ty.return_ty, ctx.extend(inductive_applied))
 
     if len(cases) != len(inductive.constructors):
         raise TypeError("InductiveElim cases do not match constructors")
@@ -258,7 +314,7 @@ def _type_check_inductive_elim1(
         t = term
         while isinstance(t, Pi):
             count += 1
-            t = t.body
+            t = t.return_ty
         return count
 
     # We try typing casees with either the decomposed ctor args (if available)
@@ -292,8 +348,8 @@ def _type_check_inductive_elim1(
             for idx_arg, idx_ty in zip(cand_index_args, index_arg_types):
                 if extra_needed <= 0:
                     break
-                if isinstance(case_term, Lam) and type_equal(case_term.ty, idx_ty):
-                    case_term = App(case_term, idx_arg)
+                if isinstance(case_term, Lam) and type_equal(case_term.arg_ty, idx_ty):
+                    case_term = App(idx_arg, case_term)
                     extra_needed -= 1
                 else:
                     break
@@ -308,7 +364,7 @@ def _type_check_inductive_elim1(
                 raise last_error
             raise TypeError("Case for constructor has wrong type")
 
-    target_ty = App(motive, scrutinee)
+    target_ty = App(scrutinee, motive)
     target_level = _expect_universe(target_ty, ctx)
     if target_level > motive_level:
         raise TypeError("InductiveElim motive returns too small a universe")
@@ -353,15 +409,17 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             # Lambdas infer to Pis: infer the body under an extended context.
             body_ty = infer_type(body, ctx.extend(arg_ty))
             return Pi(arg_ty, body_ty)
-        case App(f, a):
+        case App(a, f):
             # Application: infer the function, ensure it is a Pi, and that the
             # argument checks against its domain.
             f_ty = infer_type(f, ctx)
             if not isinstance(f_ty, Pi):
                 raise TypeError("Application of non-function")
-            if not type_check(a, f_ty.ty, ctx):
-                raise TypeError("Function argument type mismatch")
-            return subst(f_ty.body, a)
+            if not type_check(a, f_ty.arg_ty, ctx):
+                raise TypeError(
+                    f"Application argument type mismatch\narg: {a},\narg_ty: {infer_type(a)}\nf: {f}\nf_ty: {f_ty},\n{ctx}"
+                )
+            return subst(f_ty.return_ty, a)
         case Pi(arg_ty, body):
             # Pi formation: both sides must be types; universe level is max.
             arg_level = _expect_universe(arg_ty, ctx)
@@ -388,7 +446,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
         case Ctor():
             return _ctor_type(term)
         case Elim(inductive, motive, cases, scrutinee):
-            return App(motive, scrutinee)
+            return App(scrutinee, motive)
         case Id(ty, lhs, rhs):
             # Identity type is a type when both endpoints check against ``ty``.
             if not type_check(lhs, ty, ctx) or not type_check(rhs, ty, ctx):
@@ -401,7 +459,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             return Id(ty, t, t)
         case IdElim(A, x, P, d, y, p):
             # Eliminator returns the motive applied to the target endpoints/proof.
-            return App(App(P, y), p)
+            return App(p, App(y, P))
 
     raise TypeError(f"Unexpected term in infer_type: {term!r}")
 
@@ -427,13 +485,15 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
                     return type_check(body, cod, ctx.extend(arg_ty))
                 case _:
                     raise TypeError("Lambda expected to have Pi type")
-        case App(f, a):
+        case App(a, f):
             f_ty = infer_type(f, ctx)
             if not isinstance(f_ty, Pi):
                 raise TypeError("Application of non-function")
-            if not type_check(a, f_ty.ty, ctx):
-                raise TypeError("Application argument type mismatch")
-            return type_equal(expected_ty, subst(f_ty.body, a))
+            if not type_check(a, f_ty.arg_ty, ctx):
+                raise TypeError(
+                    f"Application argument type mismatch\n{a},\n{f_ty},\n{ctx}"
+                )
+            return type_equal(expected_ty, subst(f_ty.return_ty, a))
         case Pi(_, _):
             # Pi formation uses inference for its type; just compare expected.
             return type_equal(expected_ty, infer_type(term, ctx))
@@ -441,10 +501,8 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
             return type_equal(expected_ty, infer_type(term, ctx))
         case Ctor():
             return type_equal(expected_ty, _ctor_type(term))
-        case Elim(inductive, motive, cases, scrutinee):
-            return _type_check_inductive_elim(
-                inductive, motive, cases, scrutinee, expected_ty, ctx
-            )
+        case Elim():
+            return _type_check_inductive_elim(term, expected_ty, ctx)
         case Id(id_ty, l, r):
             # Identity type formation: both sides must check against the given
             # ambient type; the result is a type.
@@ -465,9 +523,12 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
                 raise TypeError("IdElim: y : A fails")
             if not type_check(p, Id(A, x, y), ctx):
                 raise TypeError("IdElim: p : Id(A,x,y) fails")
-            if not type_check(d, App(App(P, x), Refl(A, x)), ctx):
+            a1 = App(x, P)
+            b = Refl(A, x)
+            if not type_check(d, App(b, a1), ctx):
                 raise TypeError("IdElim: d : P x (Refl x) fails")
-            return type_equal(expected_ty, App(App(P, y), p))
+            a2 = App(y, P)
+            return type_equal(expected_ty, App(p, a2))
         case Univ(_):
             return isinstance(expected_ty, Univ)
 

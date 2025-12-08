@@ -7,7 +7,6 @@ from ..core.ast import (
     Ctor,
     Elim,
     I,
-    Lam,
     Term,
     Univ,
     Var,
@@ -20,22 +19,22 @@ ConsCtor = Ctor(
     List,
     (
         Var(0),
-        App(List, Var(1)),
+        App(Var(1), List),
     ),
 )
 object.__setattr__(List, "constructors", (NilCtor, ConsCtor))
 
 
 def ListType(elem_ty: Term) -> App:
-    return App(List, elem_ty)
+    return App(elem_ty, List)
 
 
 def Nil(elem_ty: Term) -> App:
-    return App(NilCtor, elem_ty)
+    return App(elem_ty, NilCtor)
 
 
 def Cons(elem_ty: Term, head: Term, tail: Term) -> Term:
-    return App(App(App(ConsCtor, elem_ty), head), tail)
+    return App(tail, App(head, App(elem_ty, ConsCtor)))
 
 
 def ListRec(P: Term, base: Term, step: Term, xs: Term) -> Elim:

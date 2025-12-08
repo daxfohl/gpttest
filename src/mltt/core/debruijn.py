@@ -81,8 +81,8 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
             return Lam(shift(ty, by, cutoff), shift(body, by, cutoff + 1))
         case Pi(ty, body):
             return Pi(shift(ty, by, cutoff), shift(body, by, cutoff + 1))
-        case App(f, a):
-            return App(shift(f, by, cutoff), shift(a, by, cutoff))
+        case App(a, f):
+            return App(shift(a, by, cutoff), shift(f, by, cutoff))
         case Elim(inductive, motive, cases, scrutinee):
             return Elim(
                 inductive,
@@ -134,8 +134,8 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
                 subst(ty, sub, j),
                 subst(body, shift(sub, 1, 0), j + 1),
             )
-        case App(f, a):
-            return App(subst(f, sub, j), subst(a, sub, j))
+        case App(a, f):
+            return App(subst(a, sub, j), subst(f, sub, j))
         case Elim(inductive, motive, cases, scrutinee):
             return Elim(
                 inductive,

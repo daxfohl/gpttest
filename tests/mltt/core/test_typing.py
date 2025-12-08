@@ -69,19 +69,26 @@ def test_infer_lam_4_level(i: int) -> None:
     # i==0: let f x y = y
     # i==2: let f x y = x
     fxy = Lam(
-        ty=Univ(10),
+        arg_ty=Univ(10),
         body=Lam(
-            ty=Var(0),
+            arg_ty=Var(0),
             body=Lam(
-                ty=Univ(20),
+                arg_ty=Univ(20),
                 body=Lam(
-                    ty=Var(0),
+                    arg_ty=Var(0),
                     body=Var(i),
                 ),
             ),
         ),
     )
-    t = App(App(App(App(fxy, Univ(9)), Univ(8)), Univ(19)), Univ(18))
+    b = Univ(9)
+    a = App(b, fxy)
+    b1 = Univ(8)
+    a1 = App(b1, a)
+    b2 = Univ(19)
+    a2 = App(b2, a1)
+    b3 = Univ(18)
+    t = App(b3, a2)
     assert normalize(t) == Univ(18 if i == 0 else 8)
     assert infer_type(t) == Univ(19 if i == 0 else 9)
 
@@ -91,16 +98,21 @@ def test_infer_lam_3_level(i: int) -> None:
     # i==0: let f (x:A) (y:A) = y
     # i==1: let f (x:A) (y:A) = x
     fxy = Lam(
-        ty=Univ(10),
+        arg_ty=Univ(10),
         body=Lam(
-            ty=Var(0),
+            arg_ty=Var(0),
             body=Lam(
-                ty=Var(1),
+                arg_ty=Var(1),
                 body=Var(i),
             ),
         ),
     )
-    t = App(App(App(fxy, Univ(9)), Univ(8)), Univ(8))
+    b = Univ(9)
+    a = App(b, fxy)
+    b1 = Univ(8)
+    a1 = App(b1, a)
+    b2 = Univ(8)
+    t = App(b2, a1)
     assert normalize(t) == Univ(8)
     assert infer_type(t) == Univ(9)
 
@@ -119,9 +131,9 @@ def test_two_level_lambda_type_refers_to_previous_binder() -> None:
     """
 
     term = Lam(
-        ty=Univ(level=0),  # Γ ⊢ Type₀ : Type₁ (ignored here)
+        arg_ty=Univ(level=0),  # Γ ⊢ Type₀ : Type₁ (ignored here)
         body=Lam(
-            ty=Var(k=0),  # x : A   (Var(0) refers to A)
+            arg_ty=Var(k=0),  # x : A   (Var(0) refers to A)
             body=Var(k=0),  # body = x
         ),
     )
@@ -134,18 +146,20 @@ def test_two_level_lambda_type_refers_to_previous_binder() -> None:
     # Expected type: Π (A : Type₀). Π (x : A). A
     # De Bruijn: Pi(Univ(0), Pi(Var(0), Var(1)))
     assert isinstance(ty, Pi)
-    assert ty.ty == Univ(level=0)  # domain of outer Pi is Type₀
+    assert ty.arg_ty == Univ(level=0)  # domain of outer Pi is Type₀
 
-    inner = ty.body
+    inner = ty.return_ty
     assert isinstance(inner, Pi)
     # domain of inner Pi is A (which is Var(0) in the outer Pi's scope)
-    assert inner.ty == Var(k=0)
+    assert inner.arg_ty == Var(k=0)
     # codomain is also A
-    assert inner.body == Var(k=1)
+    assert inner.return_ty == Var(k=1)
 
 
 def test_type_equal_normalizes_beta_equivalent_terms() -> None:
-    beta_equiv = App(Lam(Univ(), Var(0)), Univ())
+    a = Lam(Univ(), Var(0))
+    b = Univ()
+    beta_equiv = App(b, a)
 
     assert type_equal(beta_equiv, Univ())
     assert not type_equal(beta_equiv, NatType())
@@ -172,7 +186,9 @@ def test_infer_type_of_pi_uses_maximum_universe_level() -> None:
 
 def test_infer_type_application_requires_function() -> None:
     with pytest.raises(TypeError, match="Application of non-function"):
-        infer_type(App(Zero(), Zero()))
+        a = Zero()
+        b = Zero()
+        infer_type(App(b, a))
 
 
 def test_type_check_natrec_rejects_invalid_base_case() -> None:
@@ -183,7 +199,7 @@ def test_type_check_natrec_rejects_invalid_base_case() -> None:
     term = NatRec(P, z, s, n)
 
     with pytest.raises(TypeError, match="Case for constructor has wrong type"):
-        type_check(term, App(P, n))
+        type_check(term, App(n, P))
 
 
 def test_type_check_accepts_add_application() -> None:
@@ -201,7 +217,8 @@ def test_type_check_lambda_with_wrong_domain() -> None:
 
 def test_type_check_application_argument_mismatch() -> None:
     f = Lam(NatType(), Var(0))
-    term = App(f, Univ())
+    b = Univ()
+    term = App(b, f)
     with pytest.raises(TypeError, match="Application argument type mismatch"):
         type_check(term, NatType())
 
@@ -216,10 +233,8 @@ def test_infer_type_idelim() -> None:
         p=Refl(Univ(), Var(0)),
     )
     inferred = infer_type(term)
-    assert inferred == App(
-        App(
-            Lam(Univ(), Lam(Id(Univ(), Var(0), Var(1)), Univ())),
-            Var(1),
-        ),
-        Refl(Univ(), Var(0)),
-    )
+    a = Lam(Univ(), Lam(Id(Univ(), Var(0), Var(1)), Univ()))
+    b = Var(1)
+    a1 = App(b, a)
+    b1 = Refl(Univ(), Var(0))
+    assert inferred == App(b1, a1)

@@ -9,13 +9,10 @@ from ..core.ast import (
     Elim,
     I,
     Lam,
-    Pi,
     Refl,
     Term,
     Var,
 )
-from ..core.reduce.normalize import normalize
-from ..core.typing import type_check
 from .eq import ap
 
 Nat = I(name="Nat", level=0)
@@ -33,7 +30,7 @@ def Zero() -> Ctor:
 
 
 def Succ(n: Term) -> App:
-    return App(SuccCtor, n)
+    return App(n, SuccCtor)
 
 
 def NatRec(P: Term, base: Term, step: Term, n: Term) -> Elim:
@@ -88,7 +85,7 @@ def add() -> Lam:
 def add_terms(lhs: Term, rhs: Term) -> Term:
     """Build ``add lhs rhs`` as nested applications."""
 
-    return App(App(add(), lhs), rhs)
+    return App(rhs, App(lhs, add()))
 
 
 def add_n_0() -> Term:
