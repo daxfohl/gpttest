@@ -297,7 +297,9 @@ def test_shift_cutoff_beyond_all_vars_is_identity() -> None:
 
 
 def test_subst_high_j_beyond_all_vars_identity() -> None:
-    assert subst(Lam(Var(0), App(Var(0), Var(1))), sub=Var(9), j=10) == Lam(Var(0), App(Var(0), Var(1)))
+    assert subst(Lam(Var(0), App(Var(0), Var(1))), sub=Var(9), j=10) == Lam(
+        Var(0), App(Var(0), Var(1))
+    )
 
 
 # --------- other types ----------
