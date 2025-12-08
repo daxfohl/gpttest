@@ -6,7 +6,7 @@ from .ast import App, Ctor, I, Term
 from .debruijn import subst
 
 
-def apply_term(term: Term, args: tuple[Term, ...]) -> Term:
+def apply_term(term: Term, *args: Term) -> Term:
     """Apply ``args`` to ``term`` left-associatively.
 
     Constructors and inductive type heads are stored unapplied; callers often

@@ -36,7 +36,7 @@ def iota_reduce(
 
     index = ctor_index(ctor)
     case = cases[index]
-    return apply_term(case, (*ctor_args, *ihs))
+    return apply_term(case, *ctor_args, *ihs)
 
 
 def whnf(term: Term) -> Term:

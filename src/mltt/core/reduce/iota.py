@@ -52,9 +52,7 @@ def _iota_constructor(
             )
             ihs.append(ih)
 
-    all_args = (*ctor_args, *ihs)
-    test = apply_term(case, all_args)
-    return test
+    return apply_term(case, *ctor_args, *ihs)
 
 
 def iota_head_step(t: Term) -> Term:

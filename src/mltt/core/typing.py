@@ -58,7 +58,7 @@ def _ctor_type(ctor: Ctor) -> Term:
         for idx_term in ctor.result_indices
     )
     assert ctor.result_indices == result_indices  # So why do we do this?
-    result: Term = apply_term(ctor.inductive, (*param_vars, *result_indices))
+    result: Term = apply_term(ctor.inductive, *param_vars, *result_indices)
 
     for arg_ty in reversed(ctor.arg_types):
         result = Pi(arg_ty, result)
@@ -106,8 +106,7 @@ def _expected_case_type(
 
     total_binders = len(binder_roles)
     ctor_args = tuple(Var(total_binders - 1 - arg_pos) for arg_pos in arg_positions)
-    args = (*param_args, *index_args, *ctor_args)
-    target: Term = App(motive, apply_term(ctor, args))
+    target: Term = App(motive, apply_term(ctor, *param_args, *index_args, *ctor_args))
 
     binder_types: list[Term] = []
     for pos, (role, arg_idx, maybe_arg_ty) in enumerate(binder_roles):
@@ -156,17 +155,17 @@ def _type_check_inductive_elim(
         raise TypeError("InductiveElim motive not a function")
 
     # 2.1 Check param binders
-    inst_inductive_param_tys = instantiate_forward(
-        inductive.param_types + inductive.index_types, scrut_args
-    )
+    inductive_arg_schemas = inductive.param_types + inductive.index_types
+    inductive_arg_tys = instantiate_forward(inductive_arg_schemas, scrut_args)
+    inductive_args = scrut_args[:len(inductive_arg_tys)]
     ty: Pi = motive_ty
     print()
     print(inductive)
     print(inductive.param_types)
     print(inductive.index_types)
     print(scrut_args)
-    print(inst_inductive_param_tys)
-    for k, param_ty in enumerate(inductive.param_types + inductive.index_types):
+    print(inductive_arg_tys)
+    for k, param_ty in enumerate(inductive_arg_schemas):
         print(k)
         print(param_ty)
         print(ty)
@@ -179,19 +178,19 @@ def _type_check_inductive_elim(
             )
         ty = ty.return_ty  # move under Π
 
-    # # 2.3 Check scrutinee binder
-    # if not isinstance(ty, Pi):
-    #     raise TypeError("Motive missing scrutinee binder")
-    # scrut_dom = ty.ty
-    # # expected scrut_dom is I applied to the bound params/indices:
-    # expected_scrut_dom = apply_inductive_head(I, param_vars, index_vars)
-    # if not convertible(scrut_dom, expected_scrut_dom):
-    #     raise TypeError("Motive scrutinee domain mismatch")
-    # ty = ty.body  # body after all binders
-    #
-    # # 2.4 Final body must be a universe
-    # if not is_universe(ty):
-    #     raise TypeError("Motive codomain not a universe")
+    # 2.3 Check scrutinee binder
+    if not isinstance(ty, Pi):
+        raise TypeError("Motive missing scrutinee binder")
+    scrut_dom = ty.arg_ty
+    # expected scrut_dom is I applied to the bound params/indices:
+    expected_scrut_dom = apply_term(inductive, *inductive_args)
+    if not type_equal(scrut_dom, expected_scrut_dom):
+        raise TypeError("Motive scrutinee domain mismatch")
+    ty = ty.return_ty  # body after all binders
+
+    # 2.4 Final body must be a universe
+    if not isinstance(ty, Univ):
+        raise TypeError("Motive codomain not a universe")
 
     # 3. For each constructor, compute the expected branch type and check
     for ctor, case in zip(inductive.constructors, elim.cases, strict=True):
@@ -281,7 +280,7 @@ def _type_check_inductive_elim1(
     if application is None:
         raise TypeError("InductiveElim scrutinee has wrong type")
     param_args, index_args = application
-    inductive_applied = apply_term(inductive, (*param_args, *index_args))
+    inductive_applied = apply_term(inductive, *param_args, *index_args)
     if not type_equal(scrutinee_ty, inductive_applied):
         raise TypeError("InductiveElim scrutinee has wrong type")
 
