@@ -19,6 +19,7 @@ from .ast import (
 from .debruijn import Ctx, subst
 from .inductive_utils import (
     apply_term,
+    nested_pi,
     decompose_ctor_app,
     match_inductive_application,
     decompose_app,
@@ -58,15 +59,12 @@ def _ctor_type(ctor: Ctor) -> Term:
         for idx_term in ctor.result_indices
     )
     assert ctor.result_indices == result_indices  # So why do we do this?
-    result: Term = apply_term(ctor.inductive, *param_vars, *result_indices)
-
-    for arg_ty in reversed(ctor.arg_types):
-        result = Pi(arg_ty, result)
-    for index_ty in reversed(ctor.inductive.index_types):
-        result = Pi(index_ty, result)
-    for param_ty in reversed(ctor.inductive.param_types):
-        result = Pi(param_ty, result)
-    return result
+    return nested_pi(
+        *ctor.inductive.param_types,
+        *ctor.inductive.index_types,
+        *ctor.arg_types,
+        return_ty=apply_term(ctor.inductive, *param_vars, *result_indices),
+    )
 
 
 def _expected_case_type(
@@ -117,10 +115,7 @@ def _expected_case_type(
             index = pos - 1 - arg_idx
             binder_types.append(App(motive, Var(index)))
 
-    result = target
-    for binder_ty in reversed(binder_types):
-        result = Pi(binder_ty, result)
-    return result
+    return nested_pi(*binder_types, return_ty=target)
 
 
 def _type_check_inductive_elim(
@@ -222,30 +217,17 @@ def _type_check_inductive_elim(
             scrut_like = App(func=scrut_like, arg=arg)
 
         # 3.4 Add binders, right-to-left
-        body = motive
-        for arg in scrut_args:  # scrut_args from decompose_app(scrutinee_ty)
-            body = App(body, arg)
-        body = App(body, scrut_like)
-        for ref_var in reversed(recursive_refs):
-            # IH for arg_j : motive arg_j
-            ih_ty = motive
-            for arg in scrut_args:
-                ih_ty = App(ih_ty, arg)
-            ih_ty = App(ih_ty, ref_var)
-            body = Pi(arg_ty=ih_ty, return_ty=body)
-        for arg_ty in reversed(arg_tys):
-            body = Pi(arg_ty=arg_ty, return_ty=body)
-
-        expected_branch_ty = body
-        if not type_check(case, expected_branch_ty, ctx):
+        # IH for arg_j : motive arg_j
+        ih_types = [apply_term(motive, *scrut_args, ref) for ref in recursive_refs]
+        body = nested_pi(
+            *arg_tys, *ih_types, return_ty=apply_term(motive, *scrut_args, scrut_like)
+        )
+        if not type_check(case, body, ctx):
             raise TypeError(
                 f"Case for constructor has wrong type\n{ctor}\n{case}\n{body}\n{ctx}"
             )
 
-    body = motive
-    for arg in scrut_args:
-        body = App(body, arg)
-    target_ty = App(body, scrutinee)
+    target_ty = apply_term(motive, *scrut_args, scrutinee)
     target_level = _expect_universe(target_ty, ctx)
     body = motive_ty
     for arg in scrut_args:
@@ -436,12 +418,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             for index_ty in index_types:
                 _expect_universe(index_ty, ctx1)
                 ctx1 = ctx1.extend(index_ty)
-            result: Term = Univ(level)
-            for index_ty in reversed(index_types):
-                result = Pi(index_ty, result)
-            for param_ty in reversed(param_types):
-                result = Pi(param_ty, result)
-            return result
+            return nested_pi(*param_types, *index_types, return_ty=Univ(level))
         case Ctor():
             return _ctor_type(term)
         case Elim(inductive, motive, cases, scrutinee):
