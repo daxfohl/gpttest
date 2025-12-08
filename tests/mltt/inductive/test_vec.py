@@ -1,8 +1,8 @@
 import pytest
 
 import mltt.inductive.vec as vec
-from mltt.core.ast import Pi, Univ, Term, Var, Lam, App
-from mltt.core.inductive_utils import nested_lam
+from mltt.core.ast import App, Lam, Term, Univ, Var
+from mltt.core.inductive_utils import nested_lam, nested_pi
 from mltt.core.reduce import normalize, whnf
 from mltt.core.typing import infer_type, type_check
 from mltt.inductive.nat import NatType, Succ, Zero, numeral, add_terms
@@ -10,7 +10,7 @@ from mltt.inductive.vec import VecType
 
 
 def test_infer_vec_type() -> None:
-    assert infer_type(vec.Vec) == Pi(Univ(0), Pi(NatType(), Univ(0)))
+    assert infer_type(vec.Vec) == nested_pi(Univ(0), NatType(), return_ty=Univ(0))
 
 
 def test_nil_has_zero_length() -> None:
@@ -108,16 +108,13 @@ def test_infer_type(elem: Term, n: int) -> None:
 def test_ctor_type() -> None:
     t = infer_type(vec.NilCtor)
     # Pi x : Type. Nat -> Vec x Zero
-    assert t == Pi(Univ(0), Pi(NatType(), vec.VecType(Var(1), Zero())))
+    assert t == nested_pi(Univ(0), NatType(), return_ty=vec.VecType(Var(1), Zero()))
     t = infer_type(vec.ConsCtor)
     # Pi x : Type. Pi x1 : Nat. x -> Vec x x1 -> Vec x (Succ x1)
-    assert t == Pi(
+    assert t == nested_pi(
         Univ(0),
-        Pi(
-            NatType(),
-            Pi(
-                Var(1),
-                Pi(vec.VecType(Var(2), Var(1)), vec.VecType(Var(3), Succ(Var(2)))),
-            ),
-        ),
+        NatType(),
+        Var(1),
+        vec.VecType(Var(2), Var(1)),
+        return_ty=vec.VecType(Var(3), Succ(Var(2))),
     )

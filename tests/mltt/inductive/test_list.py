@@ -2,7 +2,7 @@ import pytest
 
 import mltt.inductive.list as listm
 from mltt.core.ast import App, Lam, Pi, Univ, Var, Term
-from mltt.core.inductive_utils import nested_lam
+from mltt.core.inductive_utils import nested_lam, nested_pi
 from mltt.core.reduce import normalize
 from mltt.core.typing import infer_type, type_check
 from mltt.inductive import nat
@@ -61,6 +61,9 @@ def test_ctor_type() -> None:
     assert t == Pi(Univ(0), listm.ListType(Var(0)))
     t = infer_type(ConsCtor)
     # Pi x : Type. x -> List x -> List x
-    assert t == Pi(
-        Univ(0), Pi(Var(0), Pi(listm.ListType(Var(1)), listm.ListType(Var(2))))
+    assert t == nested_pi(
+        Univ(0),
+        Var(0),
+        listm.ListType(Var(1)),
+        return_ty=listm.ListType(Var(2)),
     )

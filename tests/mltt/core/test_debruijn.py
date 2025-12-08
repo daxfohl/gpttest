@@ -1,6 +1,6 @@
 from mltt.core.ast import App, Id, IdElim, Elim, Lam, Pi, Term, Univ, Var
 from mltt.core.debruijn import shift, subst
-from mltt.core.inductive_utils import nested_lam
+from mltt.core.inductive_utils import nested_lam, nested_pi
 from mltt.inductive.nat import NatRec, Succ, Zero
 
 
@@ -346,10 +346,10 @@ def test_subst_nested_binder_chain() -> None:
 
 
 def test_subst_pi_body() -> None:
-    pi_term = Pi(Univ(), Pi(Univ(), Var(1)))
+    pi_term = nested_pi(Univ(), Univ(), return_ty=Var(1))
     sub = Succ(Var(0))
     result = subst(pi_term, sub)
-    assert result == Pi(Univ(), Pi(Univ(), Var(1)))
+    assert result == nested_pi(Univ(), Univ(), return_ty=Var(1))
 
 
 def test_subst_natrec_components() -> None:

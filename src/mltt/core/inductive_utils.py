@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .ast import App, Ctor, I, Term, Lam
+from .ast import App, Ctor, I, Term, Lam, Pi
 from .debruijn import subst
 
 
@@ -21,11 +21,18 @@ def apply_term(term: Term, *args: Term) -> Term:
     return result
 
 
-def nested_lam(*params: Term, body: Term) -> Term:
+def nested_lam(*param_tys: Term, body: Term) -> Term:
     fn: Term = body
-    for param in reversed(params):
-        fn = Lam(param, fn)
+    for param_ty in reversed(param_tys):
+        fn = Lam(param_ty, fn)
     return fn
+
+
+def nested_pi(*param_tys: Term, return_ty: Term) -> Term:
+    pi: Term = return_ty
+    for param_ty in reversed(param_tys):
+        pi = Pi(param_ty, pi)
+    return pi
 
 
 def decompose_app(term: Term) -> tuple[Term, tuple[Term, ...]]:

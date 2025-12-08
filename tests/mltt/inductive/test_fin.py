@@ -2,7 +2,7 @@ import pytest
 
 import mltt.inductive.fin as fin
 from mltt.core.ast import Pi, Univ, Var, Lam
-from mltt.core.inductive_utils import nested_lam
+from mltt.core.inductive_utils import nested_lam, nested_pi
 from mltt.core.reduce import normalize, whnf
 from mltt.inductive.fin import FZCtor, FSCtor
 from mltt.inductive.nat import NatType, Succ, Zero, numeral
@@ -59,4 +59,8 @@ def test_ctor_type() -> None:
     assert t == Pi(NatType(), fin.FinType(Succ(Var(0))))
     t = infer_type(FSCtor)
     # Pi x : Nat. Fin x -> Fin (Succ x)
-    assert t == Pi(NatType(), Pi(fin.FinType(Var(0)), fin.FinType(Succ(Var(1)))))
+    assert t == nested_pi(
+        NatType(),
+        fin.FinType(Var(0)),
+        return_ty=fin.FinType(Succ(Var(1))),
+    )

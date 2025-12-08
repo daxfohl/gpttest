@@ -1,13 +1,13 @@
 import mltt.inductive.tree as treem
-from mltt.core.ast import App, Lam, Pi, Univ, Var
-from mltt.core.inductive_utils import nested_lam, apply_term
+from mltt.core.ast import App, Lam, Univ, Var
+from mltt.core.inductive_utils import nested_lam, nested_pi, apply_term
 from mltt.core.reduce import normalize
 from mltt.core.typing import infer_type, type_check
 from mltt.inductive.nat import NatType, Succ, Zero, add_terms
 
 
 def test_infer_tree_type_constructor() -> None:
-    expected = Pi(Univ(0), Pi(Univ(0), Univ(0)))
+    expected = nested_pi(Univ(0), Univ(0), return_ty=Univ(0))
 
     assert infer_type(treem.Tree) == expected
 
