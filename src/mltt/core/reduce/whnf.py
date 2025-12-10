@@ -60,9 +60,9 @@ def whnf(term: Term) -> Term:
                 case _:
                     raise ValueError()
 
-        case IdElim(A, x, P, d, y, Refl(_, _)):
-            return d
         case IdElim(A, x, P, d, y, p):
+            if isinstance(p, Refl):
+                return d
             # Push reduction into the proof if the head does not expose a Refl.
             p1 = whnf(p)
             if p1 != p:

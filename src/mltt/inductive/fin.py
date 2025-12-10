@@ -14,21 +14,26 @@ from ..core.inductive_utils import apply_term
 from .nat import NatType, Succ, numeral
 
 Fin = I(name="Fin", index_types=(NatType(),), level=0)
-FZCtor = Ctor("FZ", Fin, (), (Succ(Var(0)),))
+FZCtor = Ctor(
+    name="FZ",
+    inductive=Fin,
+    arg_types=(),
+    result_indices=(Succ(Var(0)),),
+)
 FSCtor = Ctor(
-    "FS",
-    Fin,
-    (App(Fin, Var(0)),),
-    (Succ(Var(1)),),
+    name="FS",
+    inductive=Fin,
+    arg_types=(App(Fin, Var(0)),),
+    result_indices=(Succ(Var(1)),),
 )
 object.__setattr__(Fin, "constructors", (FZCtor, FSCtor))
 
 
-def FinType(n: Term) -> App:
+def FinType(n: Term) -> Term:
     return App(Fin, n)
 
 
-def FZ(n: Term) -> App:
+def FZ(n: Term) -> Term:
     return App(FZCtor, n)
 
 
@@ -50,7 +55,7 @@ def FinRec(P: Term, base: Term, step: Term, k: Term) -> Elim:
 def of_int(i: int, n: int) -> Term:
     i %= n
     # n=1, i=0; n=2, i=[0, 1]
-    t = FZ(numeral(n - i - 1))
+    t: Term = FZ(numeral(n - i - 1))
     # n=1 FZ 0 -> Fin 1; n=2 FZ [1, 0] -> Fin [2, 1]
     for j in range(i):
         t = FS(numeral(n - i + j), t)

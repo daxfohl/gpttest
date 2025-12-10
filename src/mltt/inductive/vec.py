@@ -15,24 +15,29 @@ from ..core.inductive_utils import apply_term
 from .nat import NatType, Succ, Zero
 
 Vec = I(name="Vec", param_types=(Univ(0),), index_types=(NatType(),), level=0)
-NilCtor = Ctor("Nil", Vec, (), (Zero(),))
+NilCtor = Ctor(
+    name="Nil",
+    inductive=Vec,
+    arg_types=(),
+    result_indices=(Zero(),),
+)
 ConsCtor = Ctor(
-    "Cons",
-    Vec,
-    (
+    name="Cons",
+    inductive=Vec,
+    arg_types=(
         Var(1),  # head : A
         apply_term(Vec, Var(2), Var(1)),  # tail : Vec A n
     ),
-    (Succ(Var(2)),),  # result index = Succ n
+    result_indices=(Succ(Var(2)),),  # result index = Succ n
 )
 object.__setattr__(Vec, "constructors", (NilCtor, ConsCtor))
 
 
-def VecType(elem_ty: Term, length: Term) -> App:
+def VecType(elem_ty: Term, length: Term) -> Term:
     return apply_term(Vec, elem_ty, length)
 
 
-def Nil(elem_ty: Term) -> App:
+def Nil(elem_ty: Term) -> Term:
     return apply_term(NilCtor, elem_ty, Zero())
 
 

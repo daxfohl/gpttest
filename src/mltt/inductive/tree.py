@@ -14,14 +14,14 @@ Tree = I(
     level=0,
 )
 LeafCtor = Ctor(
-    "Leaf",
-    Tree,
-    (Var(1),),  # payload : A
+    name="Leaf",
+    inductive=Tree,
+    arg_types=(Var(1),),  # payload : A
 )
 NodeCtor = Ctor(
-    "Node",
-    Tree,
-    (
+    name="Node",
+    inductive=Tree,
+    arg_types=(
         Var(0),  # label : B
         apply_term(Tree, Var(2), Var(1)),  # left : Tree A B
         apply_term(Tree, Var(3), Var(2)),  # right : Tree A B
@@ -30,7 +30,7 @@ NodeCtor = Ctor(
 object.__setattr__(Tree, "constructors", (LeafCtor, NodeCtor))
 
 
-def TreeType(leaf_ty: Term, node_ty: Term) -> App:
+def TreeType(leaf_ty: Term, node_ty: Term) -> Term:
     return apply_term(Tree, leaf_ty, node_ty)
 
 

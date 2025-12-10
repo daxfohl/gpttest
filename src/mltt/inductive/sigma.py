@@ -23,9 +23,9 @@ Sigma = I(
     level=0,
 )
 PairCtor = Ctor(
-    "Pair",
-    Sigma,
-    (
+    name="Pair",
+    inductive=Sigma,
+    arg_types=(
         Var(1),  # a : A
         App(Var(1), Var(0)),  # b : B a
     ),
@@ -33,7 +33,7 @@ PairCtor = Ctor(
 object.__setattr__(Sigma, "constructors", (PairCtor,))
 
 
-def SigmaType(A: Term, B: Term) -> App:
+def SigmaType(A: Term, B: Term) -> Term:
     return apply_term(Sigma, A, B)
 
 

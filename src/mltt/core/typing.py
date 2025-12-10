@@ -86,9 +86,7 @@ def _expected_case_type(
     # fully-applied constructor to produce the case result type.
     binder_roles: list[tuple[str, int, Term | None]] = []
     arg_positions: list[int] = []
-    instantiated_arg_types = instantiate_into(
-        param_args + index_args, ctor.arg_types
-    )
+    instantiated_arg_types = instantiate_into(param_args + index_args, ctor.arg_types)
 
     for idx, arg_ty in enumerate(instantiated_arg_types):
         arg_positions.append(len(binder_roles))
@@ -147,7 +145,7 @@ def _type_check_inductive_elim(
     motive = elim.motive
     p = len(inductive.param_types)
     q = len(inductive.index_types)
-    params_actual = scrut_args[: p]
+    params_actual = scrut_args[:p]
     indices_actual = scrut_args[p : p + q]
     motive_applied = apply_term(motive, *params_actual, *indices_actual)
 
@@ -192,7 +190,7 @@ def _type_check_inductive_elim(
             if head_j is inductive:
                 # args_j = params_for_field ++ indices_for_field
                 params_field = args_j[:p]
-                indices_field = args_j[p:p + q]
+                indices_field = args_j[p : p + q]
                 assert params_field == params_actual
                 recursive_positions.append((j, indices_field))
 
@@ -200,7 +198,9 @@ def _type_check_inductive_elim(
         m = len(inst_arg_types)
         r = len(recursive_positions)
         arg_vars = [Var(r + m - 1 - j) for j in range(m)]
-        result_indices_inst = instantiate_into((*inductive_args, *arg_vars), ctor.result_indices)
+        result_indices_inst = instantiate_into(
+            (*inductive_args, *arg_vars), ctor.result_indices
+        )
 
         # 3.4 scrutinee-like value for this branch:
         #     C params_actual result_indices args
@@ -211,7 +211,10 @@ def _type_check_inductive_elim(
 
         # 3.6 Build IH types
         # ih_j : motive params_actual indices_j arg_j
-        ih_types = [apply_term(motive, *params_actual, *indices_j, arg_vars[j]) for j, indices_j in recursive_positions]
+        ih_types = [
+            apply_term(motive, *params_actual, *indices_j, arg_vars[j])
+            for j, indices_j in recursive_positions
+        ]
 
         # 3.7 Add binders, right-to-left
         body = nested_pi(*inst_arg_types, *ih_types, return_ty=codomain)
@@ -287,21 +290,17 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             return Univ(max(arg_level, body_level))
         case Univ(level):
             return Univ(level + 1)
-        case I(name, param_types, index_types, constructors, level):
+        case I():
             # Inductive type: check parameter and index kinds, build its
             # telescope (params then indices) ending in the inductive's level.
-            ctx1 = ctx
-            for param_ty in param_types:
-                _expect_universe(param_ty, ctx1)
-                ctx1 = ctx1.extend(param_ty)
-            for index_ty in index_types:
-                _expect_universe(index_ty, ctx1)
-                ctx1 = ctx1.extend(index_ty)
-            return nested_pi(*param_types, *index_types, return_ty=Univ(level))
+            for b in term.all_binders:
+                _expect_universe(b, ctx)
+                ctx = ctx.extend(b)
+            return nested_pi(*term.all_binders, return_ty=Univ(term.level))
         case Ctor():
             return _ctor_type(term)
-        case Elim(inductive, motive, cases, scrutinee):
-            return App(motive, scrutinee)
+        case Elim():
+            return App(term.motive, term.scrutinee)
         case Id(ty, lhs, rhs):
             # Identity type is a type when both endpoints check against ``ty``.
             if not type_check(lhs, ty, ctx) or not type_check(rhs, ty, ctx):

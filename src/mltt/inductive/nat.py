@@ -17,8 +17,8 @@ from ..core.inductive_utils import apply_term, nested_lam
 from .eq import ap
 
 Nat = I(name="Nat", level=0)
-ZeroCtor = Ctor("Zero", Nat, ())
-SuccCtor = Ctor("Succ", Nat, (Nat,))
+ZeroCtor = Ctor(name="Zero", inductive=Nat)
+SuccCtor = Ctor(name="Succ", inductive=Nat, arg_types=(Nat,))
 object.__setattr__(Nat, "constructors", (ZeroCtor, SuccCtor))
 
 
@@ -26,11 +26,11 @@ def NatType() -> I:
     return Nat
 
 
-def Zero() -> Ctor:
+def Zero() -> Term:
     return ZeroCtor
 
 
-def Succ(n: Term) -> App:
+def Succ(n: Term) -> Term:
     return App(SuccCtor, n)
 
 
@@ -54,7 +54,7 @@ def numeral(value: int) -> Term:
     return term
 
 
-def add() -> Lam:
+def add() -> Term:
     """
     add : Nat → Nat → Nat
     Addition by recursion on the first argument.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import cached_property
 
 
 @dataclass(frozen=True)
@@ -71,17 +72,17 @@ class Univ:
             raise ValueError("Universe level must be non-negative")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Ctor:
     """A constructor for an inductive type."""
 
     name: str
     inductive: I = field(repr=False)
-    arg_types: tuple[Term, ...]
+    arg_types: tuple[Term, ...] = ()
     result_indices: tuple[Term, ...] = ()
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class I:
     """A generalized inductive type with constructors.
 
@@ -94,6 +95,10 @@ class I:
     index_types: tuple[Term, ...] = ()
     constructors: tuple[Ctor, ...] = field(repr=False, default=())
     level: int = 0
+
+    @cached_property
+    def all_binders(self) -> tuple[Term, ...]:
+        return self.param_types + self.index_types
 
 
 @dataclass(frozen=True)

@@ -14,11 +14,11 @@ from ..core.ast import (
 from ..core.inductive_utils import apply_term
 
 List = I(name="List", param_types=(Univ(0),), level=0)
-NilCtor = Ctor("Nil", List, ())
+NilCtor = Ctor(name="Nil", inductive=List)
 ConsCtor = Ctor(
-    "Cons",
-    List,
-    (
+    name="Cons",
+    inductive=List,
+    arg_types=(
         Var(0),
         App(List, Var(1)),
     ),
@@ -26,11 +26,11 @@ ConsCtor = Ctor(
 object.__setattr__(List, "constructors", (NilCtor, ConsCtor))
 
 
-def ListType(elem_ty: Term) -> App:
+def ListType(elem_ty: Term) -> Term:
     return App(List, elem_ty)
 
 
-def Nil(elem_ty: Term) -> App:
+def Nil(elem_ty: Term) -> Term:
     return App(NilCtor, elem_ty)
 
 
