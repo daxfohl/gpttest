@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from itertools import pairwise, islice, count
+from typing import Any, Iterator
+
 from .ast import (
     App,
     Id,
@@ -26,6 +30,7 @@ from .inductive_utils import (
     instantiate_into,
     instantiate_params_indices,
     instantiate_forward,
+    split_to_match,
 )
 from .reduce.normalize import normalize
 
@@ -38,32 +43,21 @@ def _ctor_type(ctor: Ctor) -> Term:
     the instantiated result indices.
     """
     ind = ctor.inductive
-    param_count = len(ind.param_types)
     index_count = len(ind.index_types)
     if len(ctor.result_indices) != index_count:
         raise TypeError("Constructor result indices must match inductive index arity")
-    arg_count = len(ctor.arg_types)
     # Parameters bind outermost, then indices, then constructor arguments.
     # The locals are introduced in the same order the inductive signature expects:
     #   [params][indices][args] from outermost to innermost.
-    param_vars = tuple(
-        Var(arg_count + index_count + param_count - 1 - idx)
-        for idx in range(param_count)
-    )
-    index_vars = tuple(
-        Var(arg_count + index_count - 1 - idx) for idx in range(index_count)
-    )
-    # Result indices may mention params/indices; instantiate them in that order.
-    result_indices = tuple(
-        instantiate_params_indices(idx_term, param_vars, index_vars, offset=arg_count)
-        for idx_term in ctor.result_indices
-    )
-    assert ctor.result_indices == result_indices  # So why do we do this?
+    offset = index_count + len(ctor.arg_types)
+    param_vars = [
+        Var(i) for i in reversed(range(offset, offset + len(ind.param_types)))
+    ]
     return nested_pi(
-        *ctor.inductive.param_types,
-        *ctor.inductive.index_types,
+        *ind.param_types,
+        *ind.index_types,
         *ctor.arg_types,
-        return_ty=apply_term(ctor.inductive, *param_vars, *result_indices),
+        return_ty=apply_term(ctor.inductive, *param_vars, *ctor.result_indices),
     )
 
 
@@ -132,22 +126,22 @@ def _type_check_inductive_elim(
         the motive's codomain.
     """
     # 1. Infer type of scrutinee and extract params/indices.
-    scrutinee = elim.scrutinee
-    inductive = elim.inductive
-    scrutinee_ty = normalize(infer_type(scrutinee, ctx))
-    scrut_head, scrut_args = decompose_app(scrutinee_ty)
-    if scrut_head is not inductive:
+    scrut = elim.scrutinee
+    ind = elim.inductive
+    scrut_ty = normalize(infer_type(scrut, ctx))
+    scrut_ty_head, scrut_ty_bindings = decompose_app(scrut_ty)
+    if scrut_ty_head is not ind:
         raise TypeError(
-            f"Eliminator scrutinee not of the right inductive type\n{scrutinee}\n{scrut_head}"
+            f"Eliminator scrutinee not of the right inductive type\n{scrut}\n{scrut_ty_head}"
         )
 
     # 2.1 Partially apply motive to the actual params and indices
     motive = elim.motive
-    p = len(inductive.param_types)
-    q = len(inductive.index_types)
-    params_actual = scrut_args[:p]
-    indices_actual = scrut_args[p : p + q]
-    motive_applied = apply_term(motive, *params_actual, *indices_actual)
+    p = len(ind.param_types)
+    q = len(ind.index_types)
+    params_actual = scrut_ty_bindings[:p]
+    indices_actual = scrut_ty_bindings[p:]
+    motive_applied = apply_term(motive, *scrut_ty_bindings)
 
     # 2.2 Infer the type of this partially applied motive
     motive_applied_ty = normalize(infer_type(motive_applied, ctx))
@@ -161,10 +155,10 @@ def _type_check_inductive_elim(
 
     # 2.3 The scrutinee binder domain must match the scrutinee type
     scrut_dom = motive_applied_ty.arg_ty
-    if not type_equal(scrut_dom, scrutinee_ty):
+    if not type_equal(scrut_dom, scrut_ty):
         raise TypeError(
             "InductiveElim motive scrutinee domain mismatch:\n"
-            f"  expected scrutinee_ty = {scrutinee_ty}\n"
+            f"  expected scrut_ty = {scrut_ty}\n"
             f"  found    scrut_dom    = {scrut_dom}"
         )
 
@@ -178,7 +172,15 @@ def _type_check_inductive_elim(
         )
 
     # 3. For each constructor, compute the expected branch type and check
-    for ctor, case in zip(inductive.constructors, elim.cases, strict=True):
+    for ctor, case in zip(ind.constructors, elim.cases, strict=True):
+        print()
+        print("ctor")
+        print(f"ctor={ctor}")
+        print(f"case={case}")
+        print(f"scrut={scrut}")
+        print(f"scrut_ty={scrut_ty}")
+        print(f"params_actual={params_actual}")
+        print(f"indices_actual={indices_actual}")
         # 3.1 instantiate arg types with actual params/indices
         inductive_args = params_actual + indices_actual
         inst_arg_types = instantiate_into(inductive_args, ctor.arg_types)
@@ -187,7 +189,7 @@ def _type_check_inductive_elim(
         recursive_positions = []
         for j, inst_ty in enumerate(inst_arg_types):
             head_j, args_j = decompose_app(inst_ty)
-            if head_j is inductive:
+            if head_j is ind:
                 # args_j = params_for_field ++ indices_for_field
                 params_field = args_j[:p]
                 indices_field = args_j[p : p + q]
@@ -197,17 +199,20 @@ def _type_check_inductive_elim(
         # 3.3 compute result indices for this ctor
         m = len(inst_arg_types)
         r = len(recursive_positions)
-        arg_vars = [Var(r + m - 1 - j) for j in range(m)]
+        arg_vars = [Var(r + m - j - 1) for j in range(m)]
         result_indices_inst = instantiate_into(
             (*inductive_args, *arg_vars), ctor.result_indices
         )
+        print(f"result_indices_inst={result_indices_inst}")
 
         # 3.4 scrutinee-like value for this branch:
         #     C params_actual result_indices args
         scrut_like = apply_term(ctor, *params_actual, *result_indices_inst, *arg_vars)
+        print(scrut_like)
 
         # 3.5 branch codomain: motive params_actual result_indices scrut_like
         codomain = apply_term(motive, *params_actual, *result_indices_inst, scrut_like)
+        print(codomain)
 
         # 3.6 Build IH types
         # ih_j : motive params_actual indices_j arg_j
@@ -217,18 +222,27 @@ def _type_check_inductive_elim(
         ]
 
         # 3.7 Add binders, right-to-left
-        body = nested_pi(*inst_arg_types, *ih_types, return_ty=codomain)
+        print()
+        print("ih")
+        print(ih_types)
+        # assert indices_actual == result_indices_inst
+        body = nested_pi(*ind.index_types, *ctor.arg_types, *ih_types, return_ty=codomain)
+        print(case)
+        # case = apply_term(*inst_index_ctx_types, case)
+        print(normalize(case))
+        print(normalize(body))
+        print(ctx)
+        print(infer_type(case, ctx))
         if not type_check(case, body, ctx):
             raise TypeError(
                 f"Case for constructor has wrong type\n{ctor}\n{case}\n{body}\n{ctx}"
             )
+        print("match")
 
-    target_ty = App(motive_applied, scrutinee)
+    target_ty = App(motive_applied, scrut)
     target_level = _expect_universe(target_ty, ctx)
-    body = motive_applied_ty
-    for arg in scrut_args:
-        body = Pi(body, arg)
-    motive_level = _expect_universe(body.return_ty, ctx.extend(scrutinee_ty))
+    body = nested_pi(*scrut_ty_bindings, return_ty=motive_applied_ty)
+    motive_level = _expect_universe(body.return_ty, ctx.extend(scrut_ty))
     if target_level > motive_level:
         raise TypeError("InductiveElim motive returns too small a universe")
     return type_equal(expected_ty, target_ty)
@@ -246,8 +260,10 @@ def _expect_universe(term: Term, ctx: Ctx) -> int:
     Normalizes and infers ``term`` so universe annotations reflect canonical
     shapes, then enforces that the result is a ``Univ``.
     """
-
-    ty = normalize(infer_type(term, ctx))
+    print(term)
+    ty = infer_type(term, ctx)
+    print(ty)
+    ty = normalize(ty)
     if not isinstance(ty, Univ):
         raise TypeError(f"Expected a universe, got {ty!r}")
     return ty.level
@@ -335,7 +351,11 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
             match expected_ty:
                 case Pi(dom, cod):
                     if not type_equal(arg_ty, dom):
-                        raise TypeError("Lambda domain mismatch")
+                        raise TypeError(
+                            f"Lambda domain mismatch\n"
+                            f"arg_ty:{arg_ty}\n"
+                            f"dom: {dom}\n"
+                        )
                     return type_check(body, cod, ctx.extend(arg_ty))
                 case _:
                     raise TypeError("Lambda expected to have Pi type")

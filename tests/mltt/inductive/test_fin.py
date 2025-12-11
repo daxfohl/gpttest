@@ -1,12 +1,12 @@
 import pytest
 
 import mltt.inductive.fin as fin
-from mltt.core.ast import Pi, Univ, Var, Lam
+from mltt.core.ast import Pi, Univ, Var
 from mltt.core.inductive_utils import nested_lam, nested_pi
-from mltt.core.reduce import normalize, whnf
+from mltt.core.reduce import normalize
+from mltt.core.typing import infer_type, type_check
 from mltt.inductive.fin import FZCtor, FSCtor
 from mltt.inductive.nat import NatType, Succ, Zero, numeral
-from mltt.core.typing import infer_type, type_check
 
 
 def test_infer_fin_type() -> None:
@@ -25,21 +25,11 @@ def test_fz_and_fs_types() -> None:
     assert type_check(fs, fin.FinType(n2))
 
 
-def test_fin_rec_on_fz_reduces_to_base() -> None:
-    P = Lam(fin.FinType(Zero()), NatType())
-    base = Zero()
-    step = nested_lam(fin.FinType(Zero()), NatType(), body=Var(0))
-
-    term = fin.FinRec(P, base, step, fin.FZ(Zero()))
-    assert whnf(term) == base
-
-
 def test_fin_rec_respects_index() -> None:
     # Motive specialized to the index produced by FZ 0 (i.e., Fin (Succ 0)).
-    f1 = fin.FinType(Succ(Zero()))
-    P = nested_lam(NatType(), fin.FinType(Succ(Var(0))), body=NatType())
-    base = Zero()
-    step = nested_lam(f1, NatType(), body=Var(0))
+    P = nested_lam(NatType(), fin.FinType(Var(0)), body=NatType())
+    base = nested_lam(NatType(), body=Zero())
+    step = nested_lam(NatType(), fin.FinType(Var(0)), NatType(), body=Var(0))
     k = fin.FZ(Zero())
     rec = fin.FinRec(P, base, step, k)
     assert normalize(rec) == Zero()
@@ -56,7 +46,7 @@ def test_infer_type(n: int, i: int) -> None:
 def test_ctor_type() -> None:
     t = infer_type(FZCtor)
     # Pi x : Nat. Fin (Succ x)
-    assert t == Pi(NatType(), fin.FinType(Succ(Var(0))))
+    assert t == nested_pi(NatType(), return_ty=fin.FinType(Succ(Var(0))))
     t = infer_type(FSCtor)
     # Pi x : Nat. Fin x -> Fin (Succ x)
     assert t == nested_pi(

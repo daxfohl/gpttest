@@ -6,7 +6,12 @@ from typing import Callable
 
 from ..ast import Term, App, Lam, Elim, Ctor, I, IdElim, Refl, Var, Univ, Id, Pi
 from ..debruijn import subst
-from ..inductive_utils import decompose_ctor_app, ctor_index, decompose_app, apply_term
+from ..inductive_utils import (
+    decompose_ctor_app,
+    ctor_index,
+    decompose_app,
+    apply_term, split_to_match,
+)
 
 
 def iota_reduce(
@@ -16,9 +21,9 @@ def iota_reduce(
     motive: Term,
 ) -> Term:
     """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
+    ind = ctor.inductive
     arg_types = ctor.arg_types
-    args_count = len(arg_types)
-    ctor_args = args[-args_count:] if args_count else ()
+    _, ind_indexes, ctor_args = split_to_match(args, ind.param_types, ind.index_types, arg_types)
 
     ihs: list[Term] = []
     for arg_term, arg_ty in zip(ctor_args, arg_types, strict=True):
@@ -36,7 +41,7 @@ def iota_reduce(
 
     index = ctor_index(ctor)
     case = cases[index]
-    return apply_term(case, *ctor_args, *ihs)
+    return apply_term(case, *ind_indexes, *ctor_args, *ihs)
 
 
 def whnf(term: Term) -> Term:

@@ -81,6 +81,10 @@ class Ctor:
     arg_types: tuple[Term, ...] = ()
     result_indices: tuple[Term, ...] = ()
 
+    @cached_property
+    def all_binders(self) -> tuple[Term, ...]:
+        return self.arg_types + self.result_indices
+
 
 @dataclass(frozen=True, kw_only=True)
 class I:

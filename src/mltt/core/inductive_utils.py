@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
-from .ast import App, Ctor, I, Term, Lam, Pi
+from itertools import count, islice
+from typing import Sequence, Any, TypeVar, Iterator
+
+from .ast import App, Ctor, I, Term, Lam, Pi, Var
 from .debruijn import subst
+
+T = TypeVar("T")
 
 
 def apply_term(term: Term, *args: Term) -> Term:
@@ -157,7 +162,7 @@ def instantiate_into(
     output = []
     for i, arg in enumerate(target):
         for j, param in enumerate(params):
-            index = len(params) + i - j - 1
+            index = i + len(params) - j - 1
             arg = subst(arg, param, index)
         output.append(arg)
     return tuple(output)
@@ -197,6 +202,25 @@ def instantiate_params_indices(
         j = offset + (len(indices) - 1 - idx)
         result = subst(result, index, j=j)
     return result
+
+
+def create_vars(
+    *telescopes: Sequence[Term], desc: bool = False
+) -> tuple[tuple[Var, ...], ...]:
+    total = sum(len(tel) for tel in telescopes)
+    c = count(total - 1, -1) if desc else count()
+    return tuple(tuple(Var(next(c)) for _ in tel) for tel in telescopes)
+
+
+def split_to_match(
+    seq: Sequence[T], *shape: Sequence[Any]
+) -> tuple[tuple[T, ...], ...]:
+    """
+    Splits a sequence into segments to match the lengths (shape)
+    of an existing sequence of sequences.
+    """
+    seq_iter: Iterator[T] = iter(seq)
+    return tuple(tuple(islice(seq_iter, len(sublist))) for sublist in shape)
 
 
 def match_inductive_application(
@@ -248,4 +272,5 @@ __all__ = [
     "instantiate_into",
     "instantiate_forward",
     "match_inductive_application",
+    "split_to_match",
 ]
