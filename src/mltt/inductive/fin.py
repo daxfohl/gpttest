@@ -53,11 +53,10 @@ def FinRec(P: Term, base: Term, step: Term, k: Term) -> Elim:
 
 
 def of_int(i: int, n: int) -> Term:
-    i %= n
-    # n=1, i=0; n=2, i=[0, 1]
-    t: Term = FZ(numeral(n - i - 1))
-    # n=1 FZ 0 -> Fin 1; n=2 FZ [1, 0] -> Fin [2, 1]
-    for j in range(i):
-        t = FS(numeral(n - i + j), t)
-        # n=2, i=1: j=0, FS 1 -> Fin 2
-    return t
+    if n < 1:
+        raise ValueError("n must be positive")
+    if not 0 <= i < n:
+        raise ValueError("i is out of range")
+    if i == 0:
+        return FZ(numeral(n-1))
+    return FS(numeral(n-1), of_int(i-1, n-1))

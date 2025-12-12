@@ -22,7 +22,7 @@ from .inductive_utils import (
     nested_pi,
     match_inductive_application,
     decompose_app,
-    instantiate_into,
+    instantiate_into, decompose_lam, nested_lam,
 )
 from .reduce.normalize import normalize
 
@@ -222,14 +222,37 @@ def _type_check_inductive_elim(
         print(ih_types)
         # assert indices_actual == result_indices_inst
         body = nested_pi(
-            *indices_actual, *inst_arg_types, *ih_types, return_ty=codomain
+            *ind.index_types, *inst_arg_types, *ih_types, return_ty=codomain
         )
+        print(indices_actual)
+        print(ind.index_types)
+        print(inst_arg_types)
         print(case)
         # case = apply_term(*inst_index_ctx_types, case)
         print(normalize(case))
         print(normalize(body))
         print(ctx)
         print(infer_type(case, ctx))
+        ctx2 = ctx
+        # Add binders (right-to-left as in de Bruijn)
+        for ty in reversed((*ind.index_types, *inst_arg_types, *ih_types)):
+            # Neither ind.index_types nor actual_indices works here, as actual_indices can be a Term, not a Type,
+            # so shouldn't go in the context. OTOH ind.index_types is too loose and won't type-check. The only
+            # viable solution is to remove the index Lam from the cases, and update code here to handle it, which
+            # should be cleaner anyway.
+            ctx2 = ctx2.extend(ty)
+        num_args = len(indices_actual) + len(inst_arg_types) + len(ih_types)
+        args = tuple(Var(num_args - 1 - k) for k in range(num_args))  # a1..an, ih1..ihm in order
+        applied = apply_term(case, *args)  # (((case a1) a2) ...)
+
+        if not type_check(applied, codomain, ctx2):
+            raise TypeError("NO, YOU!")
+
+        case_head, case_bindings = decompose_lam(case)
+        inst_case_bindings = case_bindings[:q] + instantiate_into(inductive_args, case_bindings[q:])
+        print(case_bindings)
+        print(inst_case_bindings)
+        case = nested_lam(*inst_case_bindings, body=case_head)
         if not type_check(case, body, ctx):
             raise TypeError(
                 f"Case for constructor has wrong type\n{ctor}\n{case}\n{body}\n{ctx}"

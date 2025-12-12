@@ -101,6 +101,14 @@ def decompose_app(term: Term) -> tuple[Term, tuple[Term, ...]]:
     return term, tuple(reversed(args))
 
 
+def decompose_lam(term: Term) -> tuple[Term, tuple[Term, ...]]:
+    args: list[Term] = []
+    while isinstance(term, Lam):
+        args.append(term.arg_ty)
+        term = term.body
+    return term, tuple((args))
+
+
 def decompose_ctor_app(
     term: Term,
 ) -> tuple[Ctor, tuple[Term, ...]] | None:
