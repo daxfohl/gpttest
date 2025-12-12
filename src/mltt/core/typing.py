@@ -254,9 +254,12 @@ def _type_check_inductive_elim(
         print(infer_type(normalize(case), ctx))
         case_head, case_bindings = decompose_lam(case)
         inst_case_bindings = instantiate_into(inductive_args, case_bindings)
+        print(inductive_args)
         print(case_bindings)
         print(inst_case_bindings)
+        print(case)
         case = nested_lam(*inst_case_bindings, body=case_head)
+        print(case)
         if not type_check(case, body, ctx):
             raise TypeError(
                 f"Case for constructor has wrong type\n{ctor}\n{case}\n{body}\n{ctx}"

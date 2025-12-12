@@ -47,7 +47,7 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
     step = nested_lam(
         elem_ty,  # x : A
         vec.VecType(elem_ty, Var(1)),  # xs : Vec A n (Var(1) = n)
-        apply_term(P, Var(2), Var(0)),  # ih : P xs
+        apply_term(P, Var(3), Var(2), Var(0)),  # ih : P xs
         body=add_terms(Var(0), Var(2)),  # ih + x
     )
 
