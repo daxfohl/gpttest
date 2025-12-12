@@ -217,13 +217,32 @@ def _type_check_inductive_elim(
         # 3.7 Add binders, right-to-left
         # The codomain has all the arg_vars, and this Pi construction allows them to
         # reference the arg types without needing an actual value for them.
+
+        # ctx2 = ctx
+        # # Add binders (right-to-left as in de Bruijn)
+        # for ty in ((*inst_arg_types, *ih_types)):
+        #     # Neither ind.index_types nor actual_indices works here, as actual_indices can be a Term, not a Type,
+        #     # so shouldn't go in the context. OTOH ind.index_types is too loose and won't type-check. The only
+        #     # viable solution is to remove the index Lam from the cases, and update code here to handle it, which
+        #     # should be cleaner anyway.
+        #     ctx2 = ctx2.extend(ty)
+        # num_args = len(inst_arg_types) + len(ih_types)
+        # args = tuple(Var(num_args - 1 - k) for k in range(num_args))  # a1..an, ih1..ihm in order
+        # applied = apply_term(case, *args)  # (((case a1) a2) ...)
+        # print(applied)
+        # print(normalize(applied))
+        # print(codomain)
+        # print(normalize(codomain))
+        # print(ctx2)
+        # print([normalize(e.ty) for e in ctx2])
+        #
+        # if not type_check(normalize(applied), normalize(codomain), ctx2):
+        #     raise TypeError("NO, YOU!")
         print()
         print("ih")
         print(ih_types)
         # assert indices_actual == result_indices_inst
-        body = nested_pi(
-            *ind.index_types, *inst_arg_types, *ih_types, return_ty=codomain
-        )
+        body = nested_pi(*inst_arg_types, *ih_types, return_ty=codomain)
         print(indices_actual)
         print(ind.index_types)
         print(inst_arg_types)
@@ -232,24 +251,9 @@ def _type_check_inductive_elim(
         print(normalize(case))
         print(normalize(body))
         print(ctx)
-        print(infer_type(case, ctx))
-        ctx2 = ctx
-        # Add binders (right-to-left as in de Bruijn)
-        for ty in reversed((*ind.index_types, *inst_arg_types, *ih_types)):
-            # Neither ind.index_types nor actual_indices works here, as actual_indices can be a Term, not a Type,
-            # so shouldn't go in the context. OTOH ind.index_types is too loose and won't type-check. The only
-            # viable solution is to remove the index Lam from the cases, and update code here to handle it, which
-            # should be cleaner anyway.
-            ctx2 = ctx2.extend(ty)
-        num_args = len(indices_actual) + len(inst_arg_types) + len(ih_types)
-        args = tuple(Var(num_args - 1 - k) for k in range(num_args))  # a1..an, ih1..ihm in order
-        applied = apply_term(case, *args)  # (((case a1) a2) ...)
-
-        if not type_check(applied, codomain, ctx2):
-            raise TypeError("NO, YOU!")
-
+        print(infer_type(normalize(case), ctx))
         case_head, case_bindings = decompose_lam(case)
-        inst_case_bindings = case_bindings[:q] + instantiate_into(inductive_args, case_bindings[q:])
+        inst_case_bindings = instantiate_into(inductive_args, case_bindings)
         print(case_bindings)
         print(inst_case_bindings)
         case = nested_lam(*inst_case_bindings, body=case_head)

@@ -28,8 +28,8 @@ def test_fz_and_fs_types() -> None:
 def test_fin_rec_respects_index() -> None:
     # Motive specialized to the index produced by FZ 0 (i.e., Fin (Succ 0)).
     P = nested_lam(NatType(), fin.FinType(Var(0)), body=NatType())
-    base = nested_lam(NatType(), body=Zero())
-    step = nested_lam(NatType(), fin.FinType(Var(0)), NatType(), body=Var(0))
+    base = nested_lam(body=Zero())
+    step = nested_lam(fin.FinType(Var(0)), NatType(), body=Var(0))
     k = fin.FZ(Zero())
     rec = fin.FinRec(P, base, step, k)
     assert normalize(rec) == Zero()

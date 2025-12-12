@@ -29,10 +29,8 @@ def test_cons_increments_length() -> None:
 def test_vec_rec_on_nil_reduces_to_zero() -> None:
     elem_ty = NatType()
     P = nested_lam(NatType(), vec.VecType(elem_ty, Var(0)), body=NatType())
-    base = Lam(NatType(), Zero())
-    step = nested_lam(
-        NatType(), elem_ty, vec.VecType(elem_ty, Zero()), NatType(), body=Var(0)
-    )
+    base = Zero()
+    step = nested_lam(elem_ty, vec.VecType(elem_ty, Zero()), NatType(), body=Var(0))
 
     term = vec.VecRec(P, base, step, vec.Nil(elem_ty))
     assert whnf(term) == Zero()
@@ -45,9 +43,8 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
     elem_ty = NatType()
     P = nested_lam(Univ(0), NatType(), vec.VecType(elem_ty, Var(0)), body=NatType())
 
-    base = Lam(NatType(), numeral(b))
+    base = numeral(b)
     step = nested_lam(
-        NatType(),
         elem_ty,  # x : A
         vec.VecType(elem_ty, Var(1)),  # xs : Vec A n (Var(1) = n)
         apply_term(P, Var(2), Var(0)),  # ih : P xs
@@ -60,7 +57,7 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
     rec = vec.VecRec(P, base, step, xs)
     normalized = normalize(rec)
     assert normalized == numeral(v * vec_len + b)
-    # assert type_check(rec, NatType())
+    assert type_check(rec, NatType())
 
 
 def test_vec_rec_preserves_length_index() -> None:
@@ -73,9 +70,8 @@ def test_vec_rec_preserves_length_index() -> None:
         body=NatType(),
     )
 
-    base = Lam(NatType(), Succ(Zero()))  # P (Nil A) = Nat
+    base = Succ(Zero())  # P (Nil A) = Nat
     step = nested_lam(
-        NatType(),
         elem_ty,
         vec.VecType(elem_ty, Var(1)),
         NatType(),
@@ -88,7 +84,7 @@ def test_vec_rec_preserves_length_index() -> None:
 
     rec = vec.VecRec(P, base, step, xs)
     normalized = normalize(rec)
-    #assert normalized == Succ(Zero())
+    assert normalized == Succ(Zero())
     assert type_check(rec, NatType())
 
 

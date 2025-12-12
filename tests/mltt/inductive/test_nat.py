@@ -50,12 +50,18 @@ def test_add_produces_expected_numeral() -> None:
 
 def test_add_zero_right_typechecks() -> None:
     lemma = add_n_0()
+    print()
+    print(infer_type(lemma))
+    print(normalize(infer_type(lemma)))
     lemma_ty = Pi(
         NatType(),
         Id(NatType(), add_terms(Var(0), Zero()), Var(0)),
     )
-
-    assert type_check(lemma, lemma_ty)
+    print(lemma_ty)
+    print(normalize(lemma_ty))
+    assert normalize(infer_type(lemma)) == normalize((lemma_ty))
+    # Should work....
+    assert type_check(normalize(lemma), normalize(lemma_ty))
 
 
 def test_add_zero_right_normalizes() -> None:

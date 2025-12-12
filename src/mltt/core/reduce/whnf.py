@@ -24,7 +24,7 @@ def iota_reduce(
     """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
     ind = ctor.inductive
     arg_types = ctor.arg_types
-    _, ind_indexes, ctor_args = split_to_match(
+    _, _, ctor_args = split_to_match(
         args, ind.param_types, ind.index_types, arg_types
     )
 
@@ -44,7 +44,7 @@ def iota_reduce(
 
     index = ctor_index(ctor)
     case = cases[index]
-    return apply_term(case, *ind_indexes, *ctor_args, *ihs)
+    return apply_term(case, *ctor_args, *ihs)
 
 
 def whnf(term: Term) -> Term:
