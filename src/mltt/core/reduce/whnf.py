@@ -10,7 +10,8 @@ from ..inductive_utils import (
     decompose_ctor_app,
     ctor_index,
     decompose_app,
-    apply_term, split_to_match,
+    apply_term,
+    split_to_match,
 )
 
 
@@ -23,7 +24,9 @@ def iota_reduce(
     """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
     ind = ctor.inductive
     arg_types = ctor.arg_types
-    _, ind_indexes, ctor_args = split_to_match(args, ind.param_types, ind.index_types, arg_types)
+    _, ind_indexes, ctor_args = split_to_match(
+        args, ind.param_types, ind.index_types, arg_types
+    )
 
     ihs: list[Term] = []
     for arg_term, arg_ty in zip(ctor_args, arg_types, strict=True):

@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from itertools import pairwise, islice, count
-from typing import Any, Iterator
-
 from .ast import (
     App,
     Id,
@@ -24,13 +20,9 @@ from .debruijn import Ctx, subst
 from .inductive_utils import (
     apply_term,
     nested_pi,
-    decompose_ctor_app,
     match_inductive_application,
     decompose_app,
     instantiate_into,
-    instantiate_params_indices,
-    instantiate_forward,
-    split_to_match,
 )
 from .reduce.normalize import normalize
 
@@ -144,6 +136,10 @@ def _type_check_inductive_elim(
     motive_applied = apply_term(motive, *scrut_ty_bindings)
 
     # 2.2 Infer the type of this partially applied motive
+    print('motive')
+    print(motive_applied)
+    print(scrut_ty_bindings)
+    print(normalize(motive_applied))
     motive_applied_ty = normalize(infer_type(motive_applied, ctx))
     if not isinstance(motive_applied_ty, Pi):
         raise TypeError(
@@ -203,16 +199,13 @@ def _type_check_inductive_elim(
         result_indices_inst = instantiate_into(
             (*inductive_args, *arg_vars), ctor.result_indices
         )
-        print(f"result_indices_inst={result_indices_inst}")
 
         # 3.4 scrutinee-like value for this branch:
         #     C params_actual result_indices args
         scrut_like = apply_term(ctor, *params_actual, *result_indices_inst, *arg_vars)
-        print(scrut_like)
 
         # 3.5 branch codomain: motive params_actual result_indices scrut_like
         codomain = apply_term(motive, *params_actual, *result_indices_inst, scrut_like)
-        print(codomain)
 
         # 3.6 Build IH types
         # ih_j : motive params_actual indices_j arg_j
@@ -222,11 +215,15 @@ def _type_check_inductive_elim(
         ]
 
         # 3.7 Add binders, right-to-left
+        # The codomain has all the arg_vars, and this Pi construction allows them to
+        # reference the arg types without needing an actual value for them.
         print()
         print("ih")
         print(ih_types)
         # assert indices_actual == result_indices_inst
-        body = nested_pi(*ind.index_types, *ctor.arg_types, *ih_types, return_ty=codomain)
+        body = nested_pi(
+            *indices_actual, *inst_arg_types, *ih_types, return_ty=codomain
+        )
         print(case)
         # case = apply_term(*inst_index_ctx_types, case)
         print(normalize(case))
@@ -241,7 +238,13 @@ def _type_check_inductive_elim(
 
     target_ty = App(motive_applied, scrut)
     target_level = _expect_universe(target_ty, ctx)
-    body = nested_pi(*scrut_ty_bindings, return_ty=motive_applied_ty)
+    body = nested_pi(*(infer_type(b, ctx) for b in scrut_ty_bindings), return_ty=motive_applied_ty)
+    print('univ')
+    print(motive_applied_ty)
+    print(scrut_ty_bindings)
+    print(body)
+    print(normalize(body))
+    print(body.return_ty)
     motive_level = _expect_universe(body.return_ty, ctx.extend(scrut_ty))
     if target_level > motive_level:
         raise TypeError("InductiveElim motive returns too small a universe")
@@ -296,7 +299,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
                 raise TypeError("Application of non-function")
             if not type_check(a, f_ty.arg_ty, ctx):
                 raise TypeError(
-                    f"Application argument type mismatch\narg: {a},\narg_ty: {infer_type(a)}\nf: {f}\nf_ty: {f_ty},\n{ctx}"
+                    f"Application argument type mismatch\narg: {a},\narg_ty: {infer_type(a, ctx)}\nf: {f}\nf_ty: {f_ty}\nf_arg_ty: {f_ty.arg_ty}\nctx: {ctx}"
                 )
             return subst(f_ty.return_ty, a)
         case Pi(arg_ty, body):

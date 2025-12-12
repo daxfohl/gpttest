@@ -25,6 +25,9 @@ def test_sigmarec_returns_first_projection() -> None:
     B = Lam(A, NatType())
 
     pair = sigma.Pair(A, B, Succ(Zero()), Zero())
+    print()
+    print(pair)
+    print(infer_type(pair))
 
     P = nested_lam(
         Univ(0),
@@ -40,5 +43,5 @@ def test_sigmarec_returns_first_projection() -> None:
 
     fst = sigma.SigmaRec(P, pair_case, pair)
 
-    assert type_check(fst, A)
     assert normalize(fst) == Succ(Zero())
+    assert type_check(fst, A)

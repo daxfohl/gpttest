@@ -1,13 +1,12 @@
 import pytest
 
 import mltt.inductive.list as listm
-from mltt.core.ast import App, Lam, Pi, Univ, Var, Term
-from mltt.core.inductive_utils import nested_lam, nested_pi
+from mltt.core.ast import Pi, Univ, Var, Term
+from mltt.core.inductive_utils import nested_lam, nested_pi, apply_term
 from mltt.core.reduce import normalize
 from mltt.core.typing import infer_type, type_check
-from mltt.inductive import nat
 from mltt.inductive.list import ConsCtor, NilCtor
-from mltt.inductive.nat import NatType, Succ, Zero, numeral
+from mltt.inductive.nat import NatType, Succ, Zero
 
 
 def test_infer_list_type_constructor() -> None:
@@ -34,7 +33,7 @@ def test_listrec_length_of_singleton() -> None:
     step = nested_lam(
         elem_ty,
         list_ty,
-        App(P, Var(0)),
+        apply_term(P, Var(1), Var(0)),
         body=Succ(Var(0)),
     )
 
@@ -53,8 +52,8 @@ def test_infer_type(elem: Term, n: int) -> None:
     l: Term = listm.Nil(elem_ty)
     for j in range(n):
         l = listm.Cons(elem_ty, elem, l)
-    # t = infer_type(l)
-    # assert t == listm.ListType(elem_ty)
+    t = infer_type(l)
+    assert t == listm.ListType(elem_ty)
 
 
 def test_ctor_type() -> None:

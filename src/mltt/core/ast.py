@@ -198,10 +198,10 @@ def _repr(self: Term) -> str:
 
 
 for _cls in (
-    Var,
-    Lam,
-    Pi,
-    App,
+    # Var,
+    # Lam,
+    # Pi,
+    # App,
     Univ,
     Ctor,
     I,

@@ -272,5 +272,7 @@ __all__ = [
     "instantiate_into",
     "instantiate_forward",
     "match_inductive_application",
+    "nested_lam",
+    "nested_pi",
     "split_to_match",
 ]
