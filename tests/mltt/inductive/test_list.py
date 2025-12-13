@@ -1,7 +1,7 @@
 import pytest
 
 import mltt.inductive.list as listm
-from mltt.core.ast import Pi, Univ, Var, Term
+from mltt.core.ast import Lam, Pi, Univ, Var, Term
 from mltt.core.inductive_utils import nested_lam, nested_pi, apply_term
 from mltt.core.reduce import normalize
 from mltt.core.typing import infer_type, type_check
@@ -26,12 +26,12 @@ def test_listrec_length_of_singleton() -> None:
     elem_ty = NatType()
     list_ty = listm.ListType(elem_ty)
     xs = listm.Cons(elem_ty, Zero(), listm.Nil(elem_ty))
-    P = nested_lam(Univ(0), listm.ListType(Var(0)), body=NatType())
+    P = Lam(list_ty, NatType())
     base = Zero()
     step = nested_lam(
         elem_ty,
         list_ty,
-        apply_term(P, Var(1), Var(0)),
+        apply_term(P, Var(0)),
         body=Succ(Var(0)),
     )
 

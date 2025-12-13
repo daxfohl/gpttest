@@ -1,10 +1,9 @@
 import pytest
 
-from mltt.core.ast import App, Id, Pi, Refl, Var, Lam
-from mltt.core.debruijn import CtxEntry, Ctx
-from mltt.core.inductive_utils import nested_pi, nested_lam, apply_term
+from mltt.core.ast import App, Id, Pi, Refl, Var
+from mltt.core.inductive_utils import nested_pi
 from mltt.core.reduce import normalize
-from mltt.core.typing import type_check, infer_type, _ctor_type
+from mltt.core.typing import type_check, infer_type
 from mltt.inductive.nat import (
     NatType,
     Succ,
@@ -14,7 +13,7 @@ from mltt.inductive.nat import (
     add_n_0,
     numeral,
     ZeroCtor,
-    SuccCtor, NatRec,
+    SuccCtor,
 )
 
 

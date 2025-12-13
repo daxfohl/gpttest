@@ -58,5 +58,5 @@ def of_int(i: int, n: int) -> Term:
     if not 0 <= i < n:
         raise ValueError("i is out of range")
     if i == 0:
-        return FZ(numeral(n-1))
-    return FS(numeral(n-1), of_int(i-1, n-1))
+        return FZ(numeral(n - 1))
+    return FS(numeral(n - 1), of_int(i - 1, n - 1))

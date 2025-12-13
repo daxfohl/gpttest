@@ -22,7 +22,10 @@ from .inductive_utils import (
     nested_pi,
     match_inductive_application,
     decompose_app,
-    instantiate_into, decompose_lam, nested_lam, decompose_pi,
+    instantiate_into,
+    decompose_lam,
+    nested_lam,
+    decompose_pi,
 )
 from .reduce import whnf, beta_head_step, beta_step
 from .reduce.normalize import normalize
@@ -66,7 +69,7 @@ def _expected_case_type(
 
     The case receives one binder per constructor argument, plus an induction
     hypothesis for each recursive argument that matches the current params.
-    The case ultimately returns ``motive (ctor params indices args)``.
+    The case ultimately returns ``motive indices (ctor params indices args)``.
     """
     # Build the Pi type the case must inhabit for this constructor.
     # We interleave constructor arguments with any recursive occurrences
@@ -90,7 +93,9 @@ def _expected_case_type(
 
     total_binders = len(binder_roles)
     ctor_args = tuple(Var(total_binders - 1 - arg_pos) for arg_pos in arg_positions)
-    target: Term = App(motive, apply_term(ctor, *param_args, *index_args, *ctor_args))
+    target = apply_term(
+        motive, *index_args, apply_term(ctor, *param_args, *index_args, *ctor_args)
+    )
 
     binder_types: list[Term] = []
     for pos, (role, arg_idx, maybe_arg_ty) in enumerate(binder_roles):
@@ -99,7 +104,7 @@ def _expected_case_type(
             binder_types.append(maybe_arg_ty)
         else:
             index = pos - 1 - arg_idx
-            binder_types.append(App(motive, Var(index)))
+            binder_types.append(apply_term(motive, *index_args, Var(index)))
 
     return nested_pi(*binder_types, return_ty=target)
 
@@ -129,19 +134,19 @@ def _type_check_inductive_elim(
             f"Eliminator scrutinee not of the right inductive type\n{scrut}\n{scrut_ty_head}"
         )
 
-    # 2.1 Partially apply motive to the actual params and indices
+    # 2.1 Partially apply motive to the actual indices
     motive = elim.motive
     p = len(ind.param_types)
     q = len(ind.index_types)
     params_actual = scrut_ty_bindings[:p]
     indices_actual = scrut_ty_bindings[p:]
-    motive_applied = apply_term(motive, *scrut_ty_bindings)
+    motive_applied = apply_term(motive, *indices_actual)
 
     # 2.2 Infer the type of this partially applied motive
     motive_applied_ty = normalize(infer_type(motive_applied, ctx))
     if not isinstance(motive_applied_ty, Pi):
         raise TypeError(
-            "InductiveElim motive must take scrutinee after params and indices:\n"
+            "InductiveElim motive must take scrutinee after indices:\n"
             f"  motive          = {motive}\n"
             f"  motive_applied  = {motive_applied}\n"
             f"  motive_applied_ty = {motive_applied_ty}"
@@ -195,13 +200,13 @@ def _type_check_inductive_elim(
         #     C params_actual result_indices args
         scrut_like = apply_term(ctor, *params_actual, *result_indices_inst, *arg_vars)
 
-        # 3.5 branch codomain: motive params_actual result_indices scrut_like
-        codomain = apply_term(motive, *params_actual, *result_indices_inst, scrut_like)
+        # 3.5 branch codomain: motive result_indices scrut_like
+        codomain = apply_term(motive, *result_indices_inst, scrut_like)
 
         # 3.6 Build IH types
-        # ih_j : motive params_actual indices_j arg_j
+        # ih_j : motive indices_j arg_j
         ih_types = [
-            apply_term(motive, *params_actual, *indices_j, Var(ri + m - j - 1))
+            apply_term(motive, *indices_j, Var(ri + m - j - 1))
             for ri, (j, indices_j) in enumerate(recursive_positions)
         ]
 
@@ -215,7 +220,9 @@ def _type_check_inductive_elim(
         for ty in (*inst_arg_types, *ih_types):
             ctx2 = ctx2.extend(ty)
         num_args = len(inst_arg_types) + len(ih_types)
-        args = tuple(Var(num_args - 1 - k) for k in range(num_args))  # a1..an, ih1..ihm in order
+        args = tuple(
+            Var(num_args - 1 - k) for k in range(num_args)
+        )  # a1..an, ih1..ihm in order
         applied = apply_term(case, *args)  # (((case a1) a2) ...)
         if not type_check(normalize(applied), codomain, ctx2):
             raise TypeError("Case for constructor has wrong type!")
@@ -231,8 +238,11 @@ def _type_check_inductive_elim(
 
     target_ty = App(motive_applied, scrut)
     target_level = _expect_universe(target_ty, ctx)
-    body = nested_pi(*(infer_type(b, ctx) for b in scrut_ty_bindings), return_ty=motive_applied_ty)
-    motive_level = _expect_universe(body.return_ty, ctx.extend(scrut_ty))
+    body = nested_pi(
+        *(infer_type(b, ctx) for b in indices_actual), return_ty=motive_applied_ty
+    )
+    motive_level_source = body.return_ty if isinstance(body, Pi) else body
+    motive_level = _expect_universe(motive_level_source, ctx.extend(scrut_ty))
     if target_level > motive_level:
         raise TypeError("InductiveElim motive returns too small a universe")
     return type_equal(expected_ty, target_ty)
@@ -308,7 +318,17 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
         case Ctor():
             return _ctor_type(term)
         case Elim():
-            return App(term.motive, term.scrutinee)
+            scrut_ty = normalize(infer_type(term.scrutinee, ctx))
+            scrut_head, scrut_args = decompose_app(scrut_ty)
+            if scrut_head is not term.inductive:
+                raise TypeError("Elim scrutinee does not match inductive head")
+            param_count = len(term.inductive.param_types)
+            index_count = len(term.inductive.index_types)
+            if len(scrut_args) != param_count + index_count:
+                raise TypeError("Elim scrutinee must be fully applied")
+            indices = scrut_args[param_count:]
+            motive_applied = apply_term(term.motive, *indices)
+            return App(motive_applied, term.scrutinee)
         case Id(ty, lhs, rhs):
             # Identity type is a type when both endpoints check against ``ty``.
             if not type_check(lhs, ty, ctx) or not type_check(rhs, ty, ctx):

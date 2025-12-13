@@ -41,13 +41,13 @@ def test_vec_rec_on_nil_reduces_to_zero() -> None:
 @pytest.mark.parametrize("v", range(4))
 def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
     elem_ty = NatType()
-    P = nested_lam(Univ(0), NatType(), vec.VecType(elem_ty, Var(0)), body=NatType())
+    P = nested_lam(NatType(), vec.VecType(elem_ty, Var(0)), body=NatType())
 
     base = numeral(b)
     step = nested_lam(
         elem_ty,  # x : A
         vec.VecType(elem_ty, Var(1)),  # xs : Vec A n (Var(1) = n)
-        apply_term(P, Var(3), Var(2), Var(0)),  # ih : P xs
+        apply_term(P, Var(2), Var(0)),  # ih : P xs
         body=add_terms(Var(0), Var(2)),  # ih + x
     )
 
@@ -64,9 +64,8 @@ def test_vec_rec_preserves_length_index() -> None:
     elem_ty = NatType()
     # Motive specialized to length 0 so it matches Nil's result index.
     P = nested_lam(
-        Univ(0),
         NatType(),
-        vec.VecType(Var(1), Var(0)),
+        vec.VecType(elem_ty, Var(0)),
         body=NatType(),
     )
 

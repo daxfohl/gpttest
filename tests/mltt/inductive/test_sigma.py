@@ -26,12 +26,7 @@ def test_sigmarec_returns_first_projection() -> None:
 
     pair = sigma.Pair(A, B, Succ(Zero()), Zero())
 
-    P = nested_lam(
-        Univ(0),
-        Pi(Var(0), Univ(0)),
-        sigma.SigmaType(Var(1), Var(0)),
-        body=Var(2),
-    )
+    P = Lam(sigma.SigmaType(A, B), A)
     pair_case = nested_lam(
         A,
         App(B, Var(0)),  # b : B a
