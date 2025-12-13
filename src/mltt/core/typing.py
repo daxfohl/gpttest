@@ -166,10 +166,7 @@ def _type_check_inductive_elim(
 
     # 3. For each constructor, compute the expected branch type and check
     for ctor, case in zip(ind.constructors, elim.cases, strict=True):
-        print()
-        print("ctor")
-        print(f"ctor={ctor}")
-        print(f"case={normalize(case)}")
+
         # 3.1 instantiate arg types with actual params/indices
         inductive_args = params_actual + indices_actual
         inst_arg_types = instantiate_into(inductive_args, ctor.arg_types)
@@ -179,7 +176,6 @@ def _type_check_inductive_elim(
         for j, inst_ty in enumerate(inst_arg_types):
             head_j, args_j = decompose_app(inst_ty)
             if head_j is ind:
-                print('inst_ty=', inst_ty)
                 # args_j = params_for_field ++ indices_for_field
                 params_field = args_j[:p]
                 indices_field = args_j[p : p + q]
@@ -224,39 +220,18 @@ def _type_check_inductive_elim(
         num_args = len(inst_arg_types) + len(ih_types)
         args = tuple(Var(num_args - 1 - k) for k in range(num_args))  # a1..an, ih1..ihm in order
         applied = apply_term(case, *args)  # (((case a1) a2) ...)
-        print(applied)
-        print(asf:=normalize(applied))
-        print(codomain)
-        print(rdsfd:=normalize(codomain))
-        print(infer_type(asf, ctx2))
-        print(normalize(infer_type(asf, ctx2)))
-        print(ctx2)
-        print([normalize(e.ty) for e in ctx2])
-        print('iodjfsiojf')
-        if not type_check(asf, rdsfd, ctx2):
-            print(asf)
-            print(rdsfd)
+        if not type_check(normalize(applied), codomain, ctx2):
             raise TypeError("Case for constructor has wrong type!")
 
         # assert indices_actual == result_indices_inst
-        print(normalize(infer_type(case, ctx)))
         body = nested_pi(*inst_arg_types, *ih_types, return_ty=codomain)
         case_head, case_bindings = decompose_lam(case)
         inst_case_bindings = instantiate_into(inductive_args, case_bindings)
         case = nested_lam(*inst_case_bindings, body=case_head)
-        print(inst_arg_types)
-        print(arg_vars)
-        print(ih_types)
-        print(normalize(case))
-        print(normalize(body))
-        print([normalize(x.ty) for x in ctx])
-        print(normalize(infer_type(case, ctx)))
-        print('!!!!!!!!!!')
         if not type_check(case, body, ctx):
             raise TypeError(
                 f"Case for constructor has wrong type\n{ctor}\n{case}\n{body}\n{ctx}"
             )
-        print("match")
 
     target_ty = App(motive_applied, scrut)
     target_level = _expect_universe(target_ty, ctx)
@@ -420,15 +395,6 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
             if not type_check(y, A, ctx):
                 raise TypeError("IdElim: y : A fails")
             if not type_check(p, Id(A, x, y), ctx):
-                print()
-                print(p)
-                print(Id(A, x, y))
-                print(normalize(p))
-                print(normalize(Id(A, x, y)))
-                print(infer_type(p, ctx))
-                print(normalize(infer_type(p, ctx)))
-                print(ctx)
-                print([normalize(x.ty) for x in ctx.entries])
                 raise TypeError("IdElim: p : Id(A,x,y) fails")
             if not type_check(d, apply_term(P, x, Refl(A, x)), ctx):
                 raise TypeError("IdElim: d : P x (Refl x) fails")
