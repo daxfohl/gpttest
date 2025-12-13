@@ -22,9 +22,10 @@ from .inductive_utils import (
     nested_pi,
     match_inductive_application,
     decompose_app,
-    instantiate_into, decompose_lam, nested_lam,
+    instantiate_into, decompose_lam, nested_lam, decompose_pi,
 )
 from .reduce.normalize import normalize
+from ..inductive.nat import NatType
 
 
 def _ctor_type(ctor: Ctor) -> Term:
@@ -136,10 +137,6 @@ def _type_check_inductive_elim(
     motive_applied = apply_term(motive, *scrut_ty_bindings)
 
     # 2.2 Infer the type of this partially applied motive
-    print('motive')
-    print(motive_applied)
-    print(scrut_ty_bindings)
-    print(normalize(motive_applied))
     motive_applied_ty = normalize(infer_type(motive_applied, ctx))
     if not isinstance(motive_applied_ty, Pi):
         raise TypeError(
@@ -172,11 +169,7 @@ def _type_check_inductive_elim(
         print()
         print("ctor")
         print(f"ctor={ctor}")
-        print(f"case={case}")
-        print(f"scrut={scrut}")
-        print(f"scrut_ty={scrut_ty}")
-        print(f"params_actual={params_actual}")
-        print(f"indices_actual={indices_actual}")
+        print(f"case={normalize(case)}")
         # 3.1 instantiate arg types with actual params/indices
         inductive_args = params_actual + indices_actual
         inst_arg_types = instantiate_into(inductive_args, ctor.arg_types)
@@ -186,6 +179,7 @@ def _type_check_inductive_elim(
         for j, inst_ty in enumerate(inst_arg_types):
             head_j, args_j = decompose_app(inst_ty)
             if head_j is ind:
+                print('inst_ty=', inst_ty)
                 # args_j = params_for_field ++ indices_for_field
                 params_field = args_j[:p]
                 indices_field = args_j[p : p + q]
@@ -210,56 +204,54 @@ def _type_check_inductive_elim(
         # 3.6 Build IH types
         # ih_j : motive params_actual indices_j arg_j
         ih_types = [
-            apply_term(motive, *params_actual, *indices_j, arg_vars[j])
-            for j, indices_j in recursive_positions
+            apply_term(motive, *params_actual, *indices_j, Var(ri + m - j - 1))
+            for ri, (j, indices_j) in enumerate(recursive_positions)
         ]
 
         # 3.7 Add binders, right-to-left
         # The codomain has all the arg_vars, and this Pi construction allows them to
         # reference the arg types without needing an actual value for them.
 
-        # ctx2 = ctx
-        # # Add binders (right-to-left as in de Bruijn)
-        # for ty in ((*inst_arg_types, *ih_types)):
-        #     # Neither ind.index_types nor actual_indices works here, as actual_indices can be a Term, not a Type,
-        #     # so shouldn't go in the context. OTOH ind.index_types is too loose and won't type-check. The only
-        #     # viable solution is to remove the index Lam from the cases, and update code here to handle it, which
-        #     # should be cleaner anyway.
-        #     ctx2 = ctx2.extend(ty)
-        # num_args = len(inst_arg_types) + len(ih_types)
-        # args = tuple(Var(num_args - 1 - k) for k in range(num_args))  # a1..an, ih1..ihm in order
-        # applied = apply_term(case, *args)  # (((case a1) a2) ...)
-        # print(applied)
-        # print(normalize(applied))
-        # print(codomain)
-        # print(normalize(codomain))
-        # print(ctx2)
-        # print([normalize(e.ty) for e in ctx2])
-        #
-        # if not type_check(normalize(applied), normalize(codomain), ctx2):
-        #     raise TypeError("NO, YOU!")
-        print()
-        print("ih")
-        print(ih_types)
+        # # This is a dupe of the below test.
+        ctx2 = ctx
+        # Add binders (right-to-left as in de Bruijn)
+        for ty in ((*inst_arg_types, *ih_types)):
+            # Neither ind.index_types nor actual_indices works here, as actual_indices can be a Term, not a Type,
+            # so shouldn't go in the context. OTOH ind.index_types is too loose and won't type-check. The only
+            # viable solution is to remove the index Lam from the cases, and update code here to handle it, which
+            # should be cleaner anyway.
+            ctx2 = ctx2.extend(ty)
+        num_args = len(inst_arg_types) + len(ih_types)
+        args = tuple(Var(num_args - 1 - k) for k in range(num_args))  # a1..an, ih1..ihm in order
+        applied = apply_term(case, *args)  # (((case a1) a2) ...)
+        print(applied)
+        print(asf:=normalize(applied))
+        print(codomain)
+        print(rdsfd:=normalize(codomain))
+        print(infer_type(asf, ctx2))
+        print(normalize(infer_type(asf, ctx2)))
+        print(ctx2)
+        print([normalize(e.ty) for e in ctx2])
+        print('iodjfsiojf')
+        if not type_check(asf, rdsfd, ctx2):
+            print(asf)
+            print(rdsfd)
+            raise TypeError("Case for constructor has wrong type!")
+
         # assert indices_actual == result_indices_inst
+        print(normalize(infer_type(case, ctx)))
         body = nested_pi(*inst_arg_types, *ih_types, return_ty=codomain)
-        print(indices_actual)
-        print(ind.index_types)
-        print(inst_arg_types)
-        print(case)
-        # case = apply_term(*inst_index_ctx_types, case)
-        print(normalize(case))
-        print(normalize(body))
-        print(ctx)
-        print(infer_type(normalize(case), ctx))
         case_head, case_bindings = decompose_lam(case)
         inst_case_bindings = instantiate_into(inductive_args, case_bindings)
-        print(inductive_args)
-        print(case_bindings)
-        print(inst_case_bindings)
-        print(case)
         case = nested_lam(*inst_case_bindings, body=case_head)
-        print(case)
+        print(inst_arg_types)
+        print(arg_vars)
+        print(ih_types)
+        print(normalize(case))
+        print(normalize(body))
+        print([normalize(x.ty) for x in ctx])
+        print(normalize(infer_type(case, ctx)))
+        print('!!!!!!!!!!')
         if not type_check(case, body, ctx):
             raise TypeError(
                 f"Case for constructor has wrong type\n{ctor}\n{case}\n{body}\n{ctx}"
@@ -269,22 +261,20 @@ def _type_check_inductive_elim(
     target_ty = App(motive_applied, scrut)
     target_level = _expect_universe(target_ty, ctx)
     body = nested_pi(*(infer_type(b, ctx) for b in scrut_ty_bindings), return_ty=motive_applied_ty)
-    print('univ')
-    print(motive_applied_ty)
-    print(scrut_ty_bindings)
-    print(body)
-    print(normalize(body))
-    print(body.return_ty)
     motive_level = _expect_universe(body.return_ty, ctx.extend(scrut_ty))
     if target_level > motive_level:
         raise TypeError("InductiveElim motive returns too small a universe")
     return type_equal(expected_ty, target_ty)
 
 
-def type_equal(t1: Term, t2: Term) -> bool:
+def type_equal(t1: Term, t2: Term, ctx: Ctx | None = None) -> bool:
     """Return ``True`` when ``t1`` and ``t2`` normalize to the same term."""
 
-    return normalize(t1) == normalize(t2)
+    a, b = normalize(t1), normalize(t2)
+    ok = a == b
+    # if not ok:
+    #     raise ValueError(f"a={a}\nb={b}")
+    return ok
 
 
 def _expect_universe(term: Term, ctx: Ctx) -> int:
@@ -293,9 +283,7 @@ def _expect_universe(term: Term, ctx: Ctx) -> int:
     Normalizes and infers ``term`` so universe annotations reflect canonical
     shapes, then enforces that the result is a ``Univ``.
     """
-    print(term)
     ty = infer_type(term, ctx)
-    print(ty)
     ty = normalize(ty)
     if not isinstance(ty, Univ):
         raise TypeError(f"Expected a universe, got {ty!r}")
@@ -377,13 +365,16 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
             # A variable is well-typed only if a binder exists at that index.
             if i >= len(ctx):
                 raise TypeError(f"Unbound variable {i}")
-            return type_equal(ctx[i].ty, expected_ty)
+            return type_equal(ctx[i].ty, expected_ty, ctx)
         case Lam(arg_ty, body):
             # Lambdas must check against a Pi; ensure domains align, then check
             # the body under the extended context.
             match expected_ty:
                 case Pi(dom, cod):
-                    if not type_equal(arg_ty, dom):
+                    # if arg_ty != NatType():  # DELETE ME!!!
+                    #     raise ValueError(f"a={arg_ty}\nb={dom}\nctx={ctx}")
+
+                    if not type_equal(arg_ty, dom, ctx):
                         raise TypeError(
                             f"Lambda domain mismatch\n"
                             f"arg_ty:{arg_ty}\n"
@@ -429,6 +420,15 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
             if not type_check(y, A, ctx):
                 raise TypeError("IdElim: y : A fails")
             if not type_check(p, Id(A, x, y), ctx):
+                print()
+                print(p)
+                print(Id(A, x, y))
+                print(normalize(p))
+                print(normalize(Id(A, x, y)))
+                print(infer_type(p, ctx))
+                print(normalize(infer_type(p, ctx)))
+                print(ctx)
+                print([normalize(x.ty) for x in ctx.entries])
                 raise TypeError("IdElim: p : Id(A,x,y) fails")
             if not type_check(d, apply_term(P, x, Refl(A, x)), ctx):
                 raise TypeError("IdElim: d : P x (Refl x) fails")

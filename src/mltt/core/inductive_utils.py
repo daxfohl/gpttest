@@ -106,7 +106,15 @@ def decompose_lam(term: Term) -> tuple[Term, tuple[Term, ...]]:
     while isinstance(term, Lam):
         args.append(term.arg_ty)
         term = term.body
-    return term, tuple((args))
+    return term, tuple(args)
+
+
+def decompose_pi(term: Term) -> tuple[Term, tuple[Term, ...]]:
+    args: list[Term] = []
+    while isinstance(term, Pi):
+        args.append(term.arg_ty)
+        term = term.return_ty
+    return term, tuple(args)
 
 
 def decompose_ctor_app(
@@ -277,6 +285,8 @@ __all__ = [
     "ctor_index",
     "decompose_app",
     "decompose_ctor_app",
+    "decompose_lam",
+    "decompose_pi",
     "instantiate_into",
     "instantiate_forward",
     "match_inductive_application",
