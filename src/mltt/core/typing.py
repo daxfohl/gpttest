@@ -211,19 +211,14 @@ def _type_check_inductive_elim(
         # # This is a dupe of the below test.
         ctx2 = ctx
         # Add binders (right-to-left as in de Bruijn)
-        for ty in ((*inst_arg_types, *ih_types)):
-            # Neither ind.index_types nor actual_indices works here, as actual_indices can be a Term, not a Type,
-            # so shouldn't go in the context. OTOH ind.index_types is too loose and won't type-check. The only
-            # viable solution is to remove the index Lam from the cases, and update code here to handle it, which
-            # should be cleaner anyway.
+        for ty in (*inst_arg_types, *ih_types):
             ctx2 = ctx2.extend(ty)
         num_args = len(inst_arg_types) + len(ih_types)
         args = tuple(Var(num_args - 1 - k) for k in range(num_args))  # a1..an, ih1..ihm in order
         applied = apply_term(case, *args)  # (((case a1) a2) ...)
-        if not type_check(normalize(applied), codomain, ctx2):
+        if not type_check(applied, codomain, ctx2):
             raise TypeError("Case for constructor has wrong type!")
 
-        # assert indices_actual == result_indices_inst
         body = nested_pi(*inst_arg_types, *ih_types, return_ty=codomain)
         case_head, case_bindings = decompose_lam(case)
         inst_case_bindings = instantiate_into(inductive_args, case_bindings)
@@ -335,7 +330,7 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
 
     ctx = ctx or Ctx()
     expected_ty = normalize(ty)
-    match term:
+    match normalize(term):
         case Var(i):
             # A variable is well-typed only if a binder exists at that index.
             if i >= len(ctx):

@@ -55,7 +55,7 @@ def test_add_zero_right_typechecks() -> None:
         NatType(),
         Id(NatType(), add_terms(Var(0), Zero()), Var(0)),
     )
-    assert type_check(normalize(lemma), normalize(lemma_ty))
+    assert type_check(lemma, lemma_ty)
 
 
 def test_add_zero_right_normalizes() -> None:
