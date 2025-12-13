@@ -24,6 +24,7 @@ from .inductive_utils import (
     decompose_app,
     instantiate_into, decompose_lam, nested_lam, decompose_pi,
 )
+from .reduce import whnf, beta_head_step, beta_step
 from .reduce.normalize import normalize
 from ..inductive.nat import NatType
 
@@ -216,7 +217,7 @@ def _type_check_inductive_elim(
         num_args = len(inst_arg_types) + len(ih_types)
         args = tuple(Var(num_args - 1 - k) for k in range(num_args))  # a1..an, ih1..ihm in order
         applied = apply_term(case, *args)  # (((case a1) a2) ...)
-        if not type_check(applied, codomain, ctx2):
+        if not type_check(normalize(applied), codomain, ctx2):
             raise TypeError("Case for constructor has wrong type!")
 
         body = nested_pi(*inst_arg_types, *ih_types, return_ty=codomain)
@@ -330,7 +331,7 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
 
     ctx = ctx or Ctx()
     expected_ty = normalize(ty)
-    match normalize(term):
+    match term:
         case Var(i):
             # A variable is well-typed only if a binder exists at that index.
             if i >= len(ctx):
