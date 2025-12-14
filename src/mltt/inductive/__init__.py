@@ -7,4 +7,5 @@ __all__ = [
     "tree",
     "vec",
     "top_bottom",
+    "le",
 ]
