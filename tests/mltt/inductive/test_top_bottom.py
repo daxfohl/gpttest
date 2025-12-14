@@ -1,6 +1,7 @@
 from mltt.core.ast import Lam, Pi, Var
 from mltt.core.inductive_utils import apply_term
 from mltt.core.typing import infer_type, type_check, type_equal
+from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Zero
 from mltt.inductive.top_bottom import BotRec, BotType, TopRec, TopType, Tt
 
@@ -25,3 +26,13 @@ def test_botrec_ex_falso() -> None:
 
     assert type_check(lam, expected_ty)
     assert type_equal(infer_type(lam), expected_ty)
+
+
+def test_toprec_dependent_motive() -> None:
+    motive = Lam(TopType(), Id(TopType(), Var(0), Var(0)))
+    case = Refl(TopType(), Tt())
+    term = TopRec(motive, case, Tt())
+    expected = Id(TopType(), Tt(), Tt())
+
+    assert type_check(term, expected)
+    assert type_equal(infer_type(term), expected)
