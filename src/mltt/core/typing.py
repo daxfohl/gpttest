@@ -226,15 +226,19 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
                 f"Case for constructor has wrong type\n{ctor}\n{case}\n{body}\n{ctx}"
             )
 
+    u = _expect_universe(motive_applied_ty.return_ty, ctx)  # cod should be Univ(u)
+
+    # target type is P i⃗_actual scrut
     target_ty = App(motive_applied, scrut)
-    target_level = _expect_universe(target_ty, ctx)
-    body = nested_pi(
-        *(infer_type(b, ctx) for b in indices_actual), return_ty=motive_applied_ty
-    )
-    motive_level_source = body.return_ty if isinstance(body, Pi) else body
-    motive_level = _expect_universe(motive_level_source, ctx)
-    if target_level > motive_level:
-        raise TypeError("InductiveElim motive returns too small a universe")
+
+    # Optional: sanity check target_ty really is a type in Type u (or ≤ u with cumulativity)
+    _ = _expect_universe(infer_type(target_ty, ctx), ctx)
+
+    # The actual “too small” check:
+    # require u >= ℓ  (or whatever your universe discipline is)
+    if u < ind.level:
+        raise TypeError("Eliminator motive returns too small a universe")
+
     return target_ty
 
 
