@@ -27,9 +27,7 @@ SortedOneCtor = Ctor(
     name="sorted_one",
     inductive=Sorted,
     arg_types=(Var(2),),  # x : A
-    result_indices=(
-        apply_term(ConsCtor, Var(3), Var(0), App(NilCtor, Var(3))),  # [x]
-    ),
+    result_indices=(apply_term(ConsCtor, Var(3), Var(0), App(NilCtor, Var(3))),),  # [x]
 )
 
 SortedConsCtor = Ctor(
@@ -57,7 +55,9 @@ SortedConsCtor = Ctor(
     ),
 )
 
-object.__setattr__(Sorted, "constructors", (SortedNilCtor, SortedOneCtor, SortedConsCtor))
+object.__setattr__(
+    Sorted, "constructors", (SortedNilCtor, SortedOneCtor, SortedConsCtor)
+)
 
 
 def SortedType(A: Term, R: Term, xs: Term) -> Term:
@@ -72,11 +72,15 @@ def SortedOne(A: Term, R: Term, x: Term) -> Term:
     return apply_term(SortedOneCtor, A, R, App(NilCtor, A), x)
 
 
-def SortedCons(A: Term, R: Term, xs: Term, x: Term, y: Term, rel: Term, ih: Term) -> Term:
+def SortedCons(
+    A: Term, R: Term, xs: Term, x: Term, y: Term, rel: Term, ih: Term
+) -> Term:
     return apply_term(SortedConsCtor, A, R, xs, x, y, xs, rel, ih)
 
 
-def SortedRec(motive: Term, nil_case: Term, one_case: Term, cons_case: Term, proof: Term) -> Elim:
+def SortedRec(
+    motive: Term, nil_case: Term, one_case: Term, cons_case: Term, proof: Term
+) -> Elim:
     return Elim(
         inductive=Sorted,
         motive=motive,

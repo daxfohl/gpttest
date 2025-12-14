@@ -49,8 +49,6 @@ def test_all_ctor_types() -> None:
         Var(2),
         apply_term(Var(2), Var(0)),
         AllType(Var(4), Var(3), Var(2)),
-        return_ty=AllType(
-            Var(5), Var(4), apply_term(ConsCtor, Var(5), Var(2), Var(3))
-        ),
+        return_ty=AllType(Var(5), Var(4), apply_term(ConsCtor, Var(5), Var(2), Var(3))),
     )
     assert type_equal(infer_type(AllConsCtor), expected_cons)

@@ -66,7 +66,9 @@ def test_sorted_ctor_types() -> None:
         Var(3),  # y
         apply_term(List, Var(4)),  # xs argument (matches index)
         apply_term(Var(4), Var(2), Var(1)),  # R x y
-        SortedType(Var(6), Var(5), Cons(Var(6), Var(2), Var(1))),  # ih: Sorted (y :: xs)
+        SortedType(
+            Var(6), Var(5), Cons(Var(6), Var(2), Var(1))
+        ),  # ih: Sorted (y :: xs)
         return_ty=SortedType(
             Var(7),
             Var(6),
