@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from ..ast import Term, App, Lam, Elim, Ctor, I, IdElim, Refl, Var, Univ, Id, Pi
+from ..ast import Term, App, Lam, Elim, Ctor, I, Var, Univ, Pi
 from ..debruijn import subst
 from ..inductive_utils import (
     decompose_ctor_app,
@@ -65,15 +65,6 @@ def whnf(term: Term) -> Term:
                     return whnf(iota_reduce(ctor, cases, args, motive))
                 case _:
                     raise ValueError()
-
-        case IdElim(A, x, P, d, y, p):
-            if isinstance(p, Refl):
-                return d
-            # Push reduction into the proof if the head does not expose a Refl.
-            p1 = whnf(p)
-            if p1 != p:
-                return IdElim(A, x, P, d, y, p1)
-            return term
         case _:
             return term
 
@@ -112,48 +103,6 @@ def reduce_inside_step(term: Term, red: Callable[[Term], Term]) -> Term:
             body1 = reducer(body)
             if body1 != body:
                 return Pi(ty, body1)
-            return term
-
-        case Id(ty, l, r):
-            ty1 = reducer(ty)
-            if ty1 != ty:
-                return Id(ty1, l, r)
-            l1 = reducer(l)
-            if l1 != l:
-                return Id(ty, l1, r)
-            r1 = reducer(r)
-            if r1 != r:
-                return Id(ty, l, r1)
-            return term
-
-        case Refl(ty, t0):
-            ty1 = reducer(ty)
-            if ty1 != ty:
-                return Refl(ty1, t0)
-            t1 = reducer(t0)
-            if t1 != t0:
-                return Refl(ty, t1)
-            return term
-
-        case IdElim(A, x, P, d, y, p):
-            A1 = reducer(A)
-            if A1 != A:
-                return IdElim(A1, x, P, d, y, p)
-            x1 = reducer(x)
-            if x1 != x:
-                return IdElim(A, x1, P, d, y, p)
-            P1 = reducer(P)
-            if P1 != P:
-                return IdElim(A, x, P1, d, y, p)
-            d1 = reducer(d)
-            if d1 != d:
-                return IdElim(A, x, P, d1, y, p)
-            y1 = reducer(y)
-            if y1 != y:
-                return IdElim(A, x, P, d, y1, p)
-            p1 = reducer(p)
-            if p1 != p:
-                return IdElim(A, x, P, d, y, p1)
             return term
 
         case Elim(inductive, motive, cases, scrutinee):

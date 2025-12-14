@@ -2,34 +2,55 @@
 
 from __future__ import annotations
 
-from ..core.ast import App, Id, IdElim, Lam, Refl, Term, Var
+from ..core.ast import App, Ctor, Elim, I, Lam, Term, Univ, Var
 from ..core.debruijn import shift
-from ..core.inductive_utils import nested_lam
+from ..core.inductive_utils import apply_term, nested_lam
+
+IdType = I(
+    name="Id",
+    param_types=(Univ(0), Var(0)),
+    index_types=(Var(1),),
+    level=0,
+)
+ReflCtor = Ctor(
+    name="Refl",
+    inductive=IdType,
+    arg_types=(),
+    result_indices=(Var(1),),
+)
+object.__setattr__(IdType, "constructors", (ReflCtor,))
+
+
+def Id(ty: Term, lhs: Term, rhs: Term) -> Term:
+    """Identity type over ``ty`` relating ``lhs`` and ``rhs``."""
+
+    return apply_term(IdType, ty, lhs, rhs)
+
+
+def Refl(ty: Term, t: Term) -> Term:
+    """Canonical inhabitant ``Id ty t t``."""
+
+    return apply_term(ReflCtor, ty, t, t)
+
+
+def IdElim(A: Term, x: Term, P: Term, d: Term, y: Term, p: Term) -> Elim:
+    """Identity eliminator (J) expressed via the generalized ``Elim``."""
+
+    # Parameters ``A`` and ``x`` match the prior eliminator signature even
+    # though they are implicitly captured by ``P``/``d``.
+    return Elim(inductive=IdType, motive=P, cases=(d,), scrutinee=p)
 
 
 def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
-    """Dependent congruence for arbitrary codomains.
+    """Dependent congruence for arbitrary codomains."""
 
-    Args:
-        f: Dependent function ``(a : A) -> B a`` whose action on equal terms we lift.
-        A: Domain type of ``f`` and the type witnessing ``p``.
-        B: Dependent codomain family over ``A``.
-        x: Left endpoint of the given equality proof.
-        y: Right endpoint of the given equality proof.
-        p: Proof of ``Id A x y``.
-
-    Returns:
-        A term of type ``Id (B y) (f x) (f y)`` justifying that ``f`` preserves ``p``.
-    """
-
-    P = Lam(
+    P = nested_lam(
         A,
-        shift(
-            Lam(
-                Id(A, x, Var(1)),
-                shift(Id(App(B, Var(1)), App(f, x), App(f, Var(1))), 1),
-            ),
-            1,
+        Id(shift(A, 1), shift(x, 1), Var(0)),
+        body=Id(
+            App(shift(B, 2), Var(1)),
+            App(shift(f, 2), shift(x, 2)),
+            App(shift(f, 2), Var(1)),
         ),
     )
     d = Refl(App(B, x), App(f, x))
@@ -37,19 +58,7 @@ def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
 
 
 def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
-    """Standard dependent congruence.
-
-    Args:
-        f: Dependent function ``(a : A) -> B a``.
-        A: Domain type.
-        B: Codomain family depending on ``A``.
-        x: Left endpoint of ``p``.
-        y: Right endpoint of ``p``.
-        p: Proof of ``Id A x y``.
-
-    Returns:
-        Proof of ``Id (B y) (f x) (f y)`` obtained by lifting ``p`` through ``f``.
-    """
+    """Standard dependent congruence."""
 
     A1 = shift(A, 1)
     x1 = shift(x, 1)
@@ -60,7 +69,7 @@ def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
 
     P = nested_lam(
         A,
-        Id(A1, x1, Var(1)),
+        Id(A1, x1, Var(0)),
         body=Id(App(B2, Var(1)), App(f2, x2), App(f2, Var(1))),
     )
     d = Refl(App(B, x), App(f, x))
@@ -68,35 +77,13 @@ def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
 
 
 def ap(f: Term, A: Term, B0: Term, x: Term, y: Term, p: Term) -> Term:
-    """Non-dependent congruence (``ap``).
-
-    Args:
-        f: Plain function ``A -> B0``.
-        A: Domain type.
-        B0: Codomain type (constant family).
-        x: Left endpoint of ``p``.
-        y: Right endpoint of ``p``.
-        p: Proof of ``Id A x y``.
-
-    Returns:
-        Proof of ``Id B0 (f x) (f y)`` asserting ``f`` preserves equality.
-    """
+    """Non-dependent congruence (``ap``)."""
 
     return cong(f, A, Lam(A, B0), x, y, p)
 
 
 def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
-    """Symmetry of identity proofs.
-
-    Args:
-        A: Ambient type.
-        x: Left endpoint.
-        y: Right endpoint.
-        p: Proof of ``Id A x y``.
-
-    Returns:
-        A proof of ``Id A y x`` obtained by flipping ``p``.
-    """
+    """Symmetry of identity proofs."""
 
     A1 = shift(A, 1)
     x1 = shift(x, 1)
@@ -105,7 +92,7 @@ def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
 
     P = nested_lam(
         A,
-        Id(A1, x1, Var(1)),
+        Id(A1, x1, Var(0)),
         body=Id(A2, Var(1), x2),
     )
     d = Refl(A, x)
@@ -113,19 +100,7 @@ def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
 
 
 def trans(A: Term, x: Term, y: Term, z: Term, p: Term, q: Term) -> Term:
-    """Transitivity of identity proofs.
-
-    Args:
-        A: Ambient type.
-        x: First element.
-        y: Middle element shared between the two proofs.
-        z: Final element.
-        p: Proof of ``Id A x y``.
-        q: Proof of ``Id A y z``.
-
-    Returns:
-        A proof of ``Id A x z`` composing ``p`` and ``q``.
-    """
+    """Transitivity of identity proofs."""
 
     A1 = shift(A, 1)
     y1 = shift(y, 1)
@@ -134,10 +109,10 @@ def trans(A: Term, x: Term, y: Term, z: Term, p: Term, q: Term) -> Term:
 
     Q = nested_lam(
         A,
-        Id(A1, y1, Var(1)),
+        Id(A1, y1, Var(0)),
         body=Id(A2, x2, Var(1)),
     )
     return IdElim(A, y, Q, p, z, q)
 
 
-__all__ = ["cong", "sym", "trans"]
+__all__ = ["IdType", "Id", "Refl", "IdElim", "cong3", "cong", "ap", "sym", "trans"]

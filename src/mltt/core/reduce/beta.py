@@ -2,20 +2,7 @@
 
 from __future__ import annotations
 
-from ..ast import (
-    App,
-    Id,
-    IdElim,
-    Ctor,
-    Elim,
-    I,
-    Lam,
-    Pi,
-    Refl,
-    Term,
-    Univ,
-    Var,
-)
+from ..ast import App, Ctor, Elim, I, Lam, Pi, Term, Univ, Var
 from ..debruijn import subst
 
 
@@ -65,48 +52,6 @@ def beta_step(term: Term) -> Term:
             body1 = beta_step(body)
             if body1 != body:
                 return Pi(ty, body1)
-            return term
-
-        case Id(ty, l, r):
-            ty1 = beta_step(ty)
-            if ty1 != ty:
-                return Id(ty1, l, r)
-            l1 = beta_step(l)
-            if l1 != l:
-                return Id(ty, l1, r)
-            r1 = beta_step(r)
-            if r1 != r:
-                return Id(ty, l, r1)
-            return term
-
-        case Refl(ty, t0):
-            ty1 = beta_step(ty)
-            if ty1 != ty:
-                return Refl(ty1, t0)
-            t1 = beta_step(t0)
-            if t1 != t0:
-                return Refl(ty, t1)
-            return term
-
-        case IdElim(A, x, P, d, y, p):
-            A1 = beta_step(A)
-            if A1 != A:
-                return IdElim(A1, x, P, d, y, p)
-            x1 = beta_step(x)
-            if x1 != x:
-                return IdElim(A, x1, P, d, y, p)
-            P1 = beta_step(P)
-            if P1 != P:
-                return IdElim(A, x, P1, d, y, p)
-            d1 = beta_step(d)
-            if d1 != d:
-                return IdElim(A, x, P, d1, y, p)
-            y1 = beta_step(y)
-            if y1 != y:
-                return IdElim(A, x, P, d, y1, p)
-            p1 = beta_step(p)
-            if p1 != p:
-                return IdElim(A, x, P, d, y, p1)
             return term
 
         case Elim(inductive, motive, cases, scrutinee):

@@ -1,6 +1,7 @@
-from mltt.core.ast import App, IdElim, Lam, Refl, Var
+from mltt.core.ast import App, Lam, Var
 from mltt.core.inductive_utils import nested_lam
 from mltt.core.reduce.iota import iota_head_step
+from mltt.inductive.eq import IdElim, Refl
 from mltt.inductive.nat import NatRec, NatType, Succ, Zero
 
 

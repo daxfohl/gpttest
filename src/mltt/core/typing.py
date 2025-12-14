@@ -4,19 +4,16 @@ from __future__ import annotations
 
 from .ast import (
     App,
-    Id,
-    IdElim,
     Ctor,
     Elim,
     I,
     Lam,
     Pi,
-    Refl,
     Term,
     Univ,
     Var,
 )
-from .debruijn import Ctx, subst
+from .debruijn import Ctx, shift, subst
 from .inductive_utils import (
     apply_term,
     nested_pi,
@@ -77,7 +74,11 @@ def _expected_case_type(
     # fully-applied constructor to produce the case result type.
     binder_roles: list[tuple[str, int, Term | None]] = []
     arg_positions: list[int] = []
-    instantiated_arg_types = instantiate_into(param_args + index_args, ctor.arg_types)
+    inductive_args = param_args + index_args
+    shifted_inductive_args = tuple(
+        shift(arg, len(inductive.index_types)) for arg in inductive_args
+    )
+    instantiated_arg_types = instantiate_into(shifted_inductive_args, ctor.arg_types)
 
     for idx, arg_ty in enumerate(instantiated_arg_types):
         arg_positions.append(len(binder_roles))
@@ -175,7 +176,10 @@ def _type_check_inductive_elim(
 
         # 3.1 instantiate arg types with actual params/indices
         inductive_args = params_actual + indices_actual
-        inst_arg_types = instantiate_into(inductive_args, ctor.arg_types)
+        shifted_inductive_args = tuple(
+            shift(arg, len(ind.index_types)) for arg in inductive_args
+        )
+        inst_arg_types = instantiate_into(shifted_inductive_args, ctor.arg_types)
 
         # 3.2 identify recursive ctor args and their indices
         recursive_positions = []
@@ -193,7 +197,7 @@ def _type_check_inductive_elim(
         r = len(recursive_positions)
         arg_vars = [Var(r + m - j - 1) for j in range(m)]
         result_indices_inst = instantiate_into(
-            (*inductive_args, *arg_vars), ctor.result_indices
+            (*shifted_inductive_args, *arg_vars), ctor.result_indices
         )
 
         # 3.4 scrutinee-like value for this branch:
@@ -214,22 +218,9 @@ def _type_check_inductive_elim(
         # The codomain has all the arg_vars, and this Pi construction allows them to
         # reference the arg types without needing an actual value for them.
 
-        # # This is a dupe of the below test.
-        ctx2 = ctx
-        # Add binders (right-to-left as in de Bruijn)
-        for ty in (*inst_arg_types, *ih_types):
-            ctx2 = ctx2.extend(ty)
-        num_args = len(inst_arg_types) + len(ih_types)
-        args = tuple(
-            Var(num_args - 1 - k) for k in range(num_args)
-        )  # a1..an, ih1..ihm in order
-        applied = apply_term(case, *args)  # (((case a1) a2) ...)
-        if not type_check(normalize(applied), codomain, ctx2):
-            raise TypeError("Case for constructor has wrong type!")
-
         body = nested_pi(*inst_arg_types, *ih_types, return_ty=codomain)
         case_head, case_bindings = decompose_lam(case)
-        inst_case_bindings = instantiate_into(inductive_args, case_bindings)
+        inst_case_bindings = instantiate_into(shifted_inductive_args, case_bindings)
         case = nested_lam(*inst_case_bindings, body=case_head)
         if not type_check(case, body, ctx):
             raise TypeError(
@@ -242,7 +233,7 @@ def _type_check_inductive_elim(
         *(infer_type(b, ctx) for b in indices_actual), return_ty=motive_applied_ty
     )
     motive_level_source = body.return_ty if isinstance(body, Pi) else body
-    motive_level = _expect_universe(motive_level_source, ctx.extend(scrut_ty))
+    motive_level = _expect_universe(motive_level_source, ctx)
     if target_level > motive_level:
         raise TypeError("InductiveElim motive returns too small a universe")
     return type_equal(expected_ty, target_ty)
@@ -329,19 +320,6 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             indices = scrut_args[param_count:]
             motive_applied = apply_term(term.motive, *indices)
             return App(motive_applied, term.scrutinee)
-        case Id(ty, lhs, rhs):
-            # Identity type is a type when both endpoints check against ``ty``.
-            if not type_check(lhs, ty, ctx) or not type_check(rhs, ty, ctx):
-                raise TypeError("Id sides must have given type")
-            return Univ(_expect_universe(ty, ctx))
-        case Refl(ty, t):
-            # Refl inhabits the corresponding identity type when ``t`` checks.
-            if not type_check(t, ty, ctx):
-                raise TypeError("Refl term not of stated type")
-            return Id(ty, t, t)
-        case IdElim(A, x, P, d, y, p):
-            # Eliminator returns the motive applied to the target endpoints/proof.
-            return apply_term(P, y, p)
 
     raise TypeError(f"Unexpected term in infer_type: {term!r}")
 
@@ -392,29 +370,6 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
             return type_equal(expected_ty, _ctor_type(term))
         case Elim():
             return _type_check_inductive_elim(term, expected_ty, ctx)
-        case Id(id_ty, l, r):
-            # Identity type formation: both sides must check against the given
-            # ambient type; the result is a type.
-            if not type_check(l, id_ty, ctx) or not type_check(r, id_ty, ctx):
-                raise TypeError("Id sides not of given type")
-            return isinstance(expected_ty, Univ)
-        case Refl(rty, t):
-            # Refl inhabits ``Id ty t t`` provided ``t`` checks against ``ty``.
-            if not type_check(t, rty, ctx):
-                raise TypeError("Refl term not of stated type")
-            return type_equal(expected_ty, Id(rty, t, t))
-        case IdElim(A, x, P, d, y, p):
-            # Identity elimination (J): verify endpoints/proof, base case ``d``,
-            # then ensure the expected type matches the motive application.
-            if not type_check(x, A, ctx):
-                raise TypeError("IdElim: x : A fails")
-            if not type_check(y, A, ctx):
-                raise TypeError("IdElim: y : A fails")
-            if not type_check(p, Id(A, x, y), ctx):
-                raise TypeError("IdElim: p : Id(A,x,y) fails")
-            if not type_check(d, apply_term(P, x, Refl(A, x)), ctx):
-                raise TypeError("IdElim: d : P x (Refl x) fails")
-            return type_equal(expected_ty, apply_term(P, y, p))
         case Univ(_):
             return isinstance(expected_ty, Univ)
 

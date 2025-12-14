@@ -2,19 +2,9 @@
 
 from __future__ import annotations
 
-from ..core.ast import (
-    App,
-    Id,
-    Ctor,
-    Elim,
-    I,
-    Lam,
-    Refl,
-    Term,
-    Var,
-)
+from ..core.ast import App, Ctor, Elim, I, Lam, Term, Var
 from ..core.inductive_utils import apply_term, nested_lam
-from .eq import ap
+from .eq import Id, Refl, ap
 
 Nat = I(name="Nat", level=0)
 ZeroCtor = Ctor(name="Zero", inductive=Nat)

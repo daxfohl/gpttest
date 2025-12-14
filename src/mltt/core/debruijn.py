@@ -8,13 +8,10 @@ from typing import Iterable, Iterator
 from .ast import (
     App,
     Ctor,
-    Id,
-    IdElim,
     Elim,
     I,
     Lam,
     Pi,
-    Refl,
     Term,
     Univ,
     Var,
@@ -90,19 +87,6 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
                 tuple(shift(case, by, cutoff) for case in cases),
                 shift(scrutinee, by, cutoff),
             )
-        case Id(ty, l, r):
-            return Id(shift(ty, by, cutoff), shift(l, by, cutoff), shift(r, by, cutoff))
-        case Refl(ty, t):
-            return Refl(shift(ty, by, cutoff), shift(t, by, cutoff))
-        case IdElim(A, x, P, d, y, p):
-            return IdElim(
-                shift(A, by, cutoff),
-                shift(x, by, cutoff),
-                shift(P, by, cutoff),
-                shift(d, by, cutoff),
-                shift(y, by, cutoff),
-                shift(p, by, cutoff),
-            )
         case Univ() | I() | Ctor():
             return term
 
@@ -142,23 +126,6 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
                 subst(motive, sub, j),
                 tuple(subst(case, sub, j) for case in cases),
                 subst(scrutinee, sub, j),
-            )
-        case Id(ty, l, r):
-            return Id(
-                subst(ty, sub, j),
-                subst(l, sub, j),
-                subst(r, sub, j),
-            )
-        case Refl(ty, t):
-            return Refl(subst(ty, sub, j), subst(t, sub, j))
-        case IdElim(A, x, P, d, y, p):
-            return IdElim(
-                subst(A, sub, j),
-                subst(x, sub, j),
-                subst(P, sub, j),
-                subst(d, sub, j),
-                subst(y, sub, j),
-                subst(p, sub, j),
             )
         case Univ() | I() | Ctor():
             return term

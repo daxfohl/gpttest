@@ -1,7 +1,8 @@
-from mltt.core.ast import App, Id, IdElim, Elim, Lam, Pi, Term, Univ, Var
+from mltt.core.ast import App, Elim, Lam, Pi, Term, Univ, Var
 from mltt.core.debruijn import shift, subst
 from mltt.core.inductive_utils import nested_lam, nested_pi
 from mltt.inductive.nat import NatRec, Succ, Zero
+from mltt.inductive.eq import Id, IdElim
 
 
 # ------------- Shift: basic behavior -------------
@@ -368,7 +369,7 @@ def test_subst_identity_constructs() -> None:
     term = Id(Univ(), Var(0), Var(1))
     sub = Succ(Var(0))
     result = subst(term, sub)
-    assert isinstance(result, Id)
+    assert result == Id(Univ(), Succ(Var(0)), Var(0))
 
 
 def test_subst_idelim_components() -> None:
@@ -382,4 +383,4 @@ def test_subst_idelim_components() -> None:
     )
     sub = Succ(Var(0))
     result = subst(term, sub)
-    assert isinstance(result, IdElim)
+    assert isinstance(result, Elim)

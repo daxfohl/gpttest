@@ -2,20 +2,7 @@
 
 from __future__ import annotations
 
-from .ast import (
-    App,
-    Id,
-    IdElim,
-    Ctor,
-    Elim,
-    I,
-    Lam,
-    Pi,
-    Refl,
-    Term,
-    Univ,
-    Var,
-)
+from .ast import App, Ctor, Elim, I, Lam, Pi, Term, Univ, Var
 
 ATOM_PREC = 3
 APP_PREC = 2
@@ -51,16 +38,6 @@ def _uses_var(term: Term, target: int, depth: int = 0) -> bool:
                 or any(_uses_var(case, target, depth) for case in cases)
                 or _uses_var(scrutinee, target, depth)
             )
-        case Id(ty, lhs, rhs):
-            return (
-                _uses_var(ty, target, depth)
-                or _uses_var(lhs, target, depth)
-                or _uses_var(rhs, target, depth)
-            )
-        case Refl(ty, t):
-            return _uses_var(ty, target, depth) or _uses_var(t, target, depth)
-        case IdElim(A, x, P, d, y, p):
-            return any(_uses_var(part, target, depth) for part in (A, x, P, d, y, p))
         case _:
             return False
 
@@ -158,38 +135,6 @@ def pretty(term: Term) -> str:
                     ),
                 ]
                 return " ".join(parts), APP_PREC
-
-            case Id(ty, lhs, rhs):
-                return _render_app_like(
-                    "Id",
-                    [
-                        fmt(ty, ctx),
-                        fmt(lhs, ctx),
-                        fmt(rhs, ctx),
-                    ],
-                )
-
-            case Refl(ty, t0):
-                return _render_app_like(
-                    "refl",
-                    [
-                        fmt(ty, ctx),
-                        fmt(t0, ctx),
-                    ],
-                )
-
-            case IdElim(A, x, P, d, y, p):
-                return _render_app_like(
-                    "J",
-                    [
-                        fmt(A, ctx),
-                        fmt(x, ctx),
-                        fmt(P, ctx),
-                        fmt(d, ctx),
-                        fmt(y, ctx),
-                        fmt(p, ctx),
-                    ],
-                )
 
         raise TypeError(f"Cannot pretty-print unknown term: {t!r}")
 

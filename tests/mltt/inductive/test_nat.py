@@ -1,9 +1,10 @@
 import pytest
 
-from mltt.core.ast import App, Id, Pi, Refl, Var
+from mltt.core.ast import App, Pi, Var
 from mltt.core.inductive_utils import nested_pi
 from mltt.core.reduce import normalize
-from mltt.core.typing import type_check, infer_type
+from mltt.core.typing import infer_type, type_check
+from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import (
     NatType,
     Succ,
