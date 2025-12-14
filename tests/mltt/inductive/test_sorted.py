@@ -1,4 +1,4 @@
-from mltt.core.ast import Lam, Pi, Univ, Var
+from mltt.core.ast import Lam, Pi, Univ, Var, Term
 from mltt.core.inductive_utils import apply_term, nested_pi
 from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.eq import Id, Refl
@@ -15,7 +15,7 @@ from mltt.inductive.sorted import (
 )
 
 
-def reflexive_relation(A):
+def reflexive_relation(A: Term) -> Lam:
     return Lam(A, Lam(A, Id(A, Var(1), Var(0))))
 
 
