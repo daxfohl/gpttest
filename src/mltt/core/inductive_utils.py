@@ -5,7 +5,7 @@ from __future__ import annotations
 from itertools import islice
 from typing import Sequence, Any, TypeVar, Iterator
 
-from .ast import App, Ctor, I, Term, Lam, Pi, Var
+from .ast import App, Ctor, I, Term, Lam, Pi
 from .debruijn import shift, subst
 
 T = TypeVar("T")

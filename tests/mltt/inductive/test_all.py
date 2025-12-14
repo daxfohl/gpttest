@@ -3,7 +3,7 @@ from mltt.core.inductive_utils import apply_term, nested_pi
 from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.all import AllCons, AllConsCtor, AllNil, AllNilCtor, AllType
 from mltt.inductive.list import Cons, ConsCtor, List, Nil, NilCtor
-from mltt.inductive.nat import NatType, Zero, numeral
+from mltt.inductive.nat import NatType, Zero
 
 
 def trivial_predicate() -> Lam:

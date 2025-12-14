@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from ..core.ast import App, Ctor, Elim, I, Lam, Term, Var
-from ..core.inductive_utils import apply_term, nested_lam
 from .eq import Id, Refl
 from .nat import NatType, Succ
 from .rtc import RTCRefl, RTCStep, RTCType
+from ..core.ast import Ctor, Elim, I, Term, Var
+from ..core.inductive_utils import apply_term, nested_lam
 
 Le = I(name="Le", index_types=(NatType(), NatType()), level=0)
 LeReflCtor = Ctor(

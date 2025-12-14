@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..core.ast import App, Ctor, Elim, I, Term, Univ, Var
+from ..core.ast import Ctor, Elim, I, Term, Univ, Var
 from ..core.inductive_utils import apply_term
 
 Tree = I(

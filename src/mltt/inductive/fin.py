@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .nat import NatType, Succ, numeral
 from ..core.ast import (
     App,
     Ctor,
@@ -11,7 +12,6 @@ from ..core.ast import (
     Var,
 )
 from ..core.inductive_utils import apply_term
-from .nat import NatType, Succ, numeral
 
 Fin = I(name="Fin", index_types=(NatType(),), level=0)
 FZCtor = Ctor(

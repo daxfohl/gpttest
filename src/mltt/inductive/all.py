@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from .list import ConsCtor, List, NilCtor
 from ..core.ast import App, Ctor, Elim, I, Pi, Term, Univ, Var
 from ..core.inductive_utils import apply_term
-from .list import ConsCtor, List, NilCtor
 
 All = I(
     name="All",

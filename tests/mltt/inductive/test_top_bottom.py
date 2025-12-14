@@ -1,5 +1,4 @@
 from mltt.core.ast import Lam, Pi, Var
-from mltt.core.inductive_utils import apply_term
 from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Zero

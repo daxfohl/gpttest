@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from .sigma import Sigma
 from ..core.ast import Ctor, Elim, I, Lam, Term, Univ, Var
 from ..core.debruijn import shift
 from ..core.inductive_utils import apply_term
-from .sigma import Sigma
 
 # Expr (Ty : Type) (τ : Ty) : Type
 Expr = I(name="Expr", param_types=(Univ(0),), index_types=(Var(0),), level=0)

@@ -1,7 +1,6 @@
-from mltt.core.ast import Var
 from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.le import LeRefl, LeStep, LeType
-from mltt.inductive.nat import NatType, Succ, Zero, numeral
+from mltt.inductive.nat import Succ, Zero, numeral
 
 
 def test_lerefl_typechecks() -> None:

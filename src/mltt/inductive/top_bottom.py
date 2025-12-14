@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from ..core.ast import Ctor, Elim, I, Lam, Term, Univ, Var
-from ..core.inductive_utils import apply_term
-
+from ..core.ast import Ctor, Elim, I, Term
 
 # Top (unit) has a single inhabitant.
 Top = I(name="Top", level=0)

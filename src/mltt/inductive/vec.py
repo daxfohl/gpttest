@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from .nat import NatType, Succ, Zero
 from ..core.ast import (
-    App,
     Ctor,
     Elim,
     I,
@@ -12,7 +12,6 @@ from ..core.ast import (
     Var,
 )
 from ..core.inductive_utils import apply_term
-from .nat import NatType, Succ, Zero
 
 Vec = I(name="Vec", param_types=(Univ(0),), index_types=(NatType(),), level=0)
 NilCtor = Ctor(

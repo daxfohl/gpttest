@@ -18,15 +18,12 @@ from .inductive_utils import (
     apply_term,
     decompose_app,
     decompose_lam,
-    decompose_pi,
     instantiate_for_inductive,
     nested_pi,
     match_inductive_application,
     nested_lam,
 )
-from .reduce import whnf, beta_head_step, beta_step
 from .reduce.normalize import normalize
-from ..inductive.nat import NatType
 
 
 def _ctor_type(ctor: Ctor) -> Term:
