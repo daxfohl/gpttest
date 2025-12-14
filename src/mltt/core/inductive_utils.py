@@ -234,7 +234,9 @@ def instantiate_for_inductive(
     index arity so they remain stable when new binders are introduced.
     """
 
-    shifted = tuple(shift(arg, len(inductive.index_types)) for arg in (*params, *indices))
+    shifted = tuple(
+        shift(arg, len(inductive.index_types)) for arg in (*params, *indices)
+    )
     return instantiate_into((*shifted, *args), targets)
 
 

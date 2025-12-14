@@ -108,21 +108,8 @@ def _expected_case_type(
     return nested_pi(*binder_types, return_ty=target)
 
 
-def _type_check_inductive_elim(
-    elim: Elim,
-    expected_ty: Term,
-    ctx: Ctx,
-) -> bool:
-    """Type-check an ``InductiveElim`` against ``expected_ty``.
-
-    The structure closely follows the informal typing rule:
-      • The scrutinee must be an application of the inductive with the right
-        parameter/index arguments.
-      • The motive must quantify over that instantiated inductive.
-      • Each case must have the eliminator-specific case type for its ctor.
-      • The resulting motive application must live in a universe no larger than
-        the motive's codomain.
-    """
+def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
+    """Infer the type of an ``InductiveElim`` while checking its well-formedness."""
     # 1. Infer type of scrutinee and extract params/indices.
     scrut = elim.scrutinee
     ind = elim.inductive
@@ -251,7 +238,7 @@ def _type_check_inductive_elim(
     motive_level = _expect_universe(motive_level_source, ctx)
     if target_level > motive_level:
         raise TypeError("InductiveElim motive returns too small a universe")
-    return type_equal(expected_ty, target_ty)
+    return target_ty
 
 
 def type_equal(t1: Term, t2: Term, ctx: Ctx | None = None) -> bool:
@@ -324,17 +311,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
         case Ctor():
             return _ctor_type(term)
         case Elim():
-            scrut_ty = normalize(infer_type(term.scrutinee, ctx))
-            scrut_head, scrut_args = decompose_app(scrut_ty)
-            if scrut_head is not term.inductive:
-                raise TypeError("Elim scrutinee does not match inductive head")
-            param_count = len(term.inductive.param_types)
-            index_count = len(term.inductive.index_types)
-            if len(scrut_args) != param_count + index_count:
-                raise TypeError("Elim scrutinee must be fully applied")
-            indices = scrut_args[param_count:]
-            motive_applied = apply_term(term.motive, *indices)
-            return App(motive_applied, term.scrutinee)
+            return _infer_inductive_elim(term, ctx)
 
     raise TypeError(f"Unexpected term in infer_type: {term!r}")
 
@@ -384,7 +361,8 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
         case Ctor():
             return type_equal(expected_ty, _ctor_type(term))
         case Elim():
-            return _type_check_inductive_elim(term, expected_ty, ctx)
+            inferred = _infer_inductive_elim(term, ctx)
+            return type_equal(expected_ty, inferred)
         case Univ(_):
             return isinstance(expected_ty, Univ)
 
