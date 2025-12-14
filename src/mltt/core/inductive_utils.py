@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from itertools import count, islice
+from itertools import islice
 from typing import Sequence, Any, TypeVar, Iterator
 
 from .ast import App, Ctor, I, Term, Lam, Pi, Var
@@ -135,32 +135,6 @@ def decompose_ctor_app(
     return None
 
 
-def instantiate_forward(
-    schema_tys: tuple[Term, ...],
-    actual_args: tuple[Term, ...],
-) -> tuple[Term, ...]:
-    """Instantiate a telescope of schemas with earlier arguments in order.
-
-    Each schema can refer to arguments bound before it; substitutions are
-    threaded forward so index bookkeeping stays consistent with de Bruijn
-    shifting.
-
-    Args:
-        schema_tys: Binder schemas ordered outermost to innermost.
-        actual_args: Actual arguments that fill those schemas in order.
-
-    Returns:
-        Instantiated binder types matching ``schema_tys`` arity.
-    """
-    out: list[Term] = []
-    for i, schema in enumerate(schema_tys):
-        inst = schema
-        for j in range(i):
-            inst = subst(inst, actual_args[j], i - j - 1)
-        out.append(inst)
-    return tuple(out)
-
-
 def instantiate_into(
     params: tuple[Term, ...], target: tuple[Term, ...]
 ) -> tuple[Term, ...]:
@@ -240,14 +214,6 @@ def instantiate_for_inductive(
     return instantiate_into((*shifted, *args), targets)
 
 
-def create_vars(
-    *telescopes: Sequence[Term], desc: bool = False
-) -> tuple[tuple[Var, ...], ...]:
-    total = sum(len(tel) for tel in telescopes)
-    c = count(total - 1, -1) if desc else count()
-    return tuple(tuple(Var(next(c)) for _ in tel) for tel in telescopes)
-
-
 def split_to_match(
     seq: Sequence[T], *shape: Sequence[Any]
 ) -> tuple[tuple[T, ...], ...]:
@@ -308,7 +274,6 @@ __all__ = [
     "decompose_lam",
     "decompose_pi",
     "instantiate_into",
-    "instantiate_forward",
     "match_inductive_application",
     "nested_lam",
     "nested_pi",
