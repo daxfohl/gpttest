@@ -13,16 +13,16 @@ from .ast import (
     Univ,
     Var,
 )
-from .debruijn import Ctx, shift, subst
+from .debruijn import Ctx, subst
 from .inductive_utils import (
     apply_term,
+    decompose_app,
+    decompose_lam,
+    decompose_pi,
+    instantiate_for_inductive,
     nested_pi,
     match_inductive_application,
-    decompose_app,
-    instantiate_into,
-    decompose_lam,
     nested_lam,
-    decompose_pi,
 )
 from .reduce import whnf, beta_head_step, beta_step
 from .reduce.normalize import normalize
@@ -74,11 +74,9 @@ def _expected_case_type(
     # fully-applied constructor to produce the case result type.
     binder_roles: list[tuple[str, int, Term | None]] = []
     arg_positions: list[int] = []
-    inductive_args = param_args + index_args
-    shifted_inductive_args = tuple(
-        shift(arg, len(inductive.index_types)) for arg in inductive_args
+    instantiated_arg_types = instantiate_for_inductive(
+        inductive, param_args, index_args, ctor.arg_types
     )
-    instantiated_arg_types = instantiate_into(shifted_inductive_args, ctor.arg_types)
 
     for idx, arg_ty in enumerate(instantiated_arg_types):
         arg_positions.append(len(binder_roles))
@@ -175,11 +173,9 @@ def _type_check_inductive_elim(
     for ctor, case in zip(ind.constructors, elim.cases, strict=True):
 
         # 3.1 instantiate arg types with actual params/indices
-        inductive_args = params_actual + indices_actual
-        shifted_inductive_args = tuple(
-            shift(arg, len(ind.index_types)) for arg in inductive_args
+        inst_arg_types = instantiate_for_inductive(
+            ind, params_actual, indices_actual, ctor.arg_types
         )
-        inst_arg_types = instantiate_into(shifted_inductive_args, ctor.arg_types)
 
         # 3.2 identify recursive ctor args and their indices
         recursive_positions = []
@@ -196,8 +192,12 @@ def _type_check_inductive_elim(
         m = len(inst_arg_types)
         r = len(recursive_positions)
         arg_vars = [Var(r + m - j - 1) for j in range(m)]
-        result_indices_inst = instantiate_into(
-            (*shifted_inductive_args, *arg_vars), ctor.result_indices
+        result_indices_inst = instantiate_for_inductive(
+            ind,
+            params_actual,
+            indices_actual,
+            ctor.result_indices,
+            args=tuple(arg_vars),
         )
 
         # 3.4 scrutinee-like value for this branch:
@@ -218,9 +218,24 @@ def _type_check_inductive_elim(
         # The codomain has all the arg_vars, and this Pi construction allows them to
         # reference the arg types without needing an actual value for them.
 
+        # # This is a dupe of the below test.
+        ctx2 = ctx
+        # Add binders (right-to-left as in de Bruijn)
+        for ty in (*inst_arg_types, *ih_types):
+            ctx2 = ctx2.extend(ty)
+        num_args = len(inst_arg_types) + len(ih_types)
+        args = tuple(
+            Var(num_args - 1 - k) for k in range(num_args)
+        )  # a1..an, ih1..ihm in order
+        applied = apply_term(case, *args)  # (((case a1) a2) ...)
+        if not type_check(normalize(applied), codomain, ctx2):
+            raise TypeError("Case for constructor has wrong type!")
+
         body = nested_pi(*inst_arg_types, *ih_types, return_ty=codomain)
         case_head, case_bindings = decompose_lam(case)
-        inst_case_bindings = instantiate_into(shifted_inductive_args, case_bindings)
+        inst_case_bindings = instantiate_for_inductive(
+            ind, params_actual, indices_actual, case_bindings
+        )
         case = nested_lam(*inst_case_bindings, body=case_head)
         if not type_check(case, body, ctx):
             raise TypeError(

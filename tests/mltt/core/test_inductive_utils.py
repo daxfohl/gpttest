@@ -1,5 +1,10 @@
-from mltt.core.ast import App, Var
-from mltt.core.inductive_utils import instantiate_params_indices
+from mltt.core.ast import App, I, Var
+from mltt.core.debruijn import shift
+from mltt.core.inductive_utils import (
+    instantiate_for_inductive,
+    instantiate_params_indices,
+    instantiate_into,
+)
 
 
 def test_instantiates_params_outermost_first() -> None:
@@ -46,3 +51,18 @@ def test_respects_offset_and_leaves_innermost_binders() -> None:
     instantiated = instantiate_params_indices(term, params, indices, offset=1)
 
     assert instantiated == App(Var(39), Var(0))
+
+
+def test_instantiate_for_inductive_matches_shifted_pattern() -> None:
+    ind = I(name="Dummy", param_types=(Var(0),), index_types=(Var(0), Var(0)))
+    params = (Var(10),)
+    indices = (Var(20), Var(21))
+    args = (Var(30),)
+    targets = (App(App(Var(3), Var(1)), Var(0)),)
+
+    shifted = tuple(shift(arg, len(ind.index_types)) for arg in (*params, *indices))
+    expected = instantiate_into((*shifted, *args), targets)
+
+    assert (
+        instantiate_for_inductive(ind, params, indices, targets, args=args) == expected
+    )

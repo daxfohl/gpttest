@@ -6,7 +6,7 @@ from itertools import count, islice
 from typing import Sequence, Any, TypeVar, Iterator
 
 from .ast import App, Ctor, I, Term, Lam, Pi, Var
-from .debruijn import subst
+from .debruijn import shift, subst
 
 T = TypeVar("T")
 
@@ -218,6 +218,24 @@ def instantiate_params_indices(
         j = offset + (len(indices) - 1 - idx)
         result = subst(result, index, j=j)
     return result
+
+
+def instantiate_for_inductive(
+    inductive: I,
+    params: tuple[Term, ...],
+    indices: tuple[Term, ...],
+    targets: tuple[Term, ...],
+    args: tuple[Term, ...] = (),
+) -> tuple[Term, ...]:
+    """Instantiate ``targets`` using the inductive param/index ordering.
+
+    Parameters are outermost, followed by indices, then optional constructor
+    arguments supplied via ``args``. Params/indices are shifted by the inductive
+    index arity so they remain stable when new binders are introduced.
+    """
+
+    shifted = tuple(shift(arg, len(inductive.index_types)) for arg in (*params, *indices))
+    return instantiate_into((*shifted, *args), targets)
 
 
 def create_vars(
