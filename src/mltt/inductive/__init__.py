@@ -6,4 +6,5 @@ __all__ = [
     "sigma",
     "tree",
     "vec",
+    "top_bottom",
 ]
