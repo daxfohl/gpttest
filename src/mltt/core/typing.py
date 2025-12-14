@@ -23,7 +23,7 @@ from .inductive_utils import (
     match_inductive_application,
     nested_lam,
 )
-from .reduce.normalize import normalize
+from .reduce.whnf import whnf
 
 
 def _ctor_type(ctor: Ctor) -> Term:
@@ -110,7 +110,7 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
     # 1. Infer type of scrutinee and extract params/indices.
     scrut = elim.scrutinee
     ind = elim.inductive
-    scrut_ty = normalize(infer_type(scrut, ctx))
+    scrut_ty = whnf(infer_type(scrut, ctx))
     scrut_ty_head, scrut_ty_bindings = decompose_app(scrut_ty)
     if scrut_ty_head is not ind:
         raise TypeError(
@@ -126,7 +126,7 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
     motive_applied = apply_term(motive, *indices_actual)
 
     # 2.2 Infer the type of this partially applied motive
-    motive_applied_ty = normalize(infer_type(motive_applied, ctx))
+    motive_applied_ty = whnf(infer_type(motive_applied, ctx))
     if not isinstance(motive_applied_ty, Pi):
         raise TypeError(
             "InductiveElim motive must take scrutinee after indices:\n"
@@ -145,7 +145,7 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
         )
 
     # 2.4 The motive codomain must be a universe
-    body_ty = normalize(motive_applied_ty.return_ty)
+    body_ty = whnf(motive_applied_ty.return_ty)
     if not isinstance(body_ty, Univ):
         raise TypeError(
             "InductiveElim motive codomain must be a universe:\n"
@@ -212,7 +212,7 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
             Var(num_args - 1 - k) for k in range(num_args)
         )  # a1..an, ih1..ihm in order
         applied = apply_term(case, *args)  # (((case a1) a2) ...)
-        if not type_check(normalize(applied), codomain, ctx2):
+        if not type_check(whnf(applied), codomain, ctx2):
             raise TypeError("Case for constructor has wrong type!")
 
         body = nested_pi(*inst_arg_types, *ih_types, return_ty=codomain)
@@ -239,23 +239,59 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
 
 
 def type_equal(t1: Term, t2: Term, ctx: Ctx | None = None) -> bool:
-    """Return ``True`` when ``t1`` and ``t2`` normalize to the same term."""
+    """Return ``True`` when ``t1`` and ``t2`` are convertible via head reduction."""
 
-    a, b = normalize(t1), normalize(t2)
-    ok = a == b
-    # if not ok:
-    #     raise ValueError(f"a={a}\nb={b}")
-    return ok
+    ctx = ctx or Ctx()
+    t1_whnf = whnf(t1)
+    t2_whnf = whnf(t2)
+
+    if t1_whnf == t2_whnf:
+        return True
+
+    match t1_whnf, t2_whnf:
+        case (Pi(arg1, body1), Pi(arg2, body2)):
+            return type_equal(arg1, arg2, ctx) and type_equal(
+                body1, body2, ctx.extend(arg1)
+            )
+        case (Lam(arg_ty1, body1), Lam(arg_ty2, body2)):
+            return type_equal(arg_ty1, arg_ty2, ctx) and type_equal(
+                body1, body2, ctx.extend(arg_ty1)
+            )
+        case (App(f1, a1), App(f2, a2)):
+            return type_equal(f1, f2, ctx) and type_equal(a1, a2, ctx)
+        case (
+            Elim(ind1, motive1, cases1, scrutinee1),
+            Elim(ind2, motive2, cases2, scrutinee2),
+        ) if (
+            ind1 is ind2
+        ):
+            if len(cases1) != len(cases2):
+                return False
+            return (
+                type_equal(motive1, motive2, ctx)
+                and all(
+                    type_equal(case1, case2, ctx)
+                    for case1, case2 in zip(cases1, cases2, strict=True)
+                )
+                and type_equal(scrutinee1, scrutinee2, ctx)
+            )
+        case (Ctor() as ctor1, Ctor() as ctor2):
+            return ctor1 is ctor2
+        case (I() as ind1, I() as ind2):
+            return ind1 is ind2
+
+    return False
 
 
 def _expect_universe(term: Term, ctx: Ctx) -> int:
     """Return the universe level of ``term`` or raise if it is not a type.
 
-    Normalizes and infers ``term`` so universe annotations reflect canonical
-    shapes, then enforces that the result is a ``Univ``.
+    Infers ``term`` and reduces it to weak head normal form so universe
+    annotations reflect canonical shapes, then enforces that the result is a
+    ``Univ``.
     """
     ty = infer_type(term, ctx)
-    ty = normalize(ty)
+    ty = whnf(ty)
     if not isinstance(ty, Univ):
         raise TypeError(f"Expected a universe, got {ty!r}")
     return ty.level
@@ -283,7 +319,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
         case App(f, a):
             # Application: infer the function, ensure it is a Pi, and that the
             # argument checks against its domain.
-            f_ty = infer_type(f, ctx)
+            f_ty = whnf(infer_type(f, ctx))
             if not isinstance(f_ty, Pi):
                 raise TypeError("Application of non-function")
             if not type_check(a, f_ty.arg_ty, ctx):
@@ -317,7 +353,7 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
     """Check that ``term`` has type ``ty`` under ``ctx``, raising on mismatches."""
 
     ctx = ctx or Ctx()
-    expected_ty = normalize(ty)
+    expected_ty = whnf(ty)
     match term:
         case Var(i):
             # A variable is well-typed only if a binder exists at that index.
@@ -342,7 +378,7 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
                 case _:
                     raise TypeError("Lambda expected to have Pi type")
         case App(f, a):
-            f_ty = infer_type(f, ctx)
+            f_ty = whnf(infer_type(f, ctx))
             if not isinstance(f_ty, Pi):
                 raise TypeError("Application of non-function")
             if not type_check(a, f_ty.arg_ty, ctx):
