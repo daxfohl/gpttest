@@ -10,4 +10,5 @@ __all__ = [
     "le",
     "all",
     "rtc",
+    "sorted",
 ]
