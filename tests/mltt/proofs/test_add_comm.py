@@ -6,7 +6,9 @@ from mltt.inductive.nat import NatType, Succ, Zero, add_terms, numeral
 from mltt.proofs.add_comm import (
     add_zero_left,
     add_zero_right,
-    succ_add, add_succ_right, add_comm,
+    succ_add,
+    add_succ_right,
+    add_comm,
 )
 
 
@@ -53,7 +55,7 @@ def test_add_succ_right_typechecks() -> None:
             Succ(add_terms(Var(1), Var(0))),
         ),
     )
-    # assert type_equal(infer_type(lemma), expected_ty)
+    assert type_equal(infer_type(lemma), expected_ty)
 
 
 def test_add_comm_typechecks_and_examples() -> None:

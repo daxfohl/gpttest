@@ -5,8 +5,8 @@ from __future__ import annotations
 from itertools import islice
 from typing import Sequence, Any, TypeVar, Iterator
 
-from .ast import App, Ctor, I, Term, Lam, Pi
-from .debruijn import shift, subst
+from .ast import App, Ctor, Term, Lam, Pi
+from .debruijn import subst
 
 T = TypeVar("T")
 
@@ -135,9 +135,7 @@ def decompose_ctor_app(
     return None
 
 
-def instantiate_into(
-    params: tuple[Term, ...], target: tuple[Term, ...]
-) -> tuple[Term, ...]:
+def instantiate_into(*params: Term, target: tuple[Term, ...]) -> tuple[Term, ...]:
     """Instantiate ``target`` types with ``params`` inserted outermost-first.
 
     Args:
@@ -158,62 +156,6 @@ def instantiate_into(
     return tuple(output)
 
 
-def instantiate_params_indices(
-    term: Term,
-    params: tuple[Term, ...],
-    indices: tuple[Term, ...],
-    offset: int = 0,
-) -> Term:
-    """Substitute ``params``/``indices`` (params outermost, indices next).
-
-    Parameters live outermost, followed by indices; both are ordered from
-    outer to inner. ``offset`` lets callers skip over constructor arguments
-    already in scope. Substitutions run from outermost to innermost so De
-    Bruijn shifts line up.
-
-    Args:
-        term: Target term whose variables are instantiated.
-        params: Parameter terms, ordered outermost to innermost.
-        indices: Index terms, ordered outermost to innermost.
-        offset: Number of binders already in scope (e.g., constructor args).
-
-    Returns:
-        The instantiated term.
-    """
-    result = term
-    for idx, param in enumerate(params):
-        j = offset + len(indices) + (len(params) - 1 - idx)
-        # j=0+2+2-1-0=3
-        # j=0+2+2-1-1=2
-        result = subst(result, param, j=j)
-    for idx, index in enumerate(indices):
-        # j=0+2-1-0=1
-        # j=0+2-1-1=0
-        j = offset + (len(indices) - 1 - idx)
-        result = subst(result, index, j=j)
-    return result
-
-
-def instantiate_for_inductive(
-    inductive: I,
-    params: tuple[Term, ...],
-    indices: tuple[Term, ...],
-    targets: tuple[Term, ...],
-    args: tuple[Term, ...] = (),
-) -> tuple[Term, ...]:
-    """Instantiate ``targets`` using the inductive param/index ordering.
-
-    Parameters are outermost, followed by indices, then optional constructor
-    arguments supplied via ``args``. Params/indices are shifted by the inductive
-    index arity so they remain stable when new binders are introduced.
-    """
-
-    shifted = tuple(
-        shift(arg, len(inductive.index_types)) for arg in (*params, *indices)
-    )
-    return instantiate_into((*shifted, *args), targets)
-
-
 def split_to_match(
     seq: Sequence[T], *shape: Sequence[Any]
 ) -> tuple[tuple[T, ...], ...]:
@@ -223,29 +165,6 @@ def split_to_match(
     """
     seq_iter: Iterator[T] = iter(seq)
     return tuple(tuple(islice(seq_iter, len(sublist))) for sublist in shape)
-
-
-def match_inductive_application(
-    term: Term, inductive: I
-) -> tuple[tuple[Term, ...], tuple[Term, ...]] | None:
-    """Return param/index args when ``term`` is an applied ``inductive``.
-
-    Matches only fully-applied occurrences (same param/index arity).
-
-    Args:
-        term: Candidate inductive application.
-        inductive: Inductive head to match against.
-
-    Returns:
-        ``(params, indices)`` when fully applied, otherwise ``None``.
-    """
-    head, args = decompose_app(term)
-    param_count = len(inductive.param_types)
-    index_count = len(inductive.index_types)
-    total = param_count + index_count
-    if head is inductive and len(args) == total:
-        return args[:param_count], args[param_count:]
-    return None
 
 
 def ctor_index(ctor: Ctor) -> int:
@@ -274,7 +193,6 @@ __all__ = [
     "decompose_lam",
     "decompose_pi",
     "instantiate_into",
-    "match_inductive_application",
     "nested_lam",
     "nested_pi",
     "split_to_match",

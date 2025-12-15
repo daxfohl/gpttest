@@ -13,16 +13,16 @@ from .ast import (
     Univ,
     Var,
 )
-from .debruijn import Ctx, subst
+from .debruijn import Ctx, subst, shift
 from .inductive_utils import (
     apply_term,
     decompose_app,
     decompose_lam,
-    instantiate_for_inductive,
     nested_pi,
-    match_inductive_application,
     nested_lam,
+    instantiate_into,
 )
+from .reduce import normalize
 from .reduce.whnf import whnf
 
 
@@ -50,59 +50,6 @@ def _ctor_type(ctor: Ctor) -> Term:
         *ctor.arg_types,
         return_ty=apply_term(ctor.inductive, *param_vars, *ctor.result_indices),
     )
-
-
-def _expected_case_type(
-    inductive: I,
-    param_args: tuple[Term, ...],
-    index_args: tuple[Term, ...],
-    motive: Term,
-    ctor: Ctor,
-) -> Term:
-    """Return the required case type for ``ctor`` under given params/indices.
-
-    The case receives one binder per constructor argument, plus an induction
-    hypothesis for each recursive argument that matches the current params.
-    The case ultimately returns ``motive indices (ctor params indices args)``.
-    """
-    # Build the Pi type the case must inhabit for this constructor.
-    # We interleave constructor arguments with any recursive occurrences
-    # (marking those as needing an IH). The motive is applied to the
-    # fully-applied constructor to produce the case result type.
-    binder_roles: list[tuple[str, int, Term | None]] = []
-    arg_positions: list[int] = []
-    instantiated_arg_types = instantiate_for_inductive(
-        inductive, param_args, index_args, ctor.arg_types
-    )
-
-    for idx, arg_ty in enumerate(instantiated_arg_types):
-        arg_positions.append(len(binder_roles))
-        binder_roles.append(("arg", idx, arg_ty))
-        match match_inductive_application(arg_ty, inductive):
-            case (ctor_params, _):
-                if len(ctor_params) == len(param_args) and all(
-                    type_equal(p, a) for p, a in zip(ctor_params, param_args)
-                ):
-                    binder_roles.append(("ih", idx, None))
-            case _:
-                pass
-
-    total_binders = len(binder_roles)
-    ctor_args = tuple(Var(total_binders - 1 - arg_pos) for arg_pos in arg_positions)
-    target = apply_term(
-        motive, *index_args, apply_term(ctor, *param_args, *index_args, *ctor_args)
-    )
-
-    binder_types: list[Term] = []
-    for pos, (role, arg_idx, maybe_arg_ty) in enumerate(binder_roles):
-        if role == "arg":
-            assert maybe_arg_ty is not None
-            binder_types.append(maybe_arg_ty)
-        else:
-            index = pos - 1 - arg_idx
-            binder_types.append(apply_term(motive, *index_args, Var(index)))
-
-    return nested_pi(*binder_types, return_ty=target)
 
 
 def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
@@ -157,8 +104,8 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
     for ctor, case in zip(ind.constructors, elim.cases, strict=True):
 
         # 3.1 instantiate arg types with actual params/indices
-        inst_arg_types = instantiate_for_inductive(
-            ind, params_actual, indices_actual, ctor.arg_types
+        inst_arg_types = instantiate_into(
+            *params_actual, *indices_actual, target=ctor.arg_types
         )
 
         # 3.2 identify recursive ctor args and their indices
@@ -175,13 +122,12 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
         # 3.3 compute result indices for this ctor
         m = len(inst_arg_types)
         r = len(recursive_positions)
-        arg_vars = [Var(r + m - j - 1) for j in range(m)]
-        result_indices_inst = instantiate_for_inductive(
-            ind,
-            params_actual,
-            indices_actual,
-            ctor.result_indices,
-            args=tuple(arg_vars),
+        arg_vars = tuple(Var(r + m - j - 1) for j in range(m))
+        result_indices_inst = instantiate_into(
+            *params_actual, *indices_actual, *arg_vars, target=ctor.result_indices
+        )
+        result_indices_inst = tuple(
+            shift(r, len(indices_actual + arg_vars)) for r in result_indices_inst
         )
 
         # 3.4 scrutinee-like value for this branch:
@@ -199,8 +145,6 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
         ]
 
         # 3.7 Add binders, right-to-left
-        # The codomain has all the arg_vars, and this Pi construction allows them to
-        # reference the arg types without needing an actual value for them.
 
         # # This is a dupe of the below test.
         ctx2 = ctx
@@ -213,17 +157,21 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
         )  # a1..an, ih1..ihm in order
         applied = apply_term(case, *args)  # (((case a1) a2) ...)
         if not type_check(whnf(applied), codomain, ctx2):
-            raise TypeError("Case for constructor has wrong type!")
+            raise TypeError(
+                f"Case for constructor has wrong type1\n{ctor}\n{normalize(case)}\n{normalize(applied)}\n{normalize(codomain)}\n{[normalize(c.ty) for c in ctx2]}"
+            )
 
+        # The codomain has all the arg_vars, and this Pi construction allows them to
+        # reference the arg types without needing an actual value for them.
         body = nested_pi(*inst_arg_types, *ih_types, return_ty=codomain)
         case_head, case_bindings = decompose_lam(case)
-        inst_case_bindings = instantiate_for_inductive(
-            ind, params_actual, indices_actual, case_bindings
+        inst_case_bindings = instantiate_into(
+            *params_actual, *indices_actual, target=case_bindings
         )
         case = nested_lam(*inst_case_bindings, body=case_head)
         if not type_check(case, body, ctx):
             raise TypeError(
-                f"Case for constructor has wrong type\n{ctor}\n{case}\n{body}\n{ctx}"
+                f"Case for constructor has wrong type2\n{ctor}\n{case}\n{body}\n{ctx}"
             )
 
     u = _expect_universe(motive_applied_ty.return_ty, ctx)  # cod should be Univ(u)

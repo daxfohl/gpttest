@@ -62,7 +62,6 @@ def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
 
     A1 = shift(A, 1)
     x1 = shift(x, 1)
-    A2 = shift(A, 2)
     B2 = shift(B, 2)
     f2 = shift(f, 2)
     x2 = shift(x, 2)
