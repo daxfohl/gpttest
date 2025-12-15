@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ..core.ast import Lam, Term, Var
+from ..core.debruijn import shift
 from ..core.inductive_utils import nested_lam, apply_term
 from ..inductive.eq import Refl, Id, ap, trans, sym
 from ..inductive.nat import NatType, Succ, Zero, add_terms, add_n_0, NatRec
@@ -47,21 +48,21 @@ def add_succ_right() -> Term:
     )
 
     # m = 0 ⇒ both sides reduce to Succ n
-    base = Refl(NatType(), Succ(Var(1)))
+    base = Refl(NatType(), Succ(Var(0)))
 
     # In the step, the context after introducing k and ih is [ih, k, m, n].
     # ih : add (Succ k) (Succ n) = Succ (add (Succ k) n)
     # ap Succ ih witnesses the step for Succ k.
     step = nested_lam(
         NatType(),  # k
-        apply_term(P, Var(0)),  # ih : add k (Succ n) = Succ (add k n)
+        apply_term(shift(P, 1), Var(0)),  # ih : P k, with n still referring to n
         body=ap(
             f=Lam(NatType(), Succ(Var(0))),
             A=NatType(),
             B0=NatType(),
-            x=add_terms(Var(1), Succ(Var(3))),
-            y=Succ(add_terms(Var(1), Var(3))),
-            p=Var(0),
+            x=add_terms(Var(1), Succ(Var(3))),  # add k (Succ n)
+            y=Succ(add_terms(Var(1), Var(3))),  # Succ (add k n)
+            p=Var(0),  # ih
         ),
     )
 
@@ -69,9 +70,9 @@ def add_succ_right() -> Term:
         NatType(),  # n
         NatType(),  # m
         body=NatRec(
-            P=P,
-            base=base,
-            step=step,
+            P=shift(P, 1),         # <-- critical
+            base=shift(base, 1),   # <-- critical
+            step=shift(step, 1),   # <-- critical
             n=Var(0),  # recurse on m
         ),
     )

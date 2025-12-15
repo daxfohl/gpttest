@@ -1,5 +1,6 @@
 from mltt.core.ast import Var
 from mltt.core.inductive_utils import nested_pi, apply_term
+from mltt.core.reduce import normalize
 from mltt.core.typing import infer_type, type_equal, type_check
 from mltt.inductive.eq import Id
 from mltt.inductive.nat import NatType, Succ, Zero, add_terms, numeral
@@ -47,12 +48,13 @@ def test_succ_add_typechecks() -> None:
 def test_add_succ_right_typechecks() -> None:
     lemma = add_succ_right()
     expected_ty = nested_pi(
-        NatType(),
-        NatType(),
+        NatType(),  # n
+        NatType(),  # m
         return_ty=Id(
             NatType(),
-            add_terms(Var(1), Succ(Var(0))),
-            Succ(add_terms(Var(1), Var(0))),
+            # this is add m (Succ n) in your definitional encoding:
+            add_terms(Var(0), Succ(Var(1))),  # note the swap
+            Succ(add_terms(Var(0), Var(1))),
         ),
     )
     assert type_equal(infer_type(lemma), expected_ty)
