@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from .eq import Id, Refl, ap
 from ..core.ast import App, Ctor, Elim, I, Lam, Term, Var
 from ..core.inductive_utils import apply_term, nested_lam
 
@@ -76,35 +75,3 @@ def add_terms(lhs: Term, rhs: Term) -> Term:
     """Build ``add lhs rhs`` as nested applications."""
 
     return apply_term(add(), lhs, rhs)
-
-
-def add_n_0() -> Term:
-    """Proof that n + 0 == n"""
-    return Lam(
-        NatType(),  # n
-        NatRec(
-            # motive P(n) = Id Nat (add n 0) n
-            P=Lam(
-                NatType(),
-                Id(NatType(), add_terms(Var(0), Zero()), Var(0)),
-            ),
-            # base: add 0 0 ≡ 0  ⇒ refl
-            base=Refl(ty=NatType(), t=Zero()),
-            # step: ih : Id Nat (add k 0) k  ⇒ need Id Nat (add (Succ k) 0) (Succ k)
-            # definitional eqn: add (Succ k) 0 ≡ Succ (add k 0)
-            # so use ap Succ ih : Id Nat (Succ (add k 0)) (Succ k)
-            step=nested_lam(
-                NatType(),  # k
-                Id(NatType(), add_terms(Var(0), Zero()), Var(0)),  # ih
-                body=ap(
-                    f=Lam(NatType(), Succ(Var(0))),  # Succ as a function
-                    A=NatType(),
-                    B0=NatType(),
-                    x=add_terms(Var(1), Zero()),  # add k 0
-                    y=Var(1),  # k
-                    p=Var(0),  # ih
-                ),
-            ),
-            n=Var(0),  # recurse on n
-        ),
-    )
