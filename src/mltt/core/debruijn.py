@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Iterator
+from typing import Iterator
 
 from .ast import (
     App,
@@ -27,7 +27,40 @@ class CtxEntry:
 
 @dataclass(frozen=True)
 class Ctx:
-    """Immutable context wrapper with convenient accessors."""
+    """
+    Typing context for de Bruijn-indexed terms.
+
+    Representation:
+        The context is stored as a sequence of entries, where index 0 refers to
+        the *innermost (most recently introduced) binder*, index 1 to the next
+        outer binder, and so on.
+
+    Invariant:
+        Every stored entry type is a well-scoped term in the *entire current
+        context*. In particular, when a new binder is added, all existing entry
+        types (and the new binder type itself) are shifted so that references to
+        previously bound variables continue to point at the same syntactic
+        entities after extension.
+
+    Extension discipline:
+        `prepend(t)` prepends a new binder at index 0 and shifts all stored types
+        by 1. `prepend(t0, t1, ..., tn)` is equivalent to repeated single-binder
+        extension:
+            prepend(t0, t1, ..., tn) == prepend(t0).prepend(t1)...prepend(tn)
+        where binder types are ordered outermost → innermost, matching the order
+        of arguments to `nested_pi` / `nested_lam`.
+
+    Interpretation:
+        Given a context Γ and an index k, `Var(k)` refers to the binder whose
+        type is stored at Γ[k]. The shifting performed during extension ensures
+        that this interpretation is stable across context growth.
+
+    Notes:
+        This design chooses to eagerly maintain well-scoped entry types under
+        extension, rather than interpreting entry types in a relative tail
+        context. This simplifies lookup and type checking at the cost of extra
+        shifting during context extension.
+    """
 
     entries: tuple[CtxEntry, ...] = ()
 
@@ -40,19 +73,36 @@ class Ctx:
     def __getitem__(self, idx: int) -> CtxEntry:
         return self.entries[idx]
 
-    def extend(self, ty: Term) -> Ctx:
-        """Extend ``ctx`` with ``ty`` while keeping indices for outer vars stable.
+    def prepend_each(self, *tys: Term) -> Ctx:
+        """Prepend binders to the context.
 
-        The new binder lives at index 0; every stored type, including ``ty``, is
-        shifted by one so references to outer binders keep pointing at the same
-        definitions after widening the context.
+        Args:
+            tys: Binder types ordered outermost → innermost, like nested_pi/nested_lam.
+
+        Semantics:
+            prepend(t0, t1, ..., tk) == prepend(t0).prepend(t1)...prepend(tk)
+
+        De Bruijn invariant:
+            The newest binder is at index 0. All stored entry types are maintained
+            as well-scoped in the resulting (extended) context by shifting as needed.
         """
 
-        prepended = (CtxEntry(ty), *self.entries)
-        return Ctx.as_ctx(CtxEntry(shift(entry.ty, 1)) for entry in prepended)
+        k = len(tys)
+        # Shift existing entries by k because k new binders are inserted in front
+        existing = ((shift(entry.ty, k)) for entry in self)
+
+        # Now compute the new entries exactly as repeated prepend would.
+        # Insert from innermost to outermost (reverse order), and shift each ty by 1,
+        # then 2, ... as it gets placed under previously inserted binders.
+        tys = ((shift(ty, depth)) for depth, ty in enumerate(reversed(tys), start=1))
+
+        # new_entries currently is [innermost shifted by1, ..., outermost shifted by k]
+        # but those should appear *before* existing entries, and in the same order
+        # as ctx.entries (index 0 is innermost), so keep as built:
+        return Ctx.as_ctx(*tys, *existing)
 
     @staticmethod
-    def as_ctx(ctx: Iterable[CtxEntry | Term]) -> Ctx:
+    def as_ctx(*ctx: CtxEntry | Term) -> Ctx:
         """Coerce a sequence of entries or terms into a ``Ctx`` of ``CtxEntry``."""
         return Ctx(tuple(Ctx.as_ctx_entry(entry) for entry in ctx))
 
@@ -61,6 +111,10 @@ class Ctx:
         """Coerce an entry or term into a ``CtxEntry``."""
 
         return entry if isinstance(entry, CtxEntry) else CtxEntry(entry)
+
+    @property
+    def types(self) -> tuple[Term, ...]:
+        return tuple(e.ty for e in self.entries)
 
 
 def shift(term: Term, by: int, cutoff: int = 0) -> Term:

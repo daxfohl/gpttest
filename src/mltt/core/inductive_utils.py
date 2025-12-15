@@ -6,7 +6,7 @@ from itertools import islice
 from typing import Sequence, Any, TypeVar, Iterator
 
 from .ast import App, Ctor, Term, Lam, Pi
-from .debruijn import subst
+from .debruijn import subst, shift
 
 T = TypeVar("T")
 
@@ -135,6 +135,97 @@ def decompose_ctor_app(
     return None
 
 
+def instantiate_ctor_arg_types(
+    ctor_arg_types: tuple[Term, ...],
+    params_actual: tuple[Term, ...],
+    indices_actual: tuple[Term, ...],
+) -> tuple[Term, ...]:
+    p = len(params_actual)
+    q = len(indices_actual)
+    out: list[Term] = []
+
+    for i, schema in enumerate(ctor_arg_types):
+        t = schema
+
+        # substitute params (outermost to innermost) at descending indices
+        # param0 is farthest: index = i + q + (p-1)
+        for s in range(p):
+            j = i + q + (p - 1 - s)
+            t = subst(t, shift(params_actual[s], i), j)
+
+        # substitute indices (outermost to innermost) at descending indices
+        # index0 is farthest among indices: index = i + (q-1)
+        for s in range(q):
+            j = i + (q - 1 - s)
+            t = subst(t, shift(indices_actual[s], i), j)
+
+        out.append(t)
+
+    return tuple(out)
+
+
+def instantiate_ctor_result_indices(
+    result_indices: tuple[Term, ...],
+    params_actual: tuple[Term, ...],
+    indices_actual: tuple[Term, ...],
+    m: int,  # number of ctor args (fields)
+) -> tuple[Term, ...]:
+    """
+    Instantiate ctor.result_indices schemas.
+
+    The schema context is (params)(indices)(args). We want an output living in
+    Γ,args, so we eliminate the index binders first (which shifts down Var refs),
+    then substitute params.
+    """
+    p = len(params_actual)
+    q = len(indices_actual)
+
+    out: list[Term] = []
+    for schema in result_indices:
+        t = schema
+
+        # 1) Eliminate indices (innermost-first is safest; here they start at m)
+        # After this, the schema no longer has index binders.
+        for s in range(q):
+            j = m + (q - 1 - s)  # from m+q-1 down to m
+            t = subst(t, shift(indices_actual[s], m), j)
+
+        # 2) Now eliminate params. After removing q indices, params now sit above args at offset m.
+        for s in range(p):
+            j = m + (p - 1 - s)  # from m+p-1 down to m
+            t = subst(t, shift(params_actual[s], m), j)
+
+        out.append(t)
+
+    return tuple(out)
+
+
+# def instantiate_ctor_result_indices(
+#     result_indices: tuple[Term, ...],
+#     params_actual: tuple[Term, ...],
+#     indices_actual: tuple[Term, ...],
+#     m: int,  # number of ctor args
+# ) -> tuple[Term, ...]:
+#     p = len(params_actual)
+#     q = len(indices_actual)
+#
+#     out: list[Term] = []
+#     for schema in result_indices:
+#         t = schema
+#
+#         for s in range(p):
+#             j = m + q + (p - 1 - s)
+#             t = subst(t, shift(params_actual[s], m), j)
+#
+#         for s in range(q):
+#             j = m + (q - 1 - s)
+#             t = subst(t, shift(indices_actual[s], m), j)
+#
+#         out.append(t)
+#
+#     return tuple(out)
+
+
 def instantiate_into(*params: Term, target: tuple[Term, ...]) -> tuple[Term, ...]:
     """Instantiate ``target`` types with ``params`` inserted outermost-first.
 
@@ -196,4 +287,6 @@ __all__ = [
     "nested_lam",
     "nested_pi",
     "split_to_match",
+    "instantiate_ctor_arg_types",
+    "instantiate_ctor_result_indices",
 ]

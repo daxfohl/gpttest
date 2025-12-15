@@ -8,6 +8,7 @@ from ..inductive_utils import (
     ctor_index,
     decompose_ctor_app,
     decompose_app,
+    instantiate_ctor_arg_types,
 )
 
 
@@ -19,26 +20,38 @@ def _iota_constructor(
     args: tuple[Term, ...],
 ) -> Term:
     """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
-    param_count = len(inductive.param_types)
-    index_count = len(inductive.index_types)
-    index = ctor_index(ctor)
-    case = cases[index]
-    ctor_args = args[param_count + index_count :]
+    p = len(inductive.param_types)
+    q = len(inductive.index_types)
 
+    params_actual = args[:p]
+    indices_actual = args[
+        p : p + q
+    ]  # index args supplied to ctor (may differ from result indices!)
+    ctor_args = args[p + q :]  # constructor fields (length m)
+
+    case = cases[ctor_index(ctor)]
+
+    # Instantiate ctor field types so we can detect which fields are recursive.
+    inst_arg_types = instantiate_ctor_arg_types(
+        ctor.arg_types, params_actual, indices_actual
+    )
+
+    # Build IHs in the same order you used when you built ih_types for the telescope.
     ihs: list[Term] = []
-    for arg_term, arg_ty in zip(ctor_args, ctor.arg_types, strict=True):
-        head, head_args = decompose_app(arg_ty)
-        if head is ctor.inductive:
-            # only works if after substituting param_args and index_args into ctor_arg_types.
-            # assert head_args[:param_count] == param_args, f"{arg_ty}: {head_args[:param_count]!r} == {param_args}"
-            ih = Elim(
-                inductive=ctor.inductive,
-                motive=motive,
-                cases=cases,
-                scrutinee=arg_term,
+    for field_term, field_ty in zip(ctor_args, inst_arg_types, strict=True):
+        head, _ = decompose_app(field_ty)
+        if head is inductive:
+            ihs.append(
+                Elim(
+                    inductive=inductive,
+                    motive=motive,
+                    cases=cases,
+                    scrutinee=field_term,
+                )
             )
-            ihs.append(ih)
 
+    # Iota result: apply case to ctor fields and IHs (and nothing else),
+    # because that is exactly how you type-checked the case telescope.
     return apply_term(case, *ctor_args, *ihs)
 
 

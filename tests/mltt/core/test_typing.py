@@ -13,7 +13,7 @@ def test_infer_var() -> None:
     with pytest.raises(TypeError, match="Unbound variable"):
         assert infer_type(Var(0))
     t = NatType()
-    assert infer_type(Var(0), Ctx.as_ctx([t])) == t
+    assert infer_type(Var(0), Ctx.as_ctx(t)) == t
 
 
 def test_infer_lam() -> None:
@@ -41,7 +41,7 @@ def test_infer_lam() -> None:
 
 def test_infer_lam_ctx() -> None:
     def infer(t: Term) -> Term:
-        return infer_type(t, Ctx.as_ctx([Univ(100)]))
+        return infer_type(t, Ctx.as_ctx(Univ(100)))
 
     assert infer(Lam(NatType(), Var(0))) == Pi(NatType(), NatType())
     assert infer(Lam(NatType(), Zero())) == Pi(NatType(), NatType())
@@ -115,7 +115,7 @@ def test_two_level_lambda_type_refers_to_previous_binder() -> None:
           body = Lam(ty = Var(0),   # A
                      body = Var(0))) # x
 
-    This only type-checks if, when we extend the context with A and then x:A,
+    This only type-checks if, when we prepend the context with A and then x:A,
     the internal context extension + shifting are correct.
     """
 

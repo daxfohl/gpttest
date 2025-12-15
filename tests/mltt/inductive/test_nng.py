@@ -10,7 +10,7 @@ def test_refl_proves_succ_self_equality() -> None:
     witness = Succ(Var(0))
     ty = NatType()
     proof = Refl(ty, witness)
-    ctx = Ctx.as_ctx([ty])
+    ctx = Ctx.as_ctx(ty)
     assert type_check(proof, Id(ty, witness, witness), ctx)
 
 

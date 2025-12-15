@@ -17,10 +17,9 @@ from .debruijn import Ctx, subst, shift
 from .inductive_utils import (
     apply_term,
     decompose_app,
-    decompose_lam,
     nested_pi,
-    nested_lam,
-    instantiate_into,
+    instantiate_ctor_arg_types,
+    instantiate_ctor_result_indices,
 )
 from .reduce import normalize
 from .reduce.whnf import whnf
@@ -104,8 +103,8 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
     for ctor, case in zip(ind.constructors, elim.cases, strict=True):
 
         # 3.1 instantiate arg types with actual params/indices
-        inst_arg_types = instantiate_into(
-            *params_actual, *indices_actual, target=ctor.arg_types
+        inst_arg_types = instantiate_ctor_arg_types(
+            ctor.arg_types, params_actual, indices_actual
         )
 
         # 3.2 identify recursive ctor args and their indices
@@ -122,56 +121,40 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
         # 3.3 compute result indices for this ctor
         m = len(inst_arg_types)
         r = len(recursive_positions)
-        arg_vars = tuple(Var(r + m - j - 1) for j in range(m))
-        result_indices_inst = instantiate_into(
-            *params_actual, *indices_actual, *arg_vars, target=ctor.result_indices
-        )
-        result_indices_inst = tuple(
-            shift(r, len(indices_actual + arg_vars)) for r in result_indices_inst
+        arg_vars = tuple(Var(j) for j in reversed(range(m)))
+        result_indices_inst = instantiate_ctor_result_indices(
+            ctor.result_indices, params_actual, indices_actual, m
         )
 
         # 3.4 scrutinee-like value for this branch:
         #     C params_actual result_indices args
-        scrut_like = apply_term(ctor, *params_actual, *result_indices_inst, *arg_vars)
+        scrut_like = apply_term(ctor, *params_actual, *indices_actual, *arg_vars)
 
-        # 3.5 branch codomain: motive result_indices scrut_like
-        codomain = apply_term(motive, *result_indices_inst, scrut_like)
+        # # 3.5 branch codomain: motive result_indices scrut_like
+        codomain_base = apply_term(motive, *result_indices_inst, scrut_like)
+        codomain = shift(
+            codomain_base, r, cutoff=0
+        )  # because r IH binders are inserted inside
 
         # 3.6 Build IH types
         # ih_j : motive indices_j arg_j
-        ih_types = [
-            apply_term(motive, *indices_j, Var(ri + m - j - 1))
-            for ri, (j, indices_j) in enumerate(recursive_positions)
+        # in Γ, args (only)
+        ih_base = [
+            apply_term(motive, *indices_field, Var(m - 1 - j))
+            for (j, indices_field) in recursive_positions
         ]
+        # IH types in Γ, args, ihs (shift each by number of later IH binders)
+        ih_types = [shift(ih_base[ri], r - 1 - ri, cutoff=0) for ri in range(r)]
 
-        # 3.7 Add binders, right-to-left
-
-        # # This is a dupe of the below test.
-        ctx2 = ctx
-        # Add binders (right-to-left as in de Bruijn)
-        for ty in (*inst_arg_types, *ih_types):
-            ctx2 = ctx2.extend(ty)
-        num_args = len(inst_arg_types) + len(ih_types)
-        args = tuple(
-            Var(num_args - 1 - k) for k in range(num_args)
-        )  # a1..an, ih1..ihm in order
-        applied = apply_term(case, *args)  # (((case a1) a2) ...)
-        if not type_check(whnf(applied), codomain, ctx2):
+        # Add binders left-to-right (outermost → innermost).
+        telescope = (*inst_arg_types, *ih_types)
+        case_ctx = ctx.prepend_each(*telescope)
+        tel_len = len(telescope)
+        case_args = tuple(Var(tel_len - 1 - k) for k in range(tel_len))  # a0...ih0...
+        applied = apply_term(case, *case_args)  # (((case a0) a1) ...)
+        if not type_check(whnf(applied), codomain, case_ctx):
             raise TypeError(
-                f"Case for constructor has wrong type1\n{ctor}\n{normalize(case)}\n{normalize(applied)}\n{normalize(codomain)}\n{[normalize(c.ty) for c in ctx2]}"
-            )
-
-        # The codomain has all the arg_vars, and this Pi construction allows them to
-        # reference the arg types without needing an actual value for them.
-        body = nested_pi(*inst_arg_types, *ih_types, return_ty=codomain)
-        case_head, case_bindings = decompose_lam(case)
-        inst_case_bindings = instantiate_into(
-            *params_actual, *indices_actual, target=case_bindings
-        )
-        case = nested_lam(*inst_case_bindings, body=case_head)
-        if not type_check(case, body, ctx):
-            raise TypeError(
-                f"Case for constructor has wrong type2\n{ctor}\n{case}\n{body}\n{ctx}"
+                f"Case for constructor has wrong type1\n{ctor}\n{normalize(case)}\n{normalize(applied)}\n{normalize(codomain)}\n{[normalize(e.ty) for e in case_ctx]}"
             )
 
     u = _expect_universe(motive_applied_ty.return_ty, ctx)  # cod should be Univ(u)
@@ -179,11 +162,9 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
     # target type is P i⃗_actual scrut
     target_ty = App(motive_applied, scrut)
 
-    # Optional: sanity check target_ty really is a type in Type u (or ≤ u with cumulativity)
+    # sanity check target_ty really is a type in Type u (or ≤ u with cumulativity)
     _ = _expect_universe(infer_type(target_ty, ctx), ctx)
 
-    # The actual “too small” check:
-    # require u >= ℓ  (or whatever your universe discipline is)
     if u < ind.level:
         raise TypeError("Eliminator motive returns too small a universe")
 
@@ -203,11 +184,11 @@ def type_equal(t1: Term, t2: Term, ctx: Ctx | None = None) -> bool:
     match t1_whnf, t2_whnf:
         case (Pi(arg1, body1), Pi(arg2, body2)):
             return type_equal(arg1, arg2, ctx) and type_equal(
-                body1, body2, ctx.extend(arg1)
+                body1, body2, ctx.prepend_each(arg1)
             )
         case (Lam(arg_ty1, body1), Lam(arg_ty2, body2)):
             return type_equal(arg_ty1, arg_ty2, ctx) and type_equal(
-                body1, body2, ctx.extend(arg_ty1)
+                body1, body2, ctx.prepend_each(arg_ty1)
             )
         case (App(f1, a1), App(f2, a2)):
             return type_equal(f1, f2, ctx) and type_equal(a1, a2, ctx)
@@ -266,7 +247,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
                 raise TypeError(f"Unbound variable {i}")
         case Lam(arg_ty, body):
             # Lambdas infer to Pis: infer the body under an extended context.
-            body_ty = infer_type(body, ctx.extend(arg_ty))
+            body_ty = infer_type(body, ctx.prepend_each(arg_ty))
             return Pi(arg_ty, body_ty)
         case App(f, a):
             # Application: infer the function, ensure it is a Pi, and that the
@@ -282,7 +263,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
         case Pi(arg_ty, body):
             # Pi formation: both sides must be types; universe level is max.
             arg_level = _expect_universe(arg_ty, ctx)
-            body_level = _expect_universe(body, ctx.extend(arg_ty))
+            body_level = _expect_universe(body, ctx.prepend_each(arg_ty))
             return Univ(max(arg_level, body_level))
         case Univ(level):
             return Univ(level + 1)
@@ -291,7 +272,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             # telescope (params then indices) ending in the inductive's level.
             for b in term.all_binders:
                 _expect_universe(b, ctx)
-                ctx = ctx.extend(b)
+                ctx = ctx.prepend_each(b)
             return nested_pi(*term.all_binders, return_ty=Univ(term.level))
         case Ctor():
             return _ctor_type(term)
@@ -326,7 +307,7 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
                             f"arg_ty:{arg_ty}\n"
                             f"dom: {dom}\n"
                         )
-                    return type_check(body, cod, ctx.extend(arg_ty))
+                    return type_check(body, cod, ctx.prepend_each(arg_ty))
                 case _:
                     raise TypeError("Lambda expected to have Pi type")
         case App(f, a):
