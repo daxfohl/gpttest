@@ -28,24 +28,21 @@ from .reduce.whnf import whnf
 def _ctor_type(ctor: Ctor) -> Term:
     """Compute the dependent function type of a constructor.
 
-    The resulting Pi-tower has parameters outermost, then indices, then
-    constructor arguments, finishing with the inductive head applied to
-    the instantiated result indices.
+    The resulting Pi-tower has parameters outermost, then constructor
+    arguments, finishing with the inductive head applied to the result
+    indices.
     """
     ind = ctor.inductive
-    index_count = len(ind.index_types)
-    if len(ctor.result_indices) != index_count:
+    if len(ctor.result_indices) != len(ind.index_types):
         raise TypeError("Constructor result indices must match inductive index arity")
-    # Parameters bind outermost, then indices, then constructor arguments.
-    # The locals are introduced in the same order the inductive signature expects:
-    #   [params][indices][args] from outermost to innermost.
-    offset = index_count + len(ctor.arg_types)
+    # Parameters bind outermost, then constructor arguments.
+    #   [params][args] from outermost to innermost.
+    offset = len(ctor.arg_types)
     param_vars = [
         Var(i) for i in reversed(range(offset, offset + len(ind.param_types)))
     ]
     return nested_pi(
         *ind.param_types,
-        *ind.index_types,
         *ctor.arg_types,
         return_ty=apply_term(ctor.inductive, *param_vars, *ctor.result_indices),
     )
@@ -102,10 +99,8 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
     # 3. For each constructor, compute the expected branch type and check
     for ctor, case in zip(ind.constructors, elim.cases, strict=True):
 
-        # 3.1 instantiate arg types with actual params/indices
-        inst_arg_types = instantiate_ctor_arg_types(
-            ctor.arg_types, params_actual, indices_actual
-        )
+        # 3.1 instantiate arg types with actual params
+        inst_arg_types = instantiate_ctor_arg_types(ctor.arg_types, params_actual)
 
         # 3.2 identify recursive ctor args and their indices
         recursive_positions = []
@@ -123,12 +118,12 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
         r = len(recursive_positions)
         arg_vars = tuple(Var(j) for j in reversed(range(m)))
         result_indices_inst = instantiate_ctor_result_indices(
-            ctor.result_indices, params_actual, indices_actual, m
+            ctor.result_indices, params_actual, arg_vars
         )
 
         # 3.4 scrutinee-like value for this branch:
-        #     C params_actual result_indices args
-        scrut_like = apply_term(ctor, *params_actual, *indices_actual, *arg_vars)
+        #     C params_actual args
+        scrut_like = apply_term(ctor, *params_actual, *arg_vars)
 
         # # 3.5 branch codomain: motive result_indices scrut_like
         codomain_base = apply_term(motive, *result_indices_inst, scrut_like)
@@ -140,7 +135,14 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
         # ih_j : motive indices_j arg_j
         # in Γ, args (only)
         ih_base = [
-            apply_term(motive, *indices_field, Var(m - 1 - j))
+            apply_term(
+                motive,
+                *(
+                    shift(index_term, m - j, cutoff=0)
+                    for index_term in indices_field
+                ),
+                Var(m - 1 - j),
+            )
             for (j, indices_field) in recursive_positions
         ]
         # IH types in Γ, args, ihs (shift each by number of later IH binders)

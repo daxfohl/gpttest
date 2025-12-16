@@ -37,8 +37,7 @@ def test_all_ctor_types() -> None:
     expected_nil = nested_pi(
         Univ(0),
         Pi(Var(0), Univ(0)),
-        apply_term(List, Var(1)),
-        return_ty=AllType(Var(2), Var(1), apply_term(NilCtor, Var(2))),
+        return_ty=AllType(Var(1), Var(0), apply_term(NilCtor, Var(1))),
     )
     assert type_equal(infer_type(AllNilCtor), expected_nil)
 

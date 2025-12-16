@@ -13,7 +13,10 @@ Expr = I(name="Expr", param_types=(Univ(0),), index_types=(Var(0),), level=0)
 ConstCtor = Ctor(
     name="const",
     inductive=Expr,
-    arg_types=(Var(0),),  # value : τ
+    arg_types=(
+        Var(0),  # τ : Ty
+        Var(0),  # value : τ
+    ),
     result_indices=(Var(1),),  # τ
 )
 
@@ -21,10 +24,10 @@ PairCtor = Ctor(
     name="pair",
     inductive=Expr,
     arg_types=(
-        Var(1),  # A : Ty
-        Var(2),  # B : Ty
-        apply_term(Expr, Var(3), Var(1)),  # Expr Ty A
-        apply_term(Expr, Var(4), Var(1)),  # Expr Ty B
+        Var(0),  # A : Ty
+        Var(1),  # B : Ty
+        apply_term(Expr, Var(2), Var(1)),  # Expr Ty A
+        apply_term(Expr, Var(3), Var(1)),  # Expr Ty B
     ),
     result_indices=(
         apply_term(  # A × B as a Sigma with constant second component.
@@ -47,8 +50,7 @@ def Const(Ty: Term, tau: Term, value: Term) -> Term:
 
 
 def Pair(Ty: Term, A: Term, B: Term, lhs: Term, rhs: Term) -> Term:
-    pair_index = apply_term(Sigma, A, Lam(A, shift(B, 1)))
-    return apply_term(PairCtor, Ty, pair_index, A, B, lhs, rhs)
+    return apply_term(PairCtor, Ty, A, B, lhs, rhs)
 
 
 def ExprRec(motive: Term, const_case: Term, pair_case: Term, scrutinee: Term) -> Elim:

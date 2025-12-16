@@ -21,10 +21,10 @@ RTC = I(
 RTCReflCtor = Ctor(
     name="rtc_refl",
     inductive=RTC,
-    arg_types=(),
+    arg_types=(Var(1),),  # x : A
     result_indices=(
-        Var(1),  # x
-        Var(1),  # x
+        Var(0),  # x
+        Var(0),  # x
     ),
 )
 
@@ -32,6 +32,8 @@ RTCStepCtor = Ctor(
     name="rtc_step",
     inductive=RTC,
     arg_types=(
+        Var(1),  # x : A
+        Var(2),  # z : A
         Var(3),  # y : A
         apply_term(Var(3), Var(2), Var(0)),  # R x y
         apply_term(RTC, Var(5), Var(4), Var(1), Var(2)),  # RTC A R y z
@@ -50,7 +52,7 @@ def RTCType(A: Term, R: Term, x: Term, z: Term) -> Term:
 
 
 def RTCRefl(A: Term, R: Term, x: Term) -> Term:
-    return apply_term(RTCReflCtor, A, R, x, x)
+    return apply_term(RTCReflCtor, A, R, x)
 
 
 def RTCStep(A: Term, R: Term, x: Term, z: Term, y: Term, step: Term, ih: Term) -> Term:

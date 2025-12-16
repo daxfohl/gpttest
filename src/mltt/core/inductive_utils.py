@@ -138,26 +138,18 @@ def decompose_ctor_app(
 def instantiate_ctor_arg_types(
     ctor_arg_types: tuple[Term, ...],
     params_actual: tuple[Term, ...],
-    indices_actual: tuple[Term, ...],
 ) -> tuple[Term, ...]:
     p = len(params_actual)
-    q = len(indices_actual)
     out: list[Term] = []
 
     for i, schema in enumerate(ctor_arg_types):
         t = schema
 
         # substitute params (outermost to innermost) at descending indices
-        # param0 is farthest: index = i + q + (p-1)
+        # param0 is farthest: index = i + (p-1)
         for s in range(p):
-            j = i + q + (p - 1 - s)
+            j = i + (p - 1 - s)
             t = subst(t, shift(params_actual[s], i), j)
-
-        # substitute indices (outermost to innermost) at descending indices
-        # index0 is farthest among indices: index = i + (q-1)
-        for s in range(q):
-            j = i + (q - 1 - s)
-            t = subst(t, shift(indices_actual[s], i), j)
 
         out.append(t)
 
@@ -167,33 +159,31 @@ def instantiate_ctor_arg_types(
 def instantiate_ctor_result_indices(
     result_indices: tuple[Term, ...],
     params_actual: tuple[Term, ...],
-    indices_actual: tuple[Term, ...],
-    m: int,  # number of ctor args (fields)
+    ctor_args: tuple[Term, ...],
 ) -> tuple[Term, ...]:
     """
     Instantiate ctor.result_indices schemas.
 
-    The schema context is (params)(indices)(args). We want an output living in
-    Γ,args, so we eliminate the index binders first (which shifts down Var refs),
-    then substitute params.
+    The schema context is (params)(fields). We substitute the actual params and
+    constructor fields (in that order) to obtain indices in the ambient
+    context, with all binders discharged.
     """
     p = len(params_actual)
-    q = len(indices_actual)
+    m = len(ctor_args)
 
     out: list[Term] = []
     for schema in result_indices:
         t = schema
 
-        # 1) Eliminate indices (innermost-first is safest; here they start at m)
-        # After this, the schema no longer has index binders.
-        for s in range(q):
-            j = m + (q - 1 - s)  # from m+q-1 down to m
-            t = subst(t, shift(indices_actual[s], m), j)
-
-        # 2) Now eliminate params. After removing q indices, params now sit above args at offset m.
+        # 1) Substitute params. They sit outermost, above all ctor args.
         for s in range(p):
             j = m + (p - 1 - s)  # from m+p-1 down to m
             t = subst(t, shift(params_actual[s], m), j)
+
+        # 2) Substitute constructor fields from outermost to innermost.
+        for s in range(m):
+            j = m - 1 - s  # from m-1 down to 0
+            t = subst(t, ctor_args[s], j)
 
         out.append(t)
 

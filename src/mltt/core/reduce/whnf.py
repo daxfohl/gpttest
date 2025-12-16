@@ -24,7 +24,7 @@ def iota_reduce(
     """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
     ind = ctor.inductive
     arg_types = ctor.arg_types
-    _, _, ctor_args = split_to_match(args, ind.param_types, ind.index_types, arg_types)
+    _, ctor_args = split_to_match(args, ind.param_types, arg_types)
 
     ihs: list[Term] = []
     for arg_term, arg_ty in zip(ctor_args, arg_types, strict=True):
@@ -62,6 +62,9 @@ def whnf(term: Term) -> Term:
                     # Decomposition terminates in Var or Axiom, etc.
                     return Elim(inductive, motive, cases, scrutinee_whnf)
                 case ctor, args if ctor.inductive is inductive:
+                    expected_args = len(inductive.param_types) + len(ctor.arg_types)
+                    if len(args) != expected_args:
+                        raise ValueError()
                     return whnf(iota_reduce(ctor, cases, args, motive))
                 case _:
                     raise ValueError()

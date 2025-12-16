@@ -21,20 +21,14 @@ def _iota_constructor(
 ) -> Term:
     """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
     p = len(inductive.param_types)
-    q = len(inductive.index_types)
 
     params_actual = args[:p]
-    indices_actual = args[
-        p : p + q
-    ]  # index args supplied to ctor (may differ from result indices!)
-    ctor_args = args[p + q :]  # constructor fields (length m)
+    ctor_args = args[p:]  # constructor fields (length m)
 
     case = cases[ctor_index(ctor)]
 
     # Instantiate ctor field types so we can detect which fields are recursive.
-    inst_arg_types = instantiate_ctor_arg_types(
-        ctor.arg_types, params_actual, indices_actual
-    )
+    inst_arg_types = instantiate_ctor_arg_types(ctor.arg_types, params_actual)
 
     # Build IHs in the same order you used when you built ih_types for the telescope.
     ihs: list[Term] = []
@@ -63,11 +57,7 @@ def iota_head_step(t: Term) -> Term:
             decomposition = decompose_ctor_app(scrutinee)
             if decomposition:
                 ctor, args = decomposition
-                expected_args = (
-                    len(inductive.param_types)
-                    + len(inductive.index_types)
-                    + len(ctor.arg_types)
-                )
+                expected_args = len(inductive.param_types) + len(ctor.arg_types)
                 if ctor.inductive is inductive and len(args) == expected_args:
                     return _iota_constructor(inductive, motive, cases, ctor, args)
                 raise ValueError()

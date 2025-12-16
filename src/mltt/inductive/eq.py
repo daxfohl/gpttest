@@ -16,7 +16,7 @@ ReflCtor = Ctor(
     name="Refl",
     inductive=IdType,
     arg_types=(),
-    result_indices=(Var(1),),
+    result_indices=(Var(0),),
 )
 object.__setattr__(IdType, "constructors", (ReflCtor,))
 
@@ -30,7 +30,7 @@ def Id(ty: Term, lhs: Term, rhs: Term) -> Term:
 def Refl(ty: Term, t: Term) -> Term:
     """Canonical inhabitant ``Id ty t t``."""
 
-    return apply_term(ReflCtor, ty, t, t)
+    return apply_term(ReflCtor, ty, t)
 
 
 def IdElim(A: Term, x: Term, P: Term, d: Term, y: Term, p: Term) -> Elim:

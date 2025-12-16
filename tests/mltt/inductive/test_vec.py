@@ -30,7 +30,13 @@ def test_vec_rec_on_nil_reduces_to_zero() -> None:
     elem_ty = NatType()
     P = nested_lam(NatType(), vec.VecType(elem_ty, Var(0)), body=NatType())
     base = Zero()
-    step = nested_lam(elem_ty, vec.VecType(elem_ty, Zero()), NatType(), body=Var(0))
+    step = nested_lam(
+        NatType(),
+        elem_ty,
+        vec.VecType(elem_ty, Var(1)),
+        apply_term(P, Var(2), Var(0)),
+        body=Var(0),
+    )
 
     term = vec.VecRec(P, base, step, vec.Nil(elem_ty))
     assert whnf(term) == Zero()
@@ -45,9 +51,10 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
 
     base = numeral(b)
     step = nested_lam(
+        NatType(),  # n : Nat
         elem_ty,  # x : A
         vec.VecType(elem_ty, Var(1)),  # xs : Vec A n (Var(1) = n)
-        apply_term(P, Var(2), Var(0)),  # ih : P xs
+        apply_term(P, Var(2), Var(0)),  # ih : P n xs
         body=add_terms(Var(0), Var(2)),  # ih + x
     )
 
@@ -71,9 +78,10 @@ def test_vec_rec_preserves_length_index() -> None:
 
     base = Succ(Zero())  # P (Nil A) = Nat
     step = nested_lam(
+        NatType(),
         elem_ty,
         vec.VecType(elem_ty, Var(1)),
-        NatType(),
+        apply_term(P, Var(2), Var(0)),
         body=Var(2),  # ignore IH; return Nat
     )
 
@@ -102,8 +110,8 @@ def test_infer_type(elem: Term, n: int) -> None:
 
 def test_ctor_type() -> None:
     t = infer_type(vec.NilCtor)
-    # Pi x : Type. Nat -> Vec x Zero
-    assert t == nested_pi(Univ(0), NatType(), return_ty=vec.VecType(Var(1), Zero()))
+    # Pi x : Type. Vec x Zero
+    assert t == nested_pi(Univ(0), return_ty=vec.VecType(Var(0), Zero()))
     t = infer_type(vec.ConsCtor)
     # Pi x : Type. Pi x1 : Nat. x -> Vec x x1 -> Vec x (Succ x1)
     assert t == nested_pi(

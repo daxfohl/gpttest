@@ -20,13 +20,14 @@ AllNilCtor = Ctor(
     name="all_nil",
     inductive=All,
     arg_types=(),
-    result_indices=(App(NilCtor, Var(2)),),
+    result_indices=(App(NilCtor, Var(1)),),
 )
 
 AllConsCtor = Ctor(
     name="all_cons",
     inductive=All,
     arg_types=(
+        apply_term(List, Var(1)),  # xs : List A
         Var(2),  # x : A
         apply_term(Var(2), Var(0)),  # px : P x
         apply_term(All, Var(4), Var(3), Var(2)),  # ih : All A P xs
@@ -42,8 +43,7 @@ def AllType(A: Term, P: Term, xs: Term) -> Term:
 
 
 def AllNil(A: Term, P: Term) -> Term:
-    xs = App(NilCtor, A)
-    return apply_term(AllNilCtor, A, P, xs)
+    return apply_term(AllNilCtor, A, P)
 
 
 def AllCons(A: Term, P: Term, xs: Term, x: Term, px: Term, ih: Term) -> Term:

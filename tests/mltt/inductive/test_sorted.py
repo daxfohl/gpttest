@@ -44,35 +44,32 @@ def test_sorted_ctor_types() -> None:
     expected_nil = nested_pi(
         Univ(0),
         Pi(Var(0), Pi(Var(1), Univ(0))),
-        apply_term(List, Var(1)),
-        return_ty=SortedType(Var(2), Var(1), Nil(Var(2))),
+        return_ty=SortedType(Var(1), Var(0), Nil(Var(1))),
     )
     assert type_equal(infer_type(SortedNilCtor), expected_nil)
 
     expected_one = nested_pi(
         Univ(0),
         Pi(Var(0), Pi(Var(1), Univ(0))),
-        apply_term(List, Var(1)),
-        Var(2),
-        return_ty=SortedType(Var(3), Var(2), Cons(Var(3), Var(0), Nil(Var(3)))),
+        Var(1),
+        return_ty=SortedType(Var(2), Var(1), Cons(Var(2), Var(0), Nil(Var(2)))),
     )
     assert type_equal(infer_type(SortedOneCtor), expected_one)
 
     expected_cons = nested_pi(
         Univ(0),
         Pi(Var(0), Pi(Var(1), Univ(0))),
-        apply_term(List, Var(1)),  # index xs
+        apply_term(List, Var(1)),  # xs
         Var(2),  # x
         Var(3),  # y
-        apply_term(List, Var(4)),  # xs argument (matches index)
-        apply_term(Var(4), Var(2), Var(1)),  # R x y
+        apply_term(Var(3), Var(1), Var(0)),  # R x y
         SortedType(
-            Var(6), Var(5), Cons(Var(6), Var(2), Var(1))
+            Var(5), Var(4), Cons(Var(5), Var(1), Var(3))
         ),  # ih: Sorted (y :: xs)
         return_ty=SortedType(
-            Var(7),
             Var(6),
-            Cons(Var(7), Var(4), Cons(Var(7), Var(3), Var(2))),
+            Var(5),
+            Cons(Var(6), Var(3), Cons(Var(6), Var(2), Var(4))),
         ),
     )
     assert type_equal(infer_type(SortedConsCtor), expected_cons)

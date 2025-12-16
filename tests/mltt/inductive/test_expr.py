@@ -41,13 +41,12 @@ def test_ctor_types() -> None:
 
     expected_pair = nested_pi(
         Univ(0),
-        Var(0),  # index τ = A × B
-        Var(1),  # A : Ty
-        Var(2),  # B : Ty
+        Var(0),  # A : Ty
+        Var(1),  # B : Ty
+        ExprType(Var(2), Var(1)),
         ExprType(Var(3), Var(1)),
-        ExprType(Var(4), Var(1)),
         return_ty=ExprType(
-            Var(5),  # Ty
+            Var(4),  # Ty
             apply_term(Sigma, Var(3), Lam(Var(3), shift(Var(2), 1))),
         ),
     )

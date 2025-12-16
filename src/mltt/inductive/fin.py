@@ -17,13 +17,16 @@ Fin = I(name="Fin", index_types=(NatType(),), level=0)
 FZCtor = Ctor(
     name="FZ",
     inductive=Fin,
-    arg_types=(),
+    arg_types=(NatType(),),  # n : Nat
     result_indices=(Succ(Var(0)),),
 )
 FSCtor = Ctor(
     name="FS",
     inductive=Fin,
-    arg_types=(App(Fin, Var(0)),),
+    arg_types=(
+        NatType(),  # n : Nat
+        App(Fin, Var(0)),  # Fin n
+    ),
     result_indices=(Succ(Var(1)),),
 )
 object.__setattr__(Fin, "constructors", (FZCtor, FSCtor))

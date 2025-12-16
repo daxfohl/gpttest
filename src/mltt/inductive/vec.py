@@ -24,6 +24,7 @@ ConsCtor = Ctor(
     name="Cons",
     inductive=Vec,
     arg_types=(
+        NatType(),  # n : Nat
         Var(1),  # head : A
         apply_term(Vec, Var(2), Var(1)),  # tail : Vec A n
     ),
@@ -37,7 +38,7 @@ def VecType(elem_ty: Term, length: Term) -> Term:
 
 
 def Nil(elem_ty: Term) -> Term:
-    return apply_term(NilCtor, elem_ty, Zero())
+    return apply_term(NilCtor, elem_ty)
 
 
 def Cons(elem_ty: Term, n: Term, head: Term, tail: Term) -> Term:

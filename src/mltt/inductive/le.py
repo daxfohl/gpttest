@@ -12,13 +12,17 @@ Le = I(name="Le", index_types=(NatType(), NatType()), level=0)
 LeReflCtor = Ctor(
     name="le_refl",
     inductive=Le,
-    arg_types=(),
-    result_indices=(Var(1), Var(1)),  # Le n n
+    arg_types=(NatType(),),  # n : Nat
+    result_indices=(Var(0), Var(0)),  # Le n n
 )
 LeStepCtor = Ctor(
     name="le_step",
     inductive=Le,
-    arg_types=(apply_term(Le, Var(1), Var(0)),),  # Le n m
+    arg_types=(
+        NatType(),  # n : Nat
+        NatType(),  # m : Nat
+        apply_term(Le, Var(1), Var(0)),  # Le n m
+    ),
     result_indices=(
         Var(2),  # n
         Succ(Var(1)),  # Succ m
@@ -32,7 +36,7 @@ def LeType(n: Term, m: Term) -> Term:
 
 
 def LeRefl(n: Term) -> Term:
-    return apply_term(LeReflCtor, n, n)
+    return apply_term(LeReflCtor, n)
 
 
 def LeStep(n: Term, m: Term, p: Term) -> Term:
