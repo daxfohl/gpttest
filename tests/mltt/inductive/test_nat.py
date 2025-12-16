@@ -4,6 +4,7 @@ from mltt.core.ast import Pi
 from mltt.core.inductive_utils import nested_pi
 from mltt.core.reduce import normalize
 from mltt.core.typing import infer_type, type_check
+from mltt.inductive.maybe import MaybeType, Nothing, Just
 from mltt.inductive.nat import (
     NatType,
     Succ,
@@ -13,6 +14,7 @@ from mltt.inductive.nat import (
     numeral,
     ZeroCtor,
     SuccCtor,
+    pred_maybe_terms,
 )
 
 
@@ -58,3 +60,17 @@ def test_ctor_type() -> None:
     assert t == NatType()
     t = infer_type(SuccCtor)
     assert t == Pi(NatType(), NatType())
+
+
+def test_pred_maybe_zero() -> None:
+    result = pred_maybe_terms(Zero())
+    assert normalize(result) == Nothing(NatType())
+    assert type_check(result, MaybeType(NatType()))
+
+
+@pytest.mark.parametrize("i", range(1, 4))
+def test_pred_maybe_succ(i: int) -> None:
+    n = numeral(i)
+    result = pred_maybe_terms(n)
+    assert normalize(result) == Just(NatType(), numeral(i - 1))
+    assert type_check(result, MaybeType(NatType()))

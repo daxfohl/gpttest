@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from .nat import NatType, Succ, numeral
+from .nat import NatRec, NatType, Succ, Zero, numeral
 from ..core.ast import (
     App,
     Ctor,
     Elim,
     I,
+    Lam,
+    Pi,
     Term,
     Var,
 )
-from ..core.inductive_utils import apply_term
+from ..core.inductive_utils import apply_term, nested_lam
 
 Fin = I(name="Fin", index_types=(NatType(),), level=0)
 FZCtor = Ctor(
@@ -63,3 +65,36 @@ def of_int(i: int, n: int) -> Term:
     if i == 0:
         return FZ(numeral(n - 1))
     return FS(numeral(n - 1), of_int(i - 1, n - 1))
+
+
+def fin_modulus() -> Term:
+    return nested_lam(
+        NatType(),  # n
+        FinType(Var(0)),  # x : Fin n
+        body=Var(1),  # return n
+    )
+
+
+def fin_modulus_terms(n: Term, k: Term) -> Term:
+    return apply_term(fin_modulus(), n, k)
+
+
+def fin_to_nat() -> Term:
+    P = nested_lam(NatType(), FinType(Var(0)), body=NatType())
+    base = nested_lam(NatType(), body=Zero())
+    step = nested_lam(
+        NatType(),
+        FinType(Var(0)),
+        apply_term(P, Var(1), Var(0)),
+        body=Succ(Var(0)),
+    )
+
+    return nested_lam(
+        NatType(),
+        FinType(Var(0)),
+        body=FinRec(P=P, base=base, step=step, k=Var(0)),
+    )
+
+
+def fin_to_nat_terms(n: Term, k: Term) -> Term:
+    return apply_term(fin_to_nat(), n, k)

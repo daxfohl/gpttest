@@ -12,4 +12,6 @@ __all__ = [
     "rtc",
     "sorted",
     "expr",
+    "bool",
+    "maybe",
 ]

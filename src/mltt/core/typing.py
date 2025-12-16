@@ -123,13 +123,13 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
             inst_ty = inst_arg_types[j]
             _, args_j = decompose_app(inst_ty)
             params_field = args_j[:p]
-            indices_field = args_j[p:p+q]
+            indices_field = args_j[p : p + q]
             assert params_field == params_actual
             args_offset = m - 1 - j
             ih_type = apply_term(
                 shift(motive, ri),
                 *(shift(i, args_offset + ri) for i in indices_field),
-                Var(args_offset + ri)
+                Var(args_offset + ri),
             )
             ih_types.append(ih_type)
 

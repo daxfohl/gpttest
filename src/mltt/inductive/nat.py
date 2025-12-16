@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..core.ast import App, Ctor, Elim, I, Lam, Term, Var
 from ..core.inductive_utils import apply_term, nested_lam
+from .maybe import MaybeType, Nothing, Just
 
 Nat = I(name="Nat", level=0)
 ZeroCtor = Ctor(name="Zero", inductive=Nat)
@@ -75,3 +76,25 @@ def add_terms(lhs: Term, rhs: Term) -> Term:
     """Build ``add lhs rhs`` as nested applications."""
 
     return apply_term(add(), lhs, rhs)
+
+
+def pred_maybe() -> Term:
+    """Predecessor as ``Maybe Nat``: ``Nothing`` for zero, ``Just k`` for ``Succ k``."""
+
+    return nested_lam(
+        NatType(),
+        body=NatRec(
+            P=Lam(NatType(), MaybeType(NatType())),
+            base=Nothing(NatType()),
+            step=nested_lam(
+                NatType(),
+                MaybeType(NatType()),
+                body=Just(NatType(), Var(1)),
+            ),
+            n=Var(0),
+        ),
+    )
+
+
+def pred_maybe_terms(n: Term) -> Term:
+    return App(pred_maybe(), n)

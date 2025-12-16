@@ -94,12 +94,12 @@ class Ctx:
         # Now compute the new entries exactly as repeated prepend would.
         # Insert from innermost to outermost (reverse order), and shift each ty by 1,
         # then 2, ... as it gets placed under previously inserted binders.
-        tys = ((shift(ty, depth)) for depth, ty in enumerate(reversed(tys), start=1))
+        tys1 = ((shift(ty, depth)) for depth, ty in enumerate(reversed(tys), start=1))
 
         # new_entries currently is [innermost shifted by1, ..., outermost shifted by k]
         # but those should appear *before* existing entries, and in the same order
         # as ctx.entries (index 0 is innermost), so keep as built:
-        return Ctx.as_ctx(*tys, *existing)
+        return Ctx.as_ctx(*tys1, *existing)
 
     @staticmethod
     def as_ctx(*ctx: CtxEntry | Term) -> Ctx:

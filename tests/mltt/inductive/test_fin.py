@@ -5,7 +5,12 @@ from mltt.core.ast import Pi, Univ, Var
 from mltt.core.inductive_utils import apply_term, nested_lam, nested_pi
 from mltt.core.reduce import normalize
 from mltt.core.typing import infer_type, type_check
-from mltt.inductive.fin import FZCtor, FSCtor
+from mltt.inductive.fin import (
+    FZCtor,
+    FSCtor,
+    fin_modulus_terms,
+    fin_to_nat_terms,
+)
 from mltt.inductive.nat import NatType, Succ, Zero, numeral
 
 
@@ -59,3 +64,19 @@ def test_ctor_type() -> None:
         fin.FinType(Var(0)),
         return_ty=fin.FinType(Succ(Var(1))),
     )
+
+
+def test_fin_modulus() -> None:
+    n = 4
+    for i in range(n):
+        term = fin_modulus_terms(numeral(n), fin.of_int(i, n))
+        assert normalize(term) == numeral(n)
+        assert type_check(term, NatType())
+
+
+def test_fin_to_nat() -> None:
+    n = 5
+    for i in range(n):
+        term = fin_to_nat_terms(numeral(n), fin.of_int(i, n))
+        assert normalize(term) == numeral(i)
+        assert type_check(term, NatType())
