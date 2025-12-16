@@ -123,10 +123,15 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
             inst_ty = inst_arg_types[j]
             _, args_j = decompose_app(inst_ty)
             params_field = args_j[:p]
-            indices_field = args_j[p:]
+            indices_field = args_j[p:p+q]
             assert params_field == params_actual
-            ih_type = apply_term(motive, *indices_field, Var(0))
-            ih_types.append(shift(ih_type, (m - 1 - j) + (r - 1 - ri)))
+            args_offset = m - 1 - j
+            ih_type = apply_term(
+                shift(motive, ri),
+                *(shift(i, args_offset + ri) for i in indices_field),
+                Var(args_offset + ri)
+            )
+            ih_types.append(ih_type)
 
         # # 3.6 branch codomain: motive result_indices scrut_like
         codomain_base = apply_term(motive, *result_indices_inst, scrut_like)
