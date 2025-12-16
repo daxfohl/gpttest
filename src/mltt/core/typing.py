@@ -102,53 +102,37 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
         # 3.1 instantiate arg types with actual params
         inst_arg_types = instantiate_ctor_arg_types(ctor.arg_types, params_actual)
 
-        # 3.2 identify recursive ctor args and their indices
-        recursive_positions = []
-        for j, inst_ty in enumerate(inst_arg_types):
-            head_j, args_j = decompose_app(inst_ty)
-            if head_j is ind:
-                # args_j = params_for_field ++ indices_for_field
-                params_field = args_j[:p]
-                indices_field = args_j[p : p + q]
-                assert params_field == params_actual
-                recursive_positions.append((j, indices_field))
+        # 3.2 scrutinee-like value for this branch:
+        #     C params_actual args
+        m = len(inst_arg_types)
+        arg_vars = tuple(Var(j) for j in reversed(range(m)))
+        scrut_like = apply_term(ctor, *params_actual, *arg_vars)
 
         # 3.3 compute result indices for this ctor
-        m = len(inst_arg_types)
-        r = len(recursive_positions)
-        arg_vars = tuple(Var(j) for j in reversed(range(m)))
         result_indices_inst = instantiate_ctor_result_indices(
             ctor.result_indices, params_actual, arg_vars
         )
 
-        # 3.4 scrutinee-like value for this branch:
-        #     C params_actual args
-        scrut_like = apply_term(ctor, *params_actual, *arg_vars)
-
-        # # 3.5 branch codomain: motive result_indices scrut_like
-        codomain_base = apply_term(motive, *result_indices_inst, scrut_like)
-        codomain = shift(
-            codomain_base, r, cutoff=0
-        )  # because r IH binders are inserted inside
-
-        # 3.6 Build IH types
+        # 3.4 Build IH types
         # ih_j : motive indices_j arg_j
         # in Γ, args (only)
-        ih_base = [
-            apply_term(
-                motive,
-                *(
-                    shift(index_term, m - j, cutoff=0)
-                    for index_term in indices_field
-                ),
-                Var(m - 1 - j),
-            )
-            for (j, indices_field) in recursive_positions
-        ]
-        # IH types in Γ, args, ihs (shift each by number of later IH binders)
-        ih_types = [shift(ih_base[ri], r - 1 - ri, cutoff=0) for ri in range(r)]
+        rps = [j for j, x in enumerate(inst_arg_types) if decompose_app(x)[0] is ind]
+        r = len(rps)
+        ih_types = []
+        for ri, j in enumerate(rps):
+            inst_ty = inst_arg_types[j]
+            _, args_j = decompose_app(inst_ty)
+            params_field = args_j[:p]
+            indices_field = args_j[p:]
+            assert params_field == params_actual
+            ih_type = apply_term(motive, *indices_field, Var(0))
+            ih_types.append(shift(ih_type, (m - 1 - j) + (r - 1 - ri)))
 
-        # Add binders left-to-right (outermost → innermost).
+        # # 3.6 branch codomain: motive result_indices scrut_like
+        codomain_base = apply_term(motive, *result_indices_inst, scrut_like)
+        codomain = shift(codomain_base, r)  # because r IH binders are inserted inside
+
+        # 3.7 add binders left-to-right (outermost → innermost).
         telescope = (*inst_arg_types, *ih_types)
         case_ctx = ctx.prepend_each(*telescope)
         tel_len = len(telescope)

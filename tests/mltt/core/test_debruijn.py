@@ -9,7 +9,7 @@ from mltt.inductive.nat import NatRec, Succ, Zero
 
 
 def test_shift_var_free_at_or_above_cutoff_is_bumped() -> None:
-    assert shift(Var(0), by=1, cutoff=0) == Var(1)
+    assert shift(Var(0), by=1) == Var(1)
     assert shift(Var(2), by=3, cutoff=2) == Var(5)
 
 
@@ -21,33 +21,33 @@ def test_shift_var_below_cutoff_unchanged() -> None:
 
 def test_shift_by_zero_is_identity() -> None:
     t = App(Var(2), Lam(Var(0), App(Var(0), Var(1))))
-    assert shift(t, by=0, cutoff=0) == t
+    assert shift(t, by=0) == t
 
 
 def test_shift_app_distributes() -> None:
-    shifted = shift(App(Var(1), Var(0)), by=1, cutoff=0)
+    shifted = shift(App(Var(1), Var(0)), by=1)
     assert shifted == App(Var(2), Var(1))
 
 
 def test_shift_lam_body_uses_cutoff_plus_1() -> None:
     # λ. Var(1)  -> shifting by +1 at cutoff=0 should become λ. Var(2)
-    assert shift(Lam(Var(0), Var(1)), by=1, cutoff=0) == Lam(Var(1), Var(2))
+    assert shift(Lam(Var(0), Var(1)), by=1) == Lam(Var(1), Var(2))
 
 
 def test_shift_lam_preserves_bound_var() -> None:
     # λ. Var(0) : inner Var(0) is bound, cutoff+1 prevents shift
-    assert shift(Lam(Var(42), Var(0)), by=5, cutoff=0) == Lam(Var(47), Var(0))
+    assert shift(Lam(Var(42), Var(0)), by=5) == Lam(Var(47), Var(0))
 
 
 def test_shift_nested_lams_correctly_increments_cutoff() -> None:
     # λ. λ. Var(2)  -> going under two binders raises cutoff twice
-    s = shift(nested_lam(Var(0), Var(1), body=Var(2)), by=1, cutoff=0)
+    s = shift(nested_lam(Var(0), Var(1), body=Var(2)), by=1)
     # Only the Var(2) (free w.r.t both binders) becomes Var(3)
     assert s == nested_lam(Var(1), Var(2), body=Var(3))
 
 
 def test_shift_pi_behaves_like_lam() -> None:
-    assert shift(Pi(Var(7), Var(1)), by=2, cutoff=0) == Pi(Var(9), Var(3))
+    assert shift(Pi(Var(7), Var(1)), by=2) == Pi(Var(9), Var(3))
 
 
 def test_shift_negative_pops_binder_levels() -> None:
@@ -208,9 +208,9 @@ def test_shift_subst_commutation_law_spotcheck() -> None:
         cutoff=0,
     )
     right = subst(
-        shift(App(Var(2), Lam(Var(0), App(Var(1), Var(0)))), by=2, cutoff=0),
+        shift(App(Var(2), Lam(Var(0), App(Var(1), Var(0)))), by=2),
         j=3,
-        sub=shift(App(Var(0), Var(2)), by=2, cutoff=0),
+        sub=shift(App(Var(0), Var(2)), by=2),
     )
     assert left == right
 
@@ -315,7 +315,7 @@ def test_shift_respects_cutoff() -> None:
 
 def test_shift_through_lambda_increments_free_variable() -> None:
     term = Lam(Univ(), App(Var(1), Var(0)))
-    shifted = shift(term, by=1, cutoff=0)
+    shifted = shift(term, by=1)
     assert shifted == Lam(Univ(), App(Var(2), Var(0)))
 
 
@@ -335,7 +335,7 @@ def test_subst_under_lambda_preserves_bound_variable() -> None:
 
 def test_shift_nested_binders() -> None:
     term = nested_lam(Univ(), Univ(), body=Var(2))
-    shifted = shift(term, by=1, cutoff=0)
+    shifted = shift(term, by=1)
     assert shifted == nested_lam(Univ(), Univ(), body=Var(3))
 
 
