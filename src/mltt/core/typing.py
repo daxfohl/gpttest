@@ -20,8 +20,10 @@ from .inductive_utils import (
     nested_pi,
     instantiate_ctor_arg_types,
     instantiate_ctor_result_indices,
+    decompose_lam,
+    nested_lam,
 )
-from .reduce import normalize
+from .reduce import normalize, beta_step
 from .reduce.whnf import whnf
 
 
@@ -105,12 +107,14 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
         # 3.2 scrutinee-like value for this branch:
         #     C params_actual args
         m = len(inst_arg_types)
+        params_actual_shifted = tuple(shift(p, m) for p in params_actual)
         arg_vars = tuple(Var(j) for j in reversed(range(m)))
-        scrut_like = apply_term(ctor, *params_actual, *arg_vars)
+        scrut_like = apply_term(ctor, *params_actual_shifted, *arg_vars)
+        motive_shifted = shift(motive, m)
 
         # 3.3 compute result indices for this ctor
         result_indices_inst = instantiate_ctor_result_indices(
-            ctor.result_indices, params_actual, arg_vars
+            ctor.result_indices, params_actual_shifted, arg_vars
         )
 
         # 3.4 Build IH types
@@ -134,19 +138,34 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
             ih_types.append(ih_type)
 
         # # 3.6 branch codomain: motive result_indices scrut_like
-        codomain_base = apply_term(motive, *result_indices_inst, scrut_like)
+        codomain_base = apply_term(motive_shifted, *result_indices_inst, scrut_like)
         codomain = shift(codomain_base, r)  # because r IH binders are inserted inside
 
         # 3.7 add binders left-to-right (outermost → innermost).
         telescope = (*inst_arg_types, *ih_types)
-        case_ctx = ctx.prepend_each(*telescope)
-        tel_len = len(telescope)
-        case_args = tuple(Var(tel_len - 1 - k) for k in range(tel_len))  # a0...ih0...
-        applied = apply_term(case, *case_args)  # (((case a0) a1) ...)
-        if not type_check(whnf(applied), codomain, case_ctx):
+        branch_ty = codomain
+        for j, t in reversed(list(enumerate(telescope))):
+            t = shift(
+                t, j, cutoff=j
+            )  # shift outer refs; keep earlier binders (0..j-1) fixed
+            branch_ty = Pi(t, branch_ty)
+
+        print(f"ctor:           {ctor}")
+        print(f"case:           {case}")
+        print(f"inst_arg_types: {inst_arg_types}")
+        print(f"codomain:       {codomain}")
+        print(f"branch_ty:      {branch_ty}")
+        print(f"case_inf:       {infer_type(case, ctx)}")
+        print(f"case_inf_nrm:   {normalize(infer_type(case, ctx))}")
+        print(f"branch_ty_nrm:  {normalize(branch_ty)}")
+        print(f"scrut_like: {scrut_like}")
+        print(f"ctx: {ctx}")
+        if not type_check(case, branch_ty, ctx):
+            print(f"error:           {ctor}")
             raise TypeError(
-                f"Case for constructor has wrong type1\n{ctor}\n{normalize(case)}\n{normalize(applied)}\n{normalize(codomain)}\n{[normalize(e.ty) for e in case_ctx]}"
+                f"Case for constructor has wrong type1\n{ctor}\n{normalize(case)}\n{normalize(codomain)}"
             )
+        print(f"success:           {ctor}")
 
     u = _expect_universe(motive_applied_ty.return_ty, ctx)  # cod should be Univ(u)
 
@@ -243,9 +262,11 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
         case App(f, a):
             # Application: infer the function, ensure it is a Pi, and that the
             # argument checks against its domain.
-            f_ty = whnf(infer_type(f, ctx))
+            f_ty = infer_type(f, ctx)
             if not isinstance(f_ty, Pi):
-                raise TypeError("Application of non-function")
+                raise TypeError(
+                    f"Application of non-function\narg: {a},\narg_ty: {infer_type(a, ctx)}\nf: {f}\nf_ty: {f_ty}\nctx: {ctx}"
+                )
             if not type_check(a, f_ty.arg_ty, ctx):
                 raise TypeError(
                     f"Application argument type mismatch\narg: {a},\narg_ty: {infer_type(a, ctx)}\nf: {f}\nf_ty: {f_ty}\nf_arg_ty: {f_ty.arg_ty}\nctx: {ctx}"
@@ -297,12 +318,18 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
                             f"Lambda domain mismatch\n"
                             f"arg_ty:{arg_ty}\n"
                             f"dom: {dom}\n"
+                            f"ctx: {ctx}\n"
                         )
-                    return type_check(body, cod, ctx.prepend_each(arg_ty))
+                    ctx1 = ctx.prepend_each(arg_ty)
+                    if not type_check(body, cod, ctx1):
+                        raise TypeError(
+                            f"Type error in Lam\nbody: {body}\ncod: {cod}\nctx1: {ctx1}"
+                        )
+                    return True
                 case _:
                     raise TypeError("Lambda expected to have Pi type")
         case App(f, a):
-            f_ty = whnf(infer_type(f, ctx))
+            f_ty = infer_type(f, ctx)
             if not isinstance(f_ty, Pi):
                 raise TypeError("Application of non-function")
             if not type_check(a, f_ty.arg_ty, ctx):

@@ -78,8 +78,8 @@ class Ctor:
 
     name: str
     inductive: I = field(repr=False)
-    arg_types: tuple[Term, ...] = ()
-    result_indices: tuple[Term, ...] = ()
+    arg_types: tuple[Term, ...] = field(repr=False, default=())
+    result_indices: tuple[Term, ...] = field(repr=False, default=())
 
     @cached_property
     def all_binders(self) -> tuple[Term, ...]:
@@ -95,8 +95,8 @@ class I:
     """
 
     name: str
-    param_types: tuple[Term, ...] = ()
-    index_types: tuple[Term, ...] = ()
+    param_types: tuple[Term, ...] = field(repr=False, default=())
+    index_types: tuple[Term, ...] = field(repr=False, default=())
     constructors: tuple[Ctor, ...] = field(repr=False, default=())
     level: int = 0
 
@@ -146,13 +146,13 @@ def _repr(self: Term) -> str:
 
 
 for _cls in (
-    Var,
-    Lam,
-    Pi,
-    App,
-    Univ,
+    # Var,
+    # Lam,
+    # Pi,
+    # App,
+    # Univ,
     Ctor,
     I,
-    Elim,
+    # Elim,
 ):
     _cls.__repr__ = _repr  # type: ignore

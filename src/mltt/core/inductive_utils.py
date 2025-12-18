@@ -5,7 +5,7 @@ from __future__ import annotations
 from itertools import islice
 from typing import Sequence, Any, TypeVar, Iterator
 
-from .ast import App, Ctor, Term, Lam, Pi
+from .ast import App, Ctor, Elim, Term, Lam, Pi, Var
 from .debruijn import subst, shift
 
 T = TypeVar("T")
@@ -135,25 +135,16 @@ def decompose_ctor_app(
     return None
 
 
-def instantiate_ctor_arg_types(
-    ctor_arg_types: tuple[Term, ...],
-    params_actual: tuple[Term, ...],
-) -> tuple[Term, ...]:
+def instantiate_ctor_arg_types(ctor_arg_types, params_actual):
+    schemas = []
     p = len(params_actual)
-    out: list[Term] = []
-
     for i, schema in enumerate(ctor_arg_types):
         t = schema
-
-        # substitute params (outermost to innermost) at descending indices
-        # param0 is farthest: index = i + (p-1)
-        for s in range(p):
-            j = i + (p - 1 - s)
-            t = subst(t, shift(params_actual[s], i), j)
-
-        out.append(t)
-
-    return tuple(out)
+        # eliminate param binders one by one at the same depth i
+        for s in reversed(range(p)):  # B first, then A
+            t = subst(t, shift(params_actual[s], i), i)
+        schemas.append(t)
+    return schemas
 
 
 def instantiate_ctor_result_indices(

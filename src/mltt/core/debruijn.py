@@ -116,6 +116,11 @@ class Ctx:
     def types(self) -> tuple[Term, ...]:
         return tuple(e.ty for e in self.entries)
 
+    def __str__(self):
+        if len(self.entries) < 2:
+            return f"Ctx{self.entries}"
+        return f"Ctx(\n{"".join([f"  #{i}: {e.ty}\n" for i, e in enumerate(self)])})"
+
 
 def shift(term: Term, by: int, cutoff: int = 0) -> Term:
     """Shift free variables in ``term`` by ``by`` starting at ``cutoff``.

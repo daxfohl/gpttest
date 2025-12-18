@@ -121,3 +121,12 @@ def test_ctor_type() -> None:
         vec.VecType(Var(2), Var(1)),
         return_ty=vec.VecType(Var(3), Succ(Var(2))),
     )
+
+
+def test_scrut_type() -> None:
+    scrut = vec.Nil(NatType())
+    t = infer_type(scrut)
+    assert t == apply_term(vec.Vec, NatType(), Zero())
+    scrut = vec.Cons(NatType(), Zero(), Zero(), scrut)
+    t = infer_type(scrut)
+    assert t == apply_term(vec.Vec, NatType(), Succ(Zero()))
