@@ -44,7 +44,7 @@ def numeral(value: int) -> Term:
     return term
 
 
-def add_term() -> Term:
+def add(lhs: Term, rhs: Term) -> Term:
     """
     add : Nat → Nat → Nat
     Addition by recursion on the first argument.
@@ -56,45 +56,38 @@ def add_term() -> Term:
       add Zero b = b
       add (Succ a) b = Succ (add a b)
     """
-    return nested_lam(
-        NatType(),
-        NatType(),
-        body=NatRec(
-            P=Lam(NatType(), NatType()),
-            base=Var(0),
-            step=nested_lam(
-                NatType(),
-                NatType(),
-                body=Succ(Var(0)),
-            ),
-            n=Var(1),
+
+    return NatRec(
+        P=Lam(NatType(), NatType()),
+        base=rhs,
+        step=nested_lam(
+            NatType(),
+            NatType(),
+            body=Succ(Var(0)),
         ),
+        n=lhs,
     )
 
 
-def add(lhs: Term, rhs: Term) -> Term:
+def add_term() -> Term:
     """Build ``add lhs rhs`` as nested applications."""
+    return nested_lam(NatType(), NatType(), body=add(Var(1), Var(0)))
 
-    return apply_term(add_term(), lhs, rhs)
+
+def pred_maybe(n: Term) -> Term:
+    return NatRec(
+        P=Lam(NatType(), MaybeType(NatType())),
+        base=Nothing(NatType()),
+        step=nested_lam(
+            NatType(),
+            MaybeType(NatType()),
+            body=Just(NatType(), Var(1)),
+        ),
+        n=n,
+    )
 
 
 def pred_maybe_term() -> Term:
     """Predecessor as ``Maybe Nat``: ``Nothing`` for zero, ``Just k`` for ``Succ k``."""
 
-    return nested_lam(
-        NatType(),
-        body=NatRec(
-            P=Lam(NatType(), MaybeType(NatType())),
-            base=Nothing(NatType()),
-            step=nested_lam(
-                NatType(),
-                MaybeType(NatType()),
-                body=Just(NatType(), Var(1)),
-            ),
-            n=Var(0),
-        ),
-    )
-
-
-def pred_maybe(n: Term) -> Term:
-    return App(pred_maybe_term(), n)
+    return Lam(NatType(), pred_maybe(Var(0)))
