@@ -161,33 +161,6 @@ def let_pair_dep(A: Term, B: Term, C: Term, p: Term, f_body: Term) -> Term:
     return apply_term(let_pair_dep_term(), A, B, C, p, f_fn)
 
 
-# def let_pair_term() -> Term:
-#     # let_pair :
-#     #   Π A. Π B. Π C:Type.
-#     #   Π p:Sigma A B.
-#     #   (Π a:A. Π b:B a. C) → C
-#     return nested_lam(
-#         Univ(0),                    # A
-#         Pi(Var(0), Univ(0)),        # B
-#         Univ(0),                    # C
-#         SigmaType(Var(2), Var(1)),  # p
-#         Pi(Var(3), Pi(App(Var(3), Var(0)), Var(3))),  # f
-#         #body=let_pair_dep(Var(4), Var(3), Var(2), Var(1), Var(0)),
-#         body=apply_term(
-#             let_pair_dep_term(),
-#             Var(4),  # A
-#             Var(3),  # B
-#             nested_lam(     # Cdep := λ a. λ b. C
-#                 Var(4),
-#                 App(Var(4), Var(0)),
-#                 body=Var(2),
-#             ),
-#             Var(1),  # p
-#             Var(0),  # f
-#         ),
-#     )
-
-
 def let_pair_term() -> Term:
     # let_pair :
     #   Π A:Type0. Π B:(A->Type0). Π C:Type0.

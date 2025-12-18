@@ -34,7 +34,7 @@ def BoolRec(motive: Term, false_case: Term, true_case: Term, scrutinee: Term) ->
     )
 
 
-def if_() -> Term:
+def if_term() -> Term:
     """
     If : Π A : Type0. Bool -> A -> A -> A
     If A b t f := BoolRec (λ _ : Bool. A) f t b
@@ -60,11 +60,11 @@ def if_() -> Term:
     )
 
 
-def if_terms(A: Term, b: Term, t: Term, f: Term) -> Term:
-    return apply_term(if_(), A, b, t, f)
+def if_(A: Term, b: Term, t: Term, f: Term) -> Term:
+    return apply_term(if_term(), A, b, t, f)
 
 
-def not_() -> Term:
+def not_term() -> Term:
     """Boolean negation."""
 
     return nested_lam(
@@ -73,11 +73,11 @@ def not_() -> Term:
     )
 
 
-def not_term(b: Term) -> Term:
-    return App(not_(), b)
+def not_(b: Term) -> Term:
+    return App(not_term(), b)
 
 
-def and_() -> Term:
+def and_term() -> Term:
     """Boolean conjunction."""
 
     return nested_lam(
@@ -87,11 +87,11 @@ def and_() -> Term:
     )
 
 
-def and_terms(lhs: Term, rhs: Term) -> Term:
-    return apply_term(and_(), lhs, rhs)
+def and_(lhs: Term, rhs: Term) -> Term:
+    return apply_term(and_term(), lhs, rhs)
 
 
-def or_() -> Term:
+def or_term() -> Term:
     """Boolean disjunction."""
 
     return nested_lam(
@@ -101,8 +101,8 @@ def or_() -> Term:
     )
 
 
-def or_terms(lhs: Term, rhs: Term) -> Term:
-    return apply_term(or_(), lhs, rhs)
+def or_(lhs: Term, rhs: Term) -> Term:
+    return apply_term(or_term(), lhs, rhs)
 
 
 __all__ = [
@@ -113,12 +113,12 @@ __all__ = [
     "False_",
     "True_",
     "BoolRec",
+    "if_term",
     "if_",
-    "if_terms",
-    "not_",
     "not_term",
+    "not_",
+    "and_term",
     "and_",
-    "and_terms",
+    "or_term",
     "or_",
-    "or_terms",
 ]

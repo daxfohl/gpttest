@@ -8,8 +8,8 @@ from mltt.core.typing import infer_type, type_check
 from mltt.inductive.fin import (
     FZCtor,
     FSCtor,
-    fin_modulus_terms,
-    fin_to_nat_terms,
+    fin_modulus,
+    fin_to_nat,
 )
 from mltt.inductive.nat import NatType, Succ, Zero, numeral
 
@@ -69,7 +69,7 @@ def test_ctor_type() -> None:
 def test_fin_modulus() -> None:
     n = 4
     for i in range(n):
-        term = fin_modulus_terms(numeral(n), fin.of_int(i, n))
+        term = fin_modulus(numeral(n), fin.of_int(i, n))
         assert normalize(term) == numeral(n)
         assert type_check(term, NatType())
 
@@ -77,6 +77,6 @@ def test_fin_modulus() -> None:
 def test_fin_to_nat() -> None:
     n = 5
     for i in range(n):
-        term = fin_to_nat_terms(numeral(n), fin.of_int(i, n))
+        term = fin_to_nat(numeral(n), fin.of_int(i, n))
         assert normalize(term) == numeral(i)
         assert type_check(term, NatType())
