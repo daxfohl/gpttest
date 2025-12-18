@@ -24,9 +24,7 @@ def Succ(n: Term) -> Term:
     return App(SuccCtor, n)
 
 
-def NatRec(P: Term, base: Term, step: Term, n: Term) -> Elim:
-    """Recursor for Nat expressed via the generalized inductive eliminator."""
-
+def NatElim(P: Term, base: Term, step: Term, n: Term) -> Elim:
     return Elim(
         inductive=Nat,
         motive=P,
@@ -57,7 +55,7 @@ def add(lhs: Term, rhs: Term) -> Term:
       add (Succ a) b = Succ (add a b)
     """
 
-    return NatRec(
+    return NatElim(
         P=Lam(NatType(), NatType()),
         base=rhs,
         step=nested_lam(
@@ -75,7 +73,7 @@ def add_term() -> Term:
 
 
 def pred_maybe(n: Term) -> Term:
-    return NatRec(
+    return NatElim(
         P=Lam(NatType(), MaybeType(NatType())),
         base=Nothing(NatType()),
         step=nested_lam(

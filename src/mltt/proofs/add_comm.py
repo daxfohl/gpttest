@@ -6,7 +6,7 @@ from ..core.ast import Lam, Term, Var, Pi
 from ..core.debruijn import shift
 from ..core.util import apply_term, nested_lam
 from ..inductive.eq import Refl, Id, ap, trans, sym
-from ..inductive.nat import NatType, Succ, Zero, add, NatRec
+from ..inductive.nat import NatType, Succ, Zero, add, NatElim
 
 
 def add_zero_right() -> Term:
@@ -14,7 +14,7 @@ def add_zero_right() -> Term:
 
     return Lam(
         NatType(),  # n
-        NatRec(
+        NatElim(
             # motive P(n) = Id Nat (add n 0) n
             P=Lam(
                 NatType(),
@@ -96,7 +96,7 @@ def add_succ_right() -> Term:
     return nested_lam(
         NatType(),  # n
         NatType(),  # m
-        body=NatRec(
+        body=NatElim(
             P=shift(P, 1),  # <-- critical
             base=shift(base, 1),  # <-- critical
             step=shift(step, 1),  # <-- critical
@@ -170,7 +170,7 @@ def add_comm() -> Term:
         NatType(),  # n
         NatType(),  # m
         body=apply_term(
-            NatRec(P=Q, base=base, step=step, n=Var(1)),
+            NatElim(P=Q, base=base, step=step, n=Var(1)),
             Var(0),
         ),
     )

@@ -2,7 +2,7 @@ from mltt.core.ast import App, Elim, Lam, Pi, Term, Univ, Var
 from mltt.core.debruijn import shift, subst
 from mltt.core.util import nested_pi, nested_lam
 from mltt.inductive.eq import Id, IdElim
-from mltt.inductive.nat import NatRec, Succ, Zero
+from mltt.inductive.nat import NatElim, Succ, Zero
 
 
 # ------------- Shift: basic behavior -------------
@@ -354,7 +354,7 @@ def test_subst_pi_body() -> None:
 
 
 def test_subst_natrec_components() -> None:
-    term = NatRec(
+    term = NatElim(
         P=Lam(Univ(), Univ()),
         base=Zero(),
         step=Lam(Univ(), Var(0)),

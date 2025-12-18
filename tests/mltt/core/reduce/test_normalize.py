@@ -1,7 +1,7 @@
 from mltt.core.ast import App, Lam, Univ, Var
 from mltt.core.reduce.normalize import normalize, normalize_step
 from mltt.core.util import nested_lam
-from mltt.inductive.nat import NatRec, NatType, Succ, Zero, add_term
+from mltt.inductive.nat import NatElim, NatType, Succ, Zero, add_term
 
 
 def test_normalize_performs_nested_reduction() -> None:
@@ -13,7 +13,7 @@ def test_normalize_performs_nested_reduction() -> None:
 def test_normalize_step_unfolds_add_base_case() -> None:
     expected = Lam(
         NatType(),
-        NatRec(
+        NatElim(
             P=Lam(NatType(), NatType()),
             base=Var(0),
             step=nested_lam(NatType(), NatType(), body=Succ(Var(0))),
@@ -46,5 +46,5 @@ def test_normalize_complex_natrec() -> None:
     P = Lam(NatType(), NatType())
     z = Zero()
     s = nested_lam(NatType(), NatType(), body=Succ(Var(0)))
-    term = NatRec(P=P, base=z, step=s, n=Succ(Succ(Zero())))
+    term = NatElim(P=P, base=z, step=s, n=Succ(Succ(Zero())))
     assert normalize(term) == Succ(Succ(Zero()))
