@@ -65,19 +65,27 @@ def of_int(i: int, n: int) -> Term:
     return FS(numeral(n - 1), of_int(i - 1, n - 1))
 
 
+def fin_modulus(n: Term, f: Term) -> Term:
+    return n
+
+
 def fin_modulus_term() -> Term:
     return nested_lam(
         NatType(),  # n
         FinType(Var(0)),  # x : Fin n
-        body=Var(1),  # return n
+        body=fin_modulus(Var(1), Var(0)),  # return n
     )
 
 
-def fin_modulus(n: Term, k: Term) -> Term:
-    return apply_term(fin_modulus_term(), n, k)
-
-
 def fin_to_nat_term() -> Term:
+    return nested_lam(
+        NatType(),
+        FinType(Var(0)),
+        body=fin_to_nat(Var(1), Var(0)),  # return n
+    )
+
+
+def fin_to_nat(n: Term, k: Term) -> Term:
     P = nested_lam(NatType(), FinType(Var(0)), body=NatType())
     base = nested_lam(NatType(), body=Zero())
     step = nested_lam(
@@ -87,12 +95,4 @@ def fin_to_nat_term() -> Term:
         body=Succ(Var(0)),
     )
 
-    return nested_lam(
-        NatType(),
-        FinType(Var(0)),
-        body=FinRec(P=P, base=base, step=step, k=Var(0)),
-    )
-
-
-def fin_to_nat(n: Term, k: Term) -> Term:
-    return apply_term(fin_to_nat_term(), n, k)
+    return FinRec(P=P, base=base, step=step, k=k)
