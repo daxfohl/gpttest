@@ -117,7 +117,6 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
                     f"  term = {term}\n"
                     f"  argument = {a}\n"
                     f"  expected arg_ty = {f_ty.arg_ty}\n"
-                    f"  inferred arg_ty = {infer_type(a, ctx)}\n"
                     f"  inferred f_ty = {f_ty}"
                 ) from exc
             return subst(f_ty.return_ty, a)
@@ -185,8 +184,8 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> None:
                         raise TypeError(
                             "Lambda body has wrong type:\n"
                             f"  term = {term}\n"
+                            f"  body = {body}"
                             f"  expected codomain = {cod}\n"
-                            f"  inferred body = {infer_type(body, ctx1)}"
                         ) from exc
                     return None
                 case _:
@@ -212,7 +211,6 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> None:
                     f"  term = {term}\n"
                     f"  argument = {a}\n"
                     f"  expected arg_ty = {f_ty.arg_ty}\n"
-                    f"  inferred arg_ty = {infer_type(a, ctx)}\n"
                     f"  inferred f_ty = {f_ty}"
                 ) from exc
             inferred_ty = subst(f_ty.return_ty, a)
