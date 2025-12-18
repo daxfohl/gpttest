@@ -1,6 +1,4 @@
 from mltt.core.ast import Var
-from mltt.core.reduce.normalize import normalize
-from mltt.core.typing import infer_type, type_equal, type_check
 from mltt.core.util import apply_term, nested_pi
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Succ, Zero, add, numeral
@@ -19,13 +17,13 @@ def test_add_zero_right_typechecks() -> None:
         NatType(),
         return_ty=Id(NatType(), add(Var(0), Zero()), Var(0)),
     )
-    assert type_equal(infer_type(lemma), expected_ty)
+    assert lemma.infer_type().type_equal(expected_ty)
 
 
 def test_add_zero_right_normalizes() -> None:
     lemma = add_zero_right()
     applied = apply_term(lemma, numeral(5))
-    assert normalize(applied) == Refl(NatType(), numeral(5))
+    assert applied.normalize() == Refl(NatType(), numeral(5))
 
 
 def test_add_zero_right_normalizes_multiple_inputs() -> None:
@@ -33,7 +31,7 @@ def test_add_zero_right_normalizes_multiple_inputs() -> None:
 
     for value in range(6):
         applied = apply_term(lemma, numeral(value))
-        assert normalize(applied) == Refl(NatType(), numeral(value))
+        assert applied.normalize() == Refl(NatType(), numeral(value))
 
 
 def test_add_zero_right_applied_term_typechecks() -> None:
@@ -46,7 +44,7 @@ def test_add_zero_right_applied_term_typechecks() -> None:
         three,
     )
 
-    type_check(applied, expected)
+    applied.type_check(expected)
 
 
 def test_add_zero_left_typechecks() -> None:
@@ -55,7 +53,7 @@ def test_add_zero_left_typechecks() -> None:
         NatType(),
         return_ty=Id(NatType(), add(Zero(), Var(0)), Var(0)),
     )
-    assert type_equal(infer_type(lemma), expected_ty)
+    assert lemma.infer_type().type_equal(expected_ty)
 
 
 def test_succ_add_typechecks() -> None:
@@ -69,7 +67,7 @@ def test_succ_add_typechecks() -> None:
             Succ(add(Var(1), Var(0))),
         ),
     )
-    assert type_equal(infer_type(lemma), expected_ty)
+    assert lemma.infer_type().type_equal(expected_ty)
 
 
 def test_add_succ_right_typechecks() -> None:
@@ -84,7 +82,7 @@ def test_add_succ_right_typechecks() -> None:
             Succ(add(Var(0), Var(1))),
         ),
     )
-    assert type_equal(infer_type(lemma), expected_ty)
+    assert lemma.infer_type().type_equal(expected_ty)
 
 
 def test_add_comm_typechecks_and_examples() -> None:
@@ -94,11 +92,11 @@ def test_add_comm_typechecks_and_examples() -> None:
         NatType(),
         return_ty=Id(NatType(), add(Var(1), Var(0)), add(Var(0), Var(1))),
     )
-    assert type_equal(infer_type(lemma), expected_ty)
+    assert lemma.infer_type().type_equal(expected_ty)
 
     m = numeral(2)
     n = numeral(3)
     proof = apply_term(lemma, m, n)
     expected_proof_ty = Id(NatType(), add(m, n), add(n, m))
 
-    type_check(proof, expected_proof_ty)
+    proof.type_check(expected_proof_ty)

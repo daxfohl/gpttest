@@ -1,5 +1,4 @@
 from mltt.core.ast import App, Var
-from mltt.core.reduce.whnf import whnf
 from mltt.core.util import nested_lam
 from mltt.inductive.eq import IdElim, Refl
 from mltt.inductive.nat import NatRec, NatType, Zero, Succ
@@ -10,7 +9,7 @@ def test_whnf_unfolds_natrec_on_successor() -> None:
     z = Zero()
     s = nested_lam(NatType(), NatType(), body=Succ(Var(0)))
     term = NatRec(A=A, base=z, step=s, n=Succ(Zero()))
-    result = whnf(term)
+    result = term.whnf()
 
     assert result == Succ(
         NatRec(
@@ -31,9 +30,9 @@ def test_whnf_simplifies_identity_elimination_on_refl() -> None:
         y=Var(4),
         p=Refl(Var(5), Var(6)),
     )
-    assert whnf(term) == Var(3)
+    assert term.whnf() == Var(3)
 
 
 def test_whnf_stops_on_irreducible_function() -> None:
     term = App(Var(0), Zero())
-    assert whnf(term) == App(Var(0), Zero())
+    assert term.whnf() == App(Var(0), Zero())

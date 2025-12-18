@@ -1,5 +1,4 @@
 from mltt.core.ast import Lam, Var
-from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Succ, Zero
 from mltt.inductive.rtc import RTCRefl, RTCStep, RTCType
@@ -15,8 +14,8 @@ def test_rtc_refl_typechecks() -> None:
     R = nat_relation()
     proof = RTCRefl(A, R, Zero())
     expected = RTCType(A, R, Zero(), Zero())
-    type_check(proof, expected)
-    assert type_equal(infer_type(proof), expected)
+    proof.type_check(expected)
+    assert proof.infer_type().type_equal(expected)
 
 
 def test_rtc_step_typechecks() -> None:
@@ -29,8 +28,8 @@ def test_rtc_step_typechecks() -> None:
     ih = RTCRefl(A, R, z)
     proof = RTCStep(A, R, x, z, y, step, ih)
     expected = RTCType(A, R, x, z)
-    type_check(proof, expected)
-    assert type_equal(infer_type(proof), expected)
+    proof.type_check(expected)
+    assert proof.infer_type().type_equal(expected)
 
 
 def succ_relation() -> Lam:
@@ -53,5 +52,5 @@ def test_rtc_succ_chain_two_steps() -> None:
     # Path 0 -> 2 by prepending the 0 -> 1 edge
     proof = RTCStep(A, R, Zero(), two, one, Refl(NatType(), one), step1)
     expected = RTCType(A, R, Zero(), two)
-    type_check(proof, expected)
-    assert type_equal(infer_type(proof), expected)
+    proof.type_check(expected)
+    assert proof.infer_type().type_equal(expected)

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from .sigma import Sigma
 from ..core.ast import Ctor, Elim, Ind, Lam, Term, Univ, Var
-from ..core.debruijn import shift
 from ..core.util import apply_term
 
 # Expr (Ty : Type) (τ : Ty) : Type
@@ -33,7 +32,7 @@ PairCtor = Ctor(
         apply_term(  # A × B as a Sigma with constant second component.
             Sigma,
             Var(3),  # A
-            Lam(Var(3), shift(Var(2), 1)),  # λ_:A. B
+            Lam(Var(3), Var(2).shift(1)),  # λ_:A. B
         ),
     ),
 )

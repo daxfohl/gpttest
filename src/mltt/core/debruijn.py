@@ -5,17 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterator
 
-from .ast import (
-    App,
-    Ctor,
-    Elim,
-    Ind,
-    Lam,
-    Pi,
-    Term,
-    Univ,
-    Var,
-)
+from .ast import Term
 
 
 @dataclass(frozen=True)
@@ -108,73 +98,15 @@ class Ctx:
 
 
 def shift(term: Term, by: int, cutoff: int = 0) -> Term:
-    """Shift free variables in ``term`` by ``by`` starting at ``cutoff``.
+    """Shift free variables in ``term`` by ``by`` starting at ``cutoff``."""
 
-    De Bruijn convention: index 0 refers to the innermost binder. When adding
-    a binder, shift outer references up to keep them pointing at the same
-    syntactic entity. ``cutoff`` shields inner binders so they are unaffected.
-    """
-
-    match term:
-        case Var(k):
-            return Var(k + by if k >= cutoff else k)
-        case Lam(ty, body):
-            return Lam(shift(ty, by, cutoff), shift(body, by, cutoff + 1))
-        case Pi(ty, body):
-            return Pi(shift(ty, by, cutoff), shift(body, by, cutoff + 1))
-        case App(f, a):
-            return App(shift(f, by, cutoff), shift(a, by, cutoff))
-        case Elim(inductive, motive, cases, scrutinee):
-            return Elim(
-                inductive,
-                shift(motive, by, cutoff),
-                tuple(shift(case, by, cutoff) for case in cases),
-                shift(scrutinee, by, cutoff),
-            )
-        case Univ() | Ind() | Ctor():
-            return term
-
-    raise TypeError(f"Unexpected term in shift: {term!r}")
+    return term.shift(by, cutoff)
 
 
 def subst(term: Term, sub: Term, j: int = 0) -> Term:
-    """Substitute ``sub`` for ``Var(j)`` inside ``term``, and squash it.
+    """Substitute ``sub`` for ``Var(j)`` inside ``term``."""
 
-    Standard de Bruijn substitution: replacing ``Var(j)`` drops indices above
-    ``j`` by 1 to fill the gap and shifts ``sub`` when descending under binders
-    so its free variables remain aligned.
-    """
-    match term:
-        case Var(k):
-            if k == j:
-                return sub
-            elif k > j:
-                return Var(k - 1)
-            else:
-                return term
-        case Lam(ty, body):
-            return Lam(
-                subst(ty, sub, j),
-                subst(body, shift(sub, 1, 0), j + 1),
-            )
-        case Pi(ty, body):
-            return Pi(
-                subst(ty, sub, j),
-                subst(body, shift(sub, 1, 0), j + 1),
-            )
-        case App(f, a):
-            return App(subst(f, sub, j), subst(a, sub, j))
-        case Elim(inductive, motive, cases, scrutinee):
-            return Elim(
-                inductive,
-                subst(motive, sub, j),
-                tuple(subst(case, sub, j) for case in cases),
-                subst(scrutinee, sub, j),
-            )
-        case Univ() | Ind() | Ctor():
-            return term
-
-    raise TypeError(f"Unexpected term in subst: {term!r}")
+    return term.subst(sub, j)
 
 
 __all__ = ["Ctx", "CtxEntry", "shift", "subst"]

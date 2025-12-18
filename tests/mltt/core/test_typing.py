@@ -2,8 +2,6 @@ import pytest
 
 from mltt.core.ast import App, Lam, Pi, Term, Univ, Var
 from mltt.core.debruijn import Ctx
-from mltt.core.reduce.normalize import normalize
-from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.core.util import apply_term, nested_lam
 from mltt.inductive.eq import Id, IdElim, Refl
 from mltt.inductive.nat import NatRec, NatType, Zero, add, numeral
@@ -11,37 +9,37 @@ from mltt.inductive.nat import NatRec, NatType, Zero, add, numeral
 
 def test_infer_var() -> None:
     with pytest.raises(TypeError, match="Unbound variable"):
-        assert infer_type(Var(0))
+        assert Var(0).infer_type()
     t = NatType()
-    assert infer_type(Var(0), Ctx.as_ctx(t)) == t
+    assert Var(0).infer_type(Ctx.as_ctx(t)) == t
 
 
 def test_infer_lam() -> None:
-    assert infer_type(Lam(Var(0), Var(0))) == Pi(Var(0), Var(1))
-    assert infer_type(Lam(Var(10), Var(0))) == Pi(Var(10), Var(11))
-    assert infer_type(Lam(Univ(0), Var(0))) == Pi(Univ(0), Univ(0))
-    assert infer_type(Lam(Univ(10), Var(0))) == Pi(Univ(10), Univ(10))
+    assert Lam(Var(0), Var(0)).infer_type() == Pi(Var(0), Var(1))
+    assert Lam(Var(10), Var(0)).infer_type() == Pi(Var(10), Var(11))
+    assert Lam(Univ(0), Var(0)).infer_type() == Pi(Univ(0), Univ(0))
+    assert Lam(Univ(10), Var(0)).infer_type() == Pi(Univ(10), Univ(10))
     with pytest.raises(TypeError, match="Unbound variable"):
-        infer_type(Lam(Var(0), Var(1)))
+        Lam(Var(0), Var(1)).infer_type()
     with pytest.raises(TypeError, match="Unbound variable"):
-        infer_type(Lam(Var(10), Var(1)))
+        Lam(Var(10), Var(1)).infer_type()
     with pytest.raises(TypeError, match="Unbound variable"):
-        infer_type(Lam(Univ(0), Var(1)))
+        Lam(Univ(0), Var(1)).infer_type()
     with pytest.raises(TypeError, match="Unbound variable"):
-        infer_type(Lam(Univ(10), Var(1)))
-    assert infer_type(Lam(Var(0), Univ(0))) == Pi(Var(0), Univ(1))
-    assert infer_type(Lam(Var(10), Univ(0))) == Pi(Var(10), Univ(1))
-    assert infer_type(Lam(Univ(0), Univ(0))) == Pi(Univ(0), Univ(1))
-    assert infer_type(Lam(Univ(10), Univ(0))) == Pi(Univ(10), Univ(1))
-    assert infer_type(Lam(Var(0), Univ(10))) == Pi(Var(0), Univ(11))
-    assert infer_type(Lam(Var(10), Univ(10))) == Pi(Var(10), Univ(11))
-    assert infer_type(Lam(Univ(0), Univ(10))) == Pi(Univ(0), Univ(11))
-    assert infer_type(Lam(Univ(10), Univ(10))) == Pi(Univ(10), Univ(11))
+        Lam(Univ(10), Var(1)).infer_type()
+    assert Lam(Var(0), Univ(0)).infer_type() == Pi(Var(0), Univ(1))
+    assert Lam(Var(10), Univ(0)).infer_type() == Pi(Var(10), Univ(1))
+    assert Lam(Univ(0), Univ(0)).infer_type() == Pi(Univ(0), Univ(1))
+    assert Lam(Univ(10), Univ(0)).infer_type() == Pi(Univ(10), Univ(1))
+    assert Lam(Var(0), Univ(10)).infer_type() == Pi(Var(0), Univ(11))
+    assert Lam(Var(10), Univ(10)).infer_type() == Pi(Var(10), Univ(11))
+    assert Lam(Univ(0), Univ(10)).infer_type() == Pi(Univ(0), Univ(11))
+    assert Lam(Univ(10), Univ(10)).infer_type() == Pi(Univ(10), Univ(11))
 
 
 def test_infer_lam_ctx() -> None:
     def infer(t: Term) -> Term:
-        return infer_type(t, Ctx.as_ctx(Univ(100)))
+        return t.infer_type(Ctx.as_ctx(Univ(100)))
 
     assert infer(Lam(NatType(), Var(0))) == Pi(NatType(), NatType())
     assert infer(Lam(NatType(), Zero())) == Pi(NatType(), NatType())
@@ -83,8 +81,8 @@ def test_infer_lam_4_level(i: int) -> None:
         ),
     )
     t = App(App(App(App(fxy, Univ(9)), Univ(8)), Univ(19)), Univ(18))
-    assert normalize(t) == Univ(18 if i == 0 else 8)
-    assert infer_type(t) == Univ(19 if i == 0 else 9)
+    assert t.normalize() == Univ(18 if i == 0 else 8)
+    assert t.infer_type() == Univ(19 if i == 0 else 9)
 
 
 @pytest.mark.parametrize("i", [0, 1])
@@ -102,8 +100,8 @@ def test_infer_lam_3_level(i: int) -> None:
         ),
     )
     t = App(App(App(fxy, Univ(9)), Univ(8)), Univ(8))
-    assert normalize(t) == Univ(8)
-    assert infer_type(t) == Univ(9)
+    assert t.normalize() == Univ(8)
+    assert t.infer_type() == Univ(9)
 
 
 def test_two_level_lambda_type_refers_to_previous_binder() -> None:
@@ -130,7 +128,7 @@ def test_two_level_lambda_type_refers_to_previous_binder() -> None:
     # Empty context
     ctx = Ctx()
 
-    ty = infer_type(term, ctx)
+    ty = term.infer_type(ctx)
 
     # Expected type: Π (A : Type₀). Π (x : A). A
     # De Bruijn: Pi(Univ(0), Pi(Var(0), Var(1)))
@@ -148,32 +146,32 @@ def test_two_level_lambda_type_refers_to_previous_binder() -> None:
 def test_type_equal_normalizes_beta_equivalent_terms() -> None:
     beta_equiv = App(Lam(Univ(), Var(0)), Univ())
 
-    assert type_equal(beta_equiv, Univ())
-    assert not type_equal(beta_equiv, NatType())
+    assert beta_equiv.type_equal(Univ())
+    assert not beta_equiv.type_equal(NatType())
 
 
 def test_type_universe_levels_are_indexed() -> None:
-    assert infer_type(Univ()) == Univ(1)
-    assert infer_type(Univ(2)) == Univ(3)
+    assert Univ().infer_type() == Univ(1)
+    assert Univ(2).infer_type() == Univ(3)
 
 
 def test_infer_type_of_lambda_returns_pi_type() -> None:
     term = Lam(NatType(), Var(0))
 
-    assert infer_type(term) == Pi(NatType(), NatType())
+    assert term.infer_type() == Pi(NatType(), NatType())
 
 
 def test_infer_type_of_pi_uses_maximum_universe_level() -> None:
-    assert infer_type(Pi(NatType(), NatType())) == Univ(0)
+    assert Pi(NatType(), NatType()).infer_type() == Univ(0)
     higher = Pi(Univ(), NatType())
-    assert infer_type(higher) == Univ(1)
+    assert higher.infer_type() == Univ(1)
     cod_dominates = Pi(NatType(), Univ(1))
-    assert infer_type(cod_dominates) == Univ(2)
+    assert cod_dominates.infer_type() == Univ(2)
 
 
 def test_infer_type_application_requires_function() -> None:
     with pytest.raises(TypeError, match="Application of non-function"):
-        infer_type(App(Zero(), Zero()))
+        App(Zero(), Zero()).infer_type()
 
 
 def test_type_check_natrec_rejects_invalid_base_case() -> None:
@@ -184,27 +182,27 @@ def test_type_check_natrec_rejects_invalid_base_case() -> None:
     term = NatRec(A, z, s, n)
 
     with pytest.raises(TypeError, match="Case for constructor has wrong type"):
-        type_check(term, A)
+        term.type_check(A)
 
 
 def test_type_check_accepts_add_application() -> None:
     term = add(numeral(2), numeral(3))
 
-    type_check(term, NatType())
+    term.type_check(NatType())
 
 
 def test_type_check_lambda_with_wrong_domain() -> None:
     term = Lam(NatType(), Var(0))
     expected = Pi(Univ(), NatType())
     with pytest.raises(TypeError, match="Lambda domain mismatch"):
-        type_check(term, expected)
+        term.type_check(expected)
 
 
 def test_type_check_application_argument_mismatch() -> None:
     f = Lam(NatType(), Var(0))
     term = App(f, Univ())
     with pytest.raises(TypeError, match="Application argument type mismatch"):
-        type_check(term, NatType())
+        term.type_check(NatType())
 
 
 def test_infer_type_idelim() -> None:
@@ -217,5 +215,5 @@ def test_infer_type_idelim() -> None:
         y=Zero(),
         p=Refl(NatType(), Zero()),
     )
-    inferred = infer_type(term)
+    inferred = term.infer_type()
     assert inferred == apply_term(P, Zero(), Refl(NatType(), Zero()))

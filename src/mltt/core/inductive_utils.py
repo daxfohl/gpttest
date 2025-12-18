@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from .ast import Ctor, Term, Var, Elim, Pi, Univ, App, Ind
-from .debruijn import subst, shift, Ctx
-from .reduce.normalize import normalize
-from .reduce.whnf import whnf
+from .debruijn import Ctx
 from .util import nested_pi, apply_term, decompose_app
 
 
@@ -20,7 +18,7 @@ def _instantiate_ctor_arg_types(
         # eliminate param binders outermost → innermost at their indexed depth
         for s, param in enumerate(params_actual):
             index = i + p - s - 1
-            t = subst(t, shift(param, i + (p - s - 1)), index)
+            t = t.subst(param.shift(i + (p - s - 1)), index)
         schemas.append(t)
     return tuple(schemas)
 
@@ -42,7 +40,7 @@ def _instantiate_ctor_result_indices_under_fields(
         # eliminate param binders outermost → innermost so inner indices stay stable
         for s, param in enumerate(params_actual_shifted):
             index = m + p - s - 1
-            t = subst(t, shift(param, p - s - 1), index)
+            t = t.subst(param.shift(p - s - 1), index)
         out.append(t)
     return tuple(out)
 
@@ -53,10 +51,9 @@ def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
     The resulting Pi-tower has parameters outermost, then indices,
     finishing with the universe level.
     """
-    from .typing import expect_universe
 
     for b in ind.all_binders:
-        expect_universe(b, ctx)
+        b.expect_universe(ctx)
         ctx = ctx.prepend_each(b)
     return nested_pi(*ind.all_binders, return_ty=Univ(ind.level))
 
@@ -92,11 +89,10 @@ def infer_ctor_type(ctor: Ctor) -> Term:
 def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
     """Infer the type of an ``InductiveElim`` while checking its well-formedness."""
     # 1. Infer type of scrutinee and extract params/indices.
-    from .typing import infer_type, type_equal, type_check, expect_universe
 
     scrut = elim.scrutinee
     ind = elim.inductive
-    scrut_ty = whnf(infer_type(scrut, ctx))
+    scrut_ty = scrut.infer_type(ctx).whnf()
     scrut_ty_head, scrut_ty_bindings = decompose_app(scrut_ty)
     if scrut_ty_head is not ind:
         raise TypeError(
@@ -115,7 +111,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
     motive_applied = apply_term(motive, *indices_actual)
 
     # 2.2 Infer the type of this partially applied motive
-    motive_applied_ty = whnf(infer_type(motive_applied, ctx))
+    motive_applied_ty = motive_applied.infer_type(ctx).whnf()
     if not isinstance(motive_applied_ty, Pi):
         raise TypeError(
             "InductiveElim motive must take scrutinee after indices:\n"
@@ -126,7 +122,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
 
     # 2.3 The scrutinee binder domain must match the scrutinee type
     scrut_dom = motive_applied_ty.arg_ty
-    if not type_equal(scrut_dom, scrut_ty):
+    if not scrut_dom.type_equal(scrut_ty):
         raise TypeError(
             "InductiveElim motive scrutinee domain mismatch:\n"
             f"  expected scrut_ty = {scrut_ty}\n"
@@ -134,7 +130,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
         )
 
     # 2.4 The motive codomain must be a universe
-    body_ty = whnf(motive_applied_ty.return_ty)
+    body_ty = motive_applied_ty.return_ty.whnf()
     if not isinstance(body_ty, Univ):
         raise TypeError(
             "InductiveElim motive codomain must be a universe:\n"
@@ -160,8 +156,8 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
         m = len(inst_arg_types)
 
         # 3.2 Work in context Γ,fields: shift Γ-level params and motive by m.
-        params_in_fields_ctx = tuple(shift(p, m) for p in params_actual)
-        motive_in_fields_ctx = shift(motive, m)
+        params_in_fields_ctx = tuple(p.shift(m) for p in params_actual)
+        motive_in_fields_ctx = motive.shift(m)
 
         # Build a scrutinee-shaped term: C params field_vars.
         # field_vars are Var(m-1) .. Var(0) in the Γ,fields context.
@@ -192,8 +188,8 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
             # field_index is outermost → innermost. Translate to de Bruijn index.
             field_var_index = m - 1 - field_index
             ih_type = apply_term(
-                shift(motive, m + ri),
-                *(shift(i, field_var_index + ri) for i in indices_field),
+                motive.shift(m + ri),
+                *(i.shift(field_var_index + ri) for i in indices_field),
                 Var(field_var_index + ri),
             )
             ih_types.append(ih_type)
@@ -202,28 +198,28 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
         codomain_in_fields_ctx = apply_term(
             motive_in_fields_ctx, *result_indices_inst, scrut_like
         )
-        codomain = shift(codomain_in_fields_ctx, r)
+        codomain = codomain_in_fields_ctx.shift(r)
 
         # 3.6 Expected branch type: Π fields. Π ihs. codomain.
         telescope = (*inst_arg_types, *ih_types)
         branch_ty = nested_pi(*telescope, return_ty=codomain)
         try:
-            type_check(case, branch_ty, ctx)
+            case.type_check(branch_ty, ctx)
         except TypeError as exc:
             raise TypeError(
                 "Case for constructor has wrong type:\n"
                 f"  ctor = {ctor}\n"
-                f"  case = {normalize(case)}\n"
-                f"  expected = {normalize(branch_ty)}"
+                f"  case = {case.normalize()}\n"
+                f"  expected = {branch_ty.normalize()}"
             ) from exc
 
-    u = expect_universe(motive_applied_ty.return_ty, ctx)  # cod should be Univ(u)
+    u = motive_applied_ty.return_ty.expect_universe(ctx)  # cod should be Univ(u)
 
     # target type is P i⃗_actual scrut
     target_ty = App(motive_applied, scrut)
 
     # sanity check target_ty really is a type in Type u (or ≤ u with cumulativity)
-    _ = expect_universe(infer_type(target_ty, ctx), ctx)
+    _ = target_ty.infer_type(ctx).expect_universe(ctx)
 
     if u < ind.level:
         raise TypeError(

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from ..core.ast import App, Ctor, Elim, Ind, Lam, Term, Univ, Var
-from ..core.debruijn import shift
 from ..core.util import apply_term, nested_lam
 
 IdType = Ind(
@@ -46,11 +45,11 @@ def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
 
     P = nested_lam(
         A,
-        Id(shift(A, 1), shift(x, 1), Var(0)),
+        Id(A.shift(1), x.shift(1), Var(0)),
         body=Id(
-            App(shift(B, 2), Var(1)),
-            App(shift(f, 2), shift(x, 2)),
-            App(shift(f, 2), Var(1)),
+            App(B.shift(2), Var(1)),
+            App(f.shift(2), x.shift(2)),
+            App(f.shift(2), Var(1)),
         ),
     )
     d = Refl(App(B, x), App(f, x))
@@ -60,11 +59,11 @@ def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
 def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
     """Standard dependent congruence."""
 
-    A1 = shift(A, 1)
-    x1 = shift(x, 1)
-    B2 = shift(B, 2)
-    f2 = shift(f, 2)
-    x2 = shift(x, 2)
+    A1 = A.shift(1)
+    x1 = x.shift(1)
+    B2 = B.shift(2)
+    f2 = f.shift(2)
+    x2 = x.shift(2)
 
     P = nested_lam(
         A,
@@ -84,10 +83,10 @@ def ap(f: Term, A: Term, B0: Term, x: Term, y: Term, p: Term) -> Term:
 def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
     """Symmetry of identity proofs."""
 
-    A1 = shift(A, 1)
-    x1 = shift(x, 1)
-    A2 = shift(A, 2)
-    x2 = shift(x, 2)
+    A1 = A.shift(1)
+    x1 = x.shift(1)
+    A2 = A.shift(2)
+    x2 = x.shift(2)
 
     P = nested_lam(
         A,
@@ -101,10 +100,10 @@ def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
 def trans(A: Term, x: Term, y: Term, z: Term, p: Term, q: Term) -> Term:
     """Transitivity of identity proofs."""
 
-    A1 = shift(A, 1)
-    y1 = shift(y, 1)
-    A2 = shift(A, 2)
-    x2 = shift(x, 2)
+    A1 = A.shift(1)
+    y1 = y.shift(1)
+    A2 = A.shift(2)
+    x2 = x.shift(2)
 
     Q = nested_lam(
         A,

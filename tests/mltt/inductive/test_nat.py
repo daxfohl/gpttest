@@ -1,8 +1,6 @@
 import pytest
 
 from mltt.core.ast import Pi
-from mltt.core.reduce.normalize import normalize
-from mltt.core.typing import infer_type, type_check
 from mltt.core.util import nested_pi
 from mltt.inductive.maybe import MaybeType, Nothing, Just
 from mltt.inductive.nat import (
@@ -21,14 +19,14 @@ from mltt.inductive.nat import (
 def test_add_has_expected_pi_type() -> None:
     add_type = nested_pi(NatType(), NatType(), return_ty=NatType())
 
-    type_check(add_term(), add_type)
+    add_term().type_check(add_type)
 
 
 def test_add_zero_left_identity() -> None:
     n_term = numeral(4)
     expected = numeral(4)
 
-    result = normalize(add(Zero(), n_term))
+    result = add(Zero(), n_term).normalize()
 
     assert result == expected
 
@@ -37,42 +35,42 @@ def test_add_satisfies_recursive_step() -> None:
     k_term = numeral(2)
     n_term = numeral(3)
 
-    lhs = normalize(add(Succ(k_term), n_term))
-    rhs = normalize(Succ(add(k_term, n_term)))
+    lhs = add(Succ(k_term), n_term).normalize()
+    rhs = Succ(add(k_term, n_term)).normalize()
 
     assert lhs == rhs
 
 
 def test_add_produces_expected_numeral() -> None:
-    result = normalize(add(numeral(2), numeral(3)))
+    result = add(numeral(2), numeral(3)).normalize()
 
     assert result == numeral(5)
 
 
 @pytest.mark.parametrize("i", range(3))
 def test_infer_type(i: int) -> None:
-    t = infer_type(numeral(i))
+    t = numeral(i).infer_type()
     assert t == NatType()
 
 
 def test_ctor_type() -> None:
-    t = infer_type(ZeroCtor)
+    t = ZeroCtor.infer_type()
     assert t == NatType()
-    t = infer_type(SuccCtor)
+    t = SuccCtor.infer_type()
     assert t == Pi(NatType(), NatType())
 
 
 def test_pred_maybe_zero() -> None:
     result = pred_maybe(Zero())
-    assert normalize(result) == Nothing(NatType())
+    assert result.normalize() == Nothing(NatType())
 
-    type_check(result, MaybeType(NatType()))
+    result.type_check(MaybeType(NatType()))
 
 
 @pytest.mark.parametrize("i", range(1, 4))
 def test_pred_maybe_succ(i: int) -> None:
     n = numeral(i)
     result = pred_maybe(n)
-    assert normalize(result) == Just(NatType(), numeral(i - 1))
+    assert result.normalize() == Just(NatType(), numeral(i - 1))
 
-    type_check(result, MaybeType(NatType()))
+    result.type_check(MaybeType(NatType()))

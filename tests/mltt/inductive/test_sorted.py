@@ -1,5 +1,4 @@
 from mltt.core.ast import Lam, Pi, Univ, Var, Term
-from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.core.util import apply_term, nested_pi
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.list import Cons, List, Nil
@@ -24,8 +23,8 @@ def test_sorted_nil_and_one_typecheck() -> None:
     R = reflexive_relation(A)
     nil_proof = SortedNil(A, R)
     one_proof = SortedOne(A, R, Zero())
-    type_check(nil_proof, SortedType(A, R, Nil(A)))
-    type_check(one_proof, SortedType(A, R, Cons(A, Zero(), Nil(A))))
+    nil_proof.type_check(SortedType(A, R, Nil(A)))
+    one_proof.type_check(SortedType(A, R, Cons(A, Zero(), Nil(A))))
 
 
 def test_sorted_cons_typechecks() -> None:
@@ -36,8 +35,8 @@ def test_sorted_cons_typechecks() -> None:
     ih = SortedOne(A, R, Zero())
     proof = SortedCons(A, R, xs, Zero(), Zero(), rel, ih)
     expected = SortedType(A, R, Cons(A, Zero(), Cons(A, Zero(), xs)))
-    type_check(proof, expected)
-    assert type_equal(infer_type(proof), expected)
+    proof.type_check(expected)
+    assert proof.infer_type().type_equal(expected)
 
 
 def test_sorted_ctor_types() -> None:
@@ -46,7 +45,7 @@ def test_sorted_ctor_types() -> None:
         Pi(Var(0), Pi(Var(1), Univ(0))),
         return_ty=SortedType(Var(1), Var(0), Nil(Var(1))),
     )
-    assert type_equal(infer_type(SortedNilCtor), expected_nil)
+    assert SortedNilCtor.infer_type().type_equal(expected_nil)
 
     expected_one = nested_pi(
         Univ(0),
@@ -54,7 +53,7 @@ def test_sorted_ctor_types() -> None:
         Var(1),
         return_ty=SortedType(Var(2), Var(1), Cons(Var(2), Var(0), Nil(Var(2)))),
     )
-    assert type_equal(infer_type(SortedOneCtor), expected_one)
+    assert SortedOneCtor.infer_type().type_equal(expected_one)
 
     expected_cons = nested_pi(
         Univ(0),
@@ -72,4 +71,4 @@ def test_sorted_ctor_types() -> None:
             Cons(Var(6), Var(3), Cons(Var(6), Var(2), Var(4))),
         ),
     )
-    assert type_equal(infer_type(SortedConsCtor), expected_cons)
+    assert SortedConsCtor.infer_type().type_equal(expected_cons)

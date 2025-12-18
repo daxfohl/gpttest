@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from ..core.ast import App, Ctor, Elim, Ind, Lam, Pi, Term, Univ, Var
-from ..core.debruijn import shift
 from ..core.util import apply_term, nested_pi, nested_lam
 
 Sigma = Ind(
@@ -45,14 +44,14 @@ def SigmaElim(P: Term, pair_case: Term, pair: Term) -> Elim:
 def SigmaRec(A: Term, B: Term, C: Term, pair_case: Term, pair: Term) -> Term:
     # C is constant result type (may have free vars), so shift by 1 under the motive binder
     return SigmaElim(
-        P=Lam(SigmaType(A, B), shift(C, 1)),
+        P=Lam(SigmaType(A, B), C.shift(1)),
         pair_case=pair_case,
         pair=pair,
     )
 
 
 def fst(A: Term, B: Term, p: Term) -> Term:
-    return SigmaRec(A, B, A, nested_lam(A, App(shift(B, 1), Var(0)), body=Var(1)), p)
+    return SigmaRec(A, B, A, nested_lam(A, App(B.shift(1), Var(0)), body=Var(1)), p)
 
 
 def fst_term() -> Term:
@@ -66,14 +65,14 @@ def fst_term() -> Term:
 
 
 def snd(A: Term, B: Term, p: Term) -> Term:
-    A1 = shift(A, 1)
-    B1 = shift(B, 1)
+    A1 = A.shift(1)
+    B1 = B.shift(1)
 
     return SigmaElim(
         # P p := B (fst p)
         P=Lam(SigmaType(A, B), App(B1, fst(A1, B1, Var(0)))),
         # pair_case : Π a:A. Π b:B a. B (fst (Pair a b))  (and fst (Pair a b) ≡ a)
-        pair_case=nested_lam(A, App(shift(B, 1), Var(0)), body=Var(0)),
+        pair_case=nested_lam(A, App(B.shift(1), Var(0)), body=Var(0)),
         pair=p,
     )
 
@@ -117,7 +116,7 @@ def let_pair_dep_term() -> Term:
 
 
 def let_pair_fn(A: Term, B: Term, C: Term, p: Term, f: Term) -> Term:
-    C_const = nested_lam(A, App(shift(B, 1), Var(0)), body=shift(C, 2))
+    C_const = nested_lam(A, App(B.shift(1), Var(0)), body=C.shift(2))
     return let_pair_dep_fn(A, B, C_const, p, f)
 
 

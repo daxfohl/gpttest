@@ -1,5 +1,4 @@
 from mltt.core.ast import Lam, Pi, Univ, Var
-from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.core.util import apply_term, nested_pi
 from mltt.inductive.all import AllCons, AllConsCtor, AllNil, AllNilCtor, AllType
 from mltt.inductive.list import Cons, ConsCtor, List, Nil, NilCtor
@@ -15,8 +14,8 @@ def test_all_nil_typechecks() -> None:
     P = trivial_predicate()
     proof = AllNil(A, P)
     expected = AllType(A, P, Nil(A))
-    type_check(proof, expected)
-    assert type_equal(infer_type(proof), expected)
+    proof.type_check(expected)
+    assert proof.infer_type().type_equal(expected)
 
 
 def test_all_cons_typechecks() -> None:
@@ -29,8 +28,8 @@ def test_all_cons_typechecks() -> None:
     proof = AllCons(A, P, xs, x, px, ih)
     expected_list = Cons(A, x, xs)
     expected = AllType(A, P, expected_list)
-    type_check(proof, expected)
-    assert type_equal(infer_type(proof), expected)
+    proof.type_check(expected)
+    assert proof.infer_type().type_equal(expected)
 
 
 def test_all_ctor_types() -> None:
@@ -39,7 +38,7 @@ def test_all_ctor_types() -> None:
         Pi(Var(0), Univ(0)),
         return_ty=AllType(Var(1), Var(0), apply_term(NilCtor, Var(1))),
     )
-    assert type_equal(infer_type(AllNilCtor), expected_nil)
+    assert AllNilCtor.infer_type().type_equal(expected_nil)
 
     expected_cons = nested_pi(
         Univ(0),
@@ -50,4 +49,4 @@ def test_all_ctor_types() -> None:
         AllType(Var(4), Var(3), Var(2)),
         return_ty=AllType(Var(5), Var(4), apply_term(ConsCtor, Var(5), Var(2), Var(3))),
     )
-    assert type_equal(infer_type(AllConsCtor), expected_cons)
+    assert AllConsCtor.infer_type().type_equal(expected_cons)

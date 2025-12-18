@@ -1,7 +1,5 @@
 import mltt.inductive.tree as treem
 from mltt.core.ast import Lam, Univ, Var
-from mltt.core.reduce.normalize import normalize
-from mltt.core.typing import infer_type, type_check
 from mltt.core.util import apply_term, nested_pi, nested_lam
 from mltt.inductive.nat import NatType, Succ, Zero, add
 
@@ -9,7 +7,7 @@ from mltt.inductive.nat import NatType, Succ, Zero, add
 def test_infer_tree_type_constructor() -> None:
     expected = nested_pi(Univ(0), Univ(0), return_ty=Univ(0))
 
-    assert infer_type(treem.Tree) == expected
+    assert treem.Tree.infer_type() == expected
 
 
 def test_leaf_and_node_type_check() -> None:
@@ -18,12 +16,12 @@ def test_leaf_and_node_type_check() -> None:
     tree_ty = treem.TreeType(leaf_ty, node_ty)
 
     leaf = treem.Leaf(leaf_ty, node_ty, Zero())
-    type_check(leaf, tree_ty)
+    leaf.type_check(tree_ty)
 
     left = treem.Leaf(leaf_ty, node_ty, Zero())
     right = treem.Leaf(leaf_ty, node_ty, Succ(Zero()))
     node = treem.Node(leaf_ty, node_ty, Zero(), left, right)
-    type_check(node, tree_ty)
+    node.type_check(tree_ty)
 
 
 def test_treerec_counts_leaves() -> None:
@@ -49,5 +47,5 @@ def test_treerec_counts_leaves() -> None:
 
     count = treem.TreeRec(P, leaf_case, node_case, tree)
 
-    assert normalize(count) == Succ(Succ(Zero()))
-    type_check(count, NatType())
+    assert count.normalize() == Succ(Succ(Zero()))
+    count.type_check(NatType())

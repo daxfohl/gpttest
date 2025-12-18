@@ -1,4 +1,3 @@
-from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.le import LeRefl, LeStep, LeType
 from mltt.inductive.nat import Succ, Zero, numeral
 
@@ -6,7 +5,7 @@ from mltt.inductive.nat import Succ, Zero, numeral
 def test_lerefl_typechecks() -> None:
     n = numeral(2)
 
-    type_check(LeRefl(n), LeType(n, n))
+    LeRefl(n).type_check(LeType(n, n))
 
 
 def test_lestep_typechecks() -> None:
@@ -15,16 +14,16 @@ def test_lestep_typechecks() -> None:
     p = LeRefl(m)
     proof = LeStep(n, m, p)
 
-    type_check(proof, LeType(n, Succ(m)))
+    proof.type_check(LeType(n, Succ(m)))
 
 
 def test_lestep_chain_builds_longer_proof() -> None:
     proof = LeStep(Zero(), Zero(), LeRefl(Zero()))
     proof2 = LeStep(Zero(), Succ(Zero()), proof)
 
-    type_check(proof2, LeType(Zero(), numeral(2)))
+    proof2.type_check(LeType(Zero(), numeral(2)))
 
 
 def test_infer_type_le_refl() -> None:
     n = numeral(3)
-    assert type_equal(infer_type(LeRefl(n)), LeType(n, n))
+    assert LeRefl(n).infer_type().type_equal(LeType(n, n))

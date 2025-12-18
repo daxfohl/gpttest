@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from ..core.ast import Lam, Term, Var, Pi
-from ..core.debruijn import shift
 from ..core.util import apply_term, nested_lam
 from ..inductive.eq import Refl, Id, ap, trans, sym
 from ..inductive.nat import NatType, Succ, Zero, add, NatElim
@@ -82,7 +81,7 @@ def add_succ_right() -> Term:
     # ap Succ ih witnesses the step for Succ k.
     step = nested_lam(
         NatType(),  # k
-        apply_term(shift(P, 1), Var(0)),  # ih : P k, with n still referring to n
+        apply_term(P.shift(1), Var(0)),  # ih : P k, with n still referring to n
         body=ap(
             f=Lam(NatType(), Succ(Var(0))),
             A=NatType(),
@@ -97,9 +96,9 @@ def add_succ_right() -> Term:
         NatType(),  # n
         NatType(),  # m
         body=NatElim(
-            P=shift(P, 1),  # <-- critical
-            base=shift(base, 1),  # <-- critical
-            step=shift(step, 1),  # <-- critical
+            P=P.shift(1),  # <-- critical
+            base=base.shift(1),  # <-- critical
+            step=step.shift(1),  # <-- critical
             n=Var(0),  # recurse on m
         ),
     )

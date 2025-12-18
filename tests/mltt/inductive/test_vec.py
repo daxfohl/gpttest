@@ -2,22 +2,20 @@ import pytest
 
 import mltt.inductive.vec as vec
 from mltt.core.ast import Term, Univ, Var
-from mltt.core.reduce.normalize import normalize, whnf
-from mltt.core.typing import infer_type, type_check
 from mltt.core.util import apply_term, nested_pi, nested_lam
 from mltt.inductive.nat import NatType, Succ, Zero, numeral, add
 from mltt.inductive.vec import VecType
 
 
 def test_infer_vec_type() -> None:
-    assert infer_type(vec.Vec) == nested_pi(Univ(0), NatType(), return_ty=Univ(0))
+    assert vec.Vec.infer_type() == nested_pi(Univ(0), NatType(), return_ty=Univ(0))
 
 
 def test_nil_has_zero_length() -> None:
     elem_ty = NatType()
     nil = vec.Nil(elem_ty)
 
-    type_check(nil, vec.VecType(elem_ty, Zero()))
+    nil.type_check(vec.VecType(elem_ty, Zero()))
 
 
 def test_cons_increments_length() -> None:
@@ -25,7 +23,7 @@ def test_cons_increments_length() -> None:
     tail = vec.Nil(elem_ty)
     cons = vec.Cons(elem_ty, Zero(), Zero(), tail)
 
-    type_check(cons, vec.VecType(elem_ty, Succ(Zero())))
+    cons.type_check(vec.VecType(elem_ty, Succ(Zero())))
 
 
 def test_vec_rec_on_nil_reduces_to_zero() -> None:
@@ -41,7 +39,7 @@ def test_vec_rec_on_nil_reduces_to_zero() -> None:
     )
 
     term = vec.VecRec(P, base, step, vec.Nil(elem_ty))
-    assert whnf(term) == Zero()
+    assert term.whnf() == Zero()
 
 
 @pytest.mark.parametrize("vec_len", range(4))
@@ -64,10 +62,10 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
     for i in range(vec_len):
         xs = vec.Cons(elem_ty, numeral(i), numeral(v), xs)
     rec = vec.VecRec(P, base, step, xs)
-    normalized = normalize(rec)
+    normalized = rec.normalize()
     assert normalized == numeral(v * vec_len + b)
 
-    type_check(rec, NatType())
+    rec.type_check(NatType())
 
 
 def test_vec_rec_preserves_length_index() -> None:
@@ -93,10 +91,10 @@ def test_vec_rec_preserves_length_index() -> None:
     # xs = vec.Cons(elem_ty, Succ(Zero()), Succ(Zero()), xs)  # say Vec A 1
 
     rec = vec.VecRec(P, base, step, xs)
-    normalized = normalize(rec)
+    normalized = rec.normalize()
     assert normalized == Succ(Zero())
 
-    type_check(rec, NatType())
+    rec.type_check(NatType())
 
 
 @pytest.mark.parametrize(
@@ -104,19 +102,19 @@ def test_vec_rec_preserves_length_index() -> None:
 )
 @pytest.mark.parametrize("n", range(5))
 def test_infer_type(elem: Term, n: int) -> None:
-    elem_ty = infer_type(elem)
+    elem_ty = elem.infer_type()
     vector = vec.Nil(elem_ty)
     for i in range(n):
         vector = vec.Cons(elem_ty, numeral(i), elem, vector)
-    t = infer_type(vector)
+    t = vector.infer_type()
     assert t == VecType(elem_ty, numeral(n))
 
 
 def test_ctor_type() -> None:
-    t = infer_type(vec.NilCtor)
+    t = vec.NilCtor.infer_type()
     # Pi x : Type. Vec x Zero
     assert t == nested_pi(Univ(0), return_ty=vec.VecType(Var(0), Zero()))
-    t = infer_type(vec.ConsCtor)
+    t = vec.ConsCtor.infer_type()
     # Pi x : Type. Pi x1 : Nat. x -> Vec x x1 -> Vec x (Succ x1)
     assert t == nested_pi(
         Univ(0),
@@ -129,8 +127,8 @@ def test_ctor_type() -> None:
 
 def test_scrut_type() -> None:
     scrut = vec.Nil(NatType())
-    t = infer_type(scrut)
+    t = scrut.infer_type()
     assert t == apply_term(vec.Vec, NatType(), Zero())
     scrut = vec.Cons(NatType(), Zero(), Zero(), scrut)
-    t = infer_type(scrut)
+    t = scrut.infer_type()
     assert t == apply_term(vec.Vec, NatType(), Succ(Zero()))

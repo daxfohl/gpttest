@@ -1,12 +1,11 @@
 from mltt.core.ast import Lam, Pi, Var
-from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Zero
 from mltt.inductive.top_bottom import BotRec, BotType, TopRec, TopType, Tt
 
 
 def test_top_has_canonical_inhabitant() -> None:
-    type_check(Tt(), TopType())
+    Tt().type_check(TopType())
 
 
 def test_toprec_eliminates_to_motive() -> None:
@@ -14,8 +13,8 @@ def test_toprec_eliminates_to_motive() -> None:
     case = Zero()
     term = TopRec(motive, case, Tt())
 
-    type_check(term, NatType())
-    assert type_equal(infer_type(term), NatType())
+    term.type_check(NatType())
+    assert term.infer_type().type_equal(NatType())
 
 
 def test_botrec_ex_falso() -> None:
@@ -23,8 +22,8 @@ def test_botrec_ex_falso() -> None:
     lam = Lam(BotType(), BotRec(motive, Var(0)))
     expected_ty = Pi(BotType(), NatType())
 
-    type_check(lam, expected_ty)
-    assert type_equal(infer_type(lam), expected_ty)
+    lam.type_check(expected_ty)
+    assert lam.infer_type().type_equal(expected_ty)
 
 
 def test_toprec_dependent_motive() -> None:
@@ -33,5 +32,5 @@ def test_toprec_dependent_motive() -> None:
     term = TopRec(motive, case, Tt())
     expected = Id(TopType(), Tt(), Tt())
 
-    type_check(term, expected)
-    assert type_equal(infer_type(term), expected)
+    term.type_check(expected)
+    assert term.infer_type().type_equal(expected)

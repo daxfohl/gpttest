@@ -1,6 +1,4 @@
 from mltt.core.ast import Lam, Univ, Var
-from mltt.core.debruijn import shift
-from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.core.util import apply_term, nested_pi
 from mltt.inductive.expr import Const, ConstCtor, ExprType, Pair, PairCtor
 from mltt.inductive.nat import NatType, Zero
@@ -13,8 +11,8 @@ def test_const_typechecks() -> None:
     value = Zero()
     term = Const(Ty, tau, value)
     expected = ExprType(Ty, tau)
-    type_check(term, expected)
-    assert type_equal(infer_type(term), expected)
+    term.type_check(expected)
+    assert term.infer_type().type_equal(expected)
 
 
 def test_pair_typechecks() -> None:
@@ -26,8 +24,8 @@ def test_pair_typechecks() -> None:
     term = Pair(Ty, A, B, lhs, rhs)
     expected_idx = apply_term(Sigma, A, Lam(A, B))
     expected = ExprType(Ty, expected_idx)
-    type_check(term, expected)
-    assert type_equal(infer_type(term), expected)
+    term.type_check(expected)
+    assert term.infer_type().type_equal(expected)
 
 
 def test_ctor_types() -> None:
@@ -37,7 +35,7 @@ def test_ctor_types() -> None:
         Var(0),  # value : τ
         return_ty=ExprType(Var(2), Var(1)),
     )
-    assert type_equal(infer_type(ConstCtor), expected_const)
+    assert ConstCtor.infer_type().type_equal(expected_const)
 
     expected_pair = nested_pi(
         Univ(0),
@@ -47,7 +45,7 @@ def test_ctor_types() -> None:
         ExprType(Var(3), Var(1)),
         return_ty=ExprType(
             Var(4),  # Ty
-            apply_term(Sigma, Var(3), Lam(Var(3), shift(Var(2), 1))),
+            apply_term(Sigma, Var(3), Lam(Var(3), Var(2).shift(1))),
         ),
     )
-    assert type_equal(infer_type(PairCtor), expected_pair)
+    assert PairCtor.infer_type().type_equal(expected_pair)
