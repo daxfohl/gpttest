@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from ..core.ast import App, Ctor, Elim, I, Lam, Term, Univ, Var
+from ..core.ast import App, Ctor, Elim, Ind, Lam, Term, Univ, Var
 from ..core.util import apply_term, nested_lam
 
-Bool = I(name="Bool", level=0)
+Bool = Ind(name="Bool", level=0)
 FalseCtor = Ctor(name="False", inductive=Bool)
 TrueCtor = Ctor(name="True", inductive=Bool)
 object.__setattr__(Bool, "constructors", (FalseCtor, TrueCtor))
 
 
-def BoolType() -> I:
+def BoolType() -> Ind:
     return Bool
 
 

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from ..core.ast import App, Ctor, Elim, I, Lam, Term, Univ, Var
+from ..core.ast import App, Ctor, Elim, Ind, Lam, Term, Univ, Var
 from ..core.debruijn import shift
 from ..core.util import apply_term, nested_lam
 
-IdType = I(
+IdType = Ind(
     name="Id",
     param_types=(Univ(0), Var(0)),
     index_types=(Var(1),),

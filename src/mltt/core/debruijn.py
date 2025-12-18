@@ -9,7 +9,7 @@ from .ast import (
     App,
     Ctor,
     Elim,
-    I,
+    Ind,
     Lam,
     Pi,
     Term,
@@ -131,7 +131,7 @@ def shift(term: Term, by: int, cutoff: int = 0) -> Term:
                 tuple(shift(case, by, cutoff) for case in cases),
                 shift(scrutinee, by, cutoff),
             )
-        case Univ() | I() | Ctor():
+        case Univ() | Ind() | Ctor():
             return term
 
     raise TypeError(f"Unexpected term in shift: {term!r}")
@@ -171,7 +171,7 @@ def subst(term: Term, sub: Term, j: int = 0) -> Term:
                 tuple(subst(case, sub, j) for case in cases),
                 subst(scrutinee, sub, j),
             )
-        case Univ() | I() | Ctor():
+        case Univ() | Ind() | Ctor():
             return term
 
     raise TypeError(f"Unexpected term in subst: {term!r}")

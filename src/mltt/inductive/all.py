@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from .list import ConsCtor, List, NilCtor
-from ..core.ast import App, Ctor, Elim, I, Pi, Term, Univ, Var
+from ..core.ast import App, Ctor, Elim, Ind, Pi, Term, Univ, Var
 from ..core.util import apply_term
 
-All = I(
+All = Ind(
     name="All",
     param_types=(
         Univ(0),  # A : Type

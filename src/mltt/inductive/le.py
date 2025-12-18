@@ -5,10 +5,10 @@ from __future__ import annotations
 from .eq import Id, Refl
 from .nat import NatType, Succ
 from .rtc import RTCRefl, RTCStep, RTCType
-from ..core.ast import Ctor, Elim, I, Term, Var
+from ..core.ast import Ctor, Elim, Ind, Term, Var
 from ..core.util import apply_term, nested_lam
 
-Le = I(name="Le", index_types=(NatType(), NatType()), level=0)
+Le = Ind(name="Le", index_types=(NatType(), NatType()), level=0)
 LeReflCtor = Ctor(
     name="le_refl",
     inductive=Le,

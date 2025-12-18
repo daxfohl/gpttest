@@ -77,7 +77,7 @@ class Ctor:
     """A constructor for an inductive type."""
 
     name: str
-    inductive: I = field(repr=False)
+    inductive: Ind = field(repr=False)
     arg_types: tuple[Term, ...] = field(repr=False, default=())
     result_indices: tuple[Term, ...] = field(repr=False, default=())
 
@@ -87,7 +87,7 @@ class Ctor:
 
 
 @dataclass(frozen=True, kw_only=True)
-class I:
+class Ind:
     """A generalized inductive type with constructors.
 
     Attributes
@@ -116,13 +116,13 @@ class Elim:
         scrutinee: Term of the inductive type being eliminated.
     """
 
-    inductive: I
+    inductive: Ind
     motive: Term
     cases: tuple[Term, ...]
     scrutinee: Term
 
 
-type Term = (Var | Lam | Pi | App | Univ | Ctor | I | Elim)
+type Term = (Var | Lam | Pi | App | Univ | Ctor | Ind | Elim)
 
 
 __all__ = [
@@ -133,7 +133,7 @@ __all__ = [
     "App",
     "Univ",
     "Ctor",
-    "I",
+    "Ind",
     "Elim",
 ]
 
@@ -152,7 +152,7 @@ for _cls in (
     # App,
     # Univ,
     Ctor,
-    I,
+    Ind,
     # Elim,
 ):
     _cls.__str__ = _str  # type: ignore

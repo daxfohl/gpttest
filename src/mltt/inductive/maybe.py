@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from ..core.ast import App, Ctor, Elim, I, Term, Univ, Var
+from ..core.ast import App, Ctor, Elim, Ind, Term, Univ, Var
 from ..core.util import apply_term
 
-Maybe = I(name="Maybe", param_types=(Univ(0),), level=0)
+Maybe = Ind(name="Maybe", param_types=(Univ(0),), level=0)
 NothingCtor = Ctor(name="Nothing", inductive=Maybe)
 JustCtor = Ctor(name="Just", inductive=Maybe, arg_types=(Var(0),))
 object.__setattr__(Maybe, "constructors", (NothingCtor, JustCtor))

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from ..core.ast import App, Ctor, Elim, I, Lam, Pi, Term, Univ, Var
+from ..core.ast import App, Ctor, Elim, Ind, Lam, Pi, Term, Univ, Var
 from ..core.debruijn import shift
 from ..core.util import apply_term, nested_pi, nested_lam
 
-Sigma = I(
+Sigma = Ind(
     name="Sigma",
     param_types=(
         Univ(0),  # A : Type

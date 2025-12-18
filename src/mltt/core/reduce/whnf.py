@@ -4,11 +4,8 @@ from __future__ import annotations
 
 from typing import Callable
 
-from ..ast import Term, App, Lam, Elim, Ctor, I, Var, Univ, Pi
+from ..ast import Term, App, Lam, Elim, Ctor, Ind, Var, Univ, Pi
 from ..debruijn import subst
-from ..inductive_utils import (
-    ctor_index,
-)
 from ..util import apply_term, decompose_app
 
 
@@ -35,7 +32,7 @@ def iota_reduce(
             )
             ihs.append(ih)
 
-    index = ctor_index(ctor)
+    index = _ctor_index(ctor)
     case = cases[index]
     return apply_term(case, *ctor_args, *ihs)
 
@@ -113,10 +110,17 @@ def reduce_inside_step(term: Term, red: Callable[[Term], Term]) -> Term:
                 return Elim(inductive, motive, cases, scrutinee1)
             return term
 
-        case Var() | Univ() | I() | Ctor():
+        case Var() | Univ() | Ind() | Ctor():
             return term
 
     raise TypeError(f"Unexpected term in reducer: {term!r}")
+
+
+def _ctor_index(ctor: Ctor) -> int:
+    for idx, ctor_def in enumerate(ctor.inductive.constructors):
+        if ctor is ctor_def:
+            return idx
+    raise TypeError("Constructor does not belong to inductive type")
 
 
 __all__ = ["whnf", "reduce_inside_step"]

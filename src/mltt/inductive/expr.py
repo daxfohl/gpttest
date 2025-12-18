@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from .sigma import Sigma
-from ..core.ast import Ctor, Elim, I, Lam, Term, Univ, Var
+from ..core.ast import Ctor, Elim, Ind, Lam, Term, Univ, Var
 from ..core.debruijn import shift
 from ..core.util import apply_term
 
 # Expr (Ty : Type) (τ : Ty) : Type
-Expr = I(name="Expr", param_types=(Univ(0),), index_types=(Var(0),), level=0)
+Expr = Ind(name="Expr", param_types=(Univ(0),), index_types=(Var(0),), level=0)
 
 ConstCtor = Ctor(
     name="const",

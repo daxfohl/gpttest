@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from ..core.ast import Ctor, Elim, I, Pi, Term, Univ, Var
+from ..core.ast import Ctor, Elim, Ind, Pi, Term, Univ, Var
 from ..core.util import apply_term
 
-RTC = I(
+RTC = Ind(
     name="RTC",
     param_types=(
         Univ(0),  # A

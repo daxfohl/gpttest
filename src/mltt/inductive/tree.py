@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from ..core.ast import Ctor, Elim, I, Term, Univ, Var
+from ..core.ast import Ctor, Elim, Ind, Term, Univ, Var
 from ..core.util import apply_term
 
-Tree = I(
+Tree = Ind(
     name="Tree",
     param_types=(
         Univ(0),  # A : Type

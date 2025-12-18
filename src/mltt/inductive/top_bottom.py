@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from ..core.ast import Ctor, Elim, I, Term
+from ..core.ast import Ctor, Elim, Ind, Term
 
 # Top (unit) has a single inhabitant.
-Top = I(name="Top", level=0)
+Top = Ind(name="Top", level=0)
 TtCtor = Ctor(name="tt", inductive=Top)
 object.__setattr__(Top, "constructors", (TtCtor,))
 
 
-def TopType() -> I:
+def TopType() -> Ind:
     return Top
 
 
@@ -25,11 +25,11 @@ def TopRec(motive: Term, case: Term, scrutinee: Term) -> Elim:
 
 
 # Bottom (empty) has no constructors.
-Bot = I(name="Bottom", level=0)
+Bot = Ind(name="Bottom", level=0)
 object.__setattr__(Bot, "constructors", ())
 
 
-def BotType() -> I:
+def BotType() -> Ind:
     return Bot
 
 

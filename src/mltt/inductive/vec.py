@@ -6,14 +6,14 @@ from .nat import NatType, Succ, Zero
 from ..core.ast import (
     Ctor,
     Elim,
-    I,
+    Ind,
     Term,
     Univ,
     Var,
 )
 from ..core.util import apply_term
 
-Vec = I(name="Vec", param_types=(Univ(0),), index_types=(NatType(),), level=0)
+Vec = Ind(name="Vec", param_types=(Univ(0),), index_types=(NatType(),), level=0)
 NilCtor = Ctor(
     name="Nil",
     inductive=Vec,

@@ -7,13 +7,13 @@ from ..core.ast import (
     App,
     Ctor,
     Elim,
-    I,
+    Ind,
     Term,
     Var,
 )
 from ..core.util import apply_term, nested_lam
 
-Fin = I(name="Fin", index_types=(NatType(),), level=0)
+Fin = Ind(name="Fin", index_types=(NatType(),), level=0)
 FZCtor = Ctor(
     name="FZ",
     inductive=Fin,

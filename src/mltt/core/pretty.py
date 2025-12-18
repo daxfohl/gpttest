@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .ast import App, Ctor, Elim, I, Lam, Pi, Term, Univ, Var
+from .ast import App, Ctor, Elim, Ind, Lam, Pi, Term, Univ, Var
 
 ATOM_PREC = 3
 APP_PREC = 2
@@ -50,7 +50,7 @@ def _maybe_paren(
     return text
 
 
-def _inductive_label(inductive: I) -> str:
+def _inductive_label(inductive: Ind) -> str:
     return inductive.name or "Inductive"
 
 
@@ -84,7 +84,7 @@ def pretty(term: Term) -> str:
             case Univ(level):
                 return ("Type" if level == 0 else f"Type{level}"), ATOM_PREC
 
-            case I() as inductive:
+            case Ind() as inductive:
                 return _inductive_label(inductive), ATOM_PREC
 
             case Ctor() as ctor:

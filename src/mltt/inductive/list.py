@@ -6,14 +6,14 @@ from ..core.ast import (
     App,
     Ctor,
     Elim,
-    I,
+    Ind,
     Term,
     Univ,
     Var,
 )
 from ..core.util import apply_term
 
-List = I(name="List", param_types=(Univ(0),), level=0)
+List = Ind(name="List", param_types=(Univ(0),), level=0)
 NilCtor = Ctor(name="Nil", inductive=List)
 ConsCtor = Ctor(
     name="Cons",
