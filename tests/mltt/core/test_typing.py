@@ -6,7 +6,7 @@ from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.core.util import apply_term, nested_lam
 from mltt.inductive.eq import Id, IdElim, Refl
-from mltt.inductive.nat import NatElim, NatType, Zero, add, numeral
+from mltt.inductive.nat import NatRec, NatType, Zero, add, numeral
 
 
 def test_infer_var() -> None:
@@ -177,14 +177,14 @@ def test_infer_type_application_requires_function() -> None:
 
 
 def test_type_check_natrec_rejects_invalid_base_case() -> None:
-    P = Lam(NatType(), NatType())
+    A = NatType()
     z = Univ()
     s = Zero()
     n = Zero()
-    term = NatElim(P, z, s, n)
+    term = NatRec(A, z, s, n)
 
     with pytest.raises(TypeError, match="Case for constructor has wrong type"):
-        type_check(term, App(P, n))
+        type_check(term, A)
 
 
 def test_type_check_accepts_add_application() -> None:

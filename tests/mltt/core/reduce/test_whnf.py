@@ -1,22 +1,22 @@
-from mltt.core.ast import App, Lam, Univ, Var
+from mltt.core.ast import App, Var
 from mltt.core.reduce.whnf import whnf
 from mltt.core.util import nested_lam
 from mltt.inductive.eq import IdElim, Refl
-from mltt.inductive.nat import NatElim, Zero, Succ
+from mltt.inductive.nat import NatRec, NatType, Zero, Succ
 
 
 def test_whnf_unfolds_natrec_on_successor() -> None:
-    P = Lam(Univ(), Univ())
+    A = NatType()
     z = Zero()
-    s = nested_lam(Univ(), Univ(), body=Succ(Var(0)))
-    term = NatElim(P=P, base=z, step=s, n=Succ(Zero()))
+    s = nested_lam(NatType(), NatType(), body=Succ(Var(0)))
+    term = NatRec(A=A, base=z, step=s, n=Succ(Zero()))
     result = whnf(term)
 
     assert result == Succ(
-        NatElim(
-            P=Lam(arg_ty=Univ(0), body=Univ(0)),
+        NatRec(
+            A=NatType(),
             base=Zero(),
-            step=nested_lam(Univ(0), Univ(0), body=Succ(Var(0))),
+            step=nested_lam(NatType(), NatType(), body=Succ(Var(0))),
             n=Zero(),
         )
     )

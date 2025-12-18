@@ -33,6 +33,15 @@ def NatElim(P: Term, base: Term, step: Term, n: Term) -> Elim:
     )
 
 
+def NatRec(A: Term, base: Term, step: Term, n: Term) -> Term:
+    return NatElim(
+        P=Lam(NatType(), A),
+        base=base,
+        step=step,
+        n=n,
+    )
+
+
 def numeral(value: int) -> Term:
     """Return the canonical term representing the natural number ``value``."""
 
@@ -55,8 +64,8 @@ def add(lhs: Term, rhs: Term) -> Term:
       add (Succ a) b = Succ (add a b)
     """
 
-    return NatElim(
-        P=Lam(NatType(), NatType()),
+    return NatRec(
+        A=NatType(),
         base=rhs,
         step=nested_lam(
             NatType(),
@@ -73,8 +82,8 @@ def add_term() -> Term:
 
 
 def pred_maybe(n: Term) -> Term:
-    return NatElim(
-        P=Lam(NatType(), MaybeType(NatType())),
+    return NatRec(
+        A=MaybeType(NatType()),
         base=Nothing(NatType()),
         step=nested_lam(
             NatType(),
