@@ -98,52 +98,68 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
 
     # 3. For each constructor, compute the expected branch type and check
     for ctor, case in zip(ind.constructors, elim.cases, strict=True):
+        # Context legend:
+        #   Γ          = current context passed to this eliminator
+        #   fields     = constructor arguments (outermost → innermost)
+        #   ihs        = induction hypotheses for recursive fields
+        #
+        # Most ctor schemas are written in context (params)(fields). At this
+        # point params are already fixed by the scrutinee in Γ, so we
+        # instantiate only those param binders and keep fields as de Bruijn
+        # variables.
 
-        # 3.1 instantiate arg types with actual params
+        # 3.1 Instantiate ctor field types with the actual parameters.
         inst_arg_types = instantiate_ctor_arg_types(ctor.arg_types, params_actual)
-
-        # 3.2 scrutinee-like value for this branch:
-        #     C params_actual args
         m = len(inst_arg_types)
-        params_actual_shifted = tuple(shift(p, m) for p in params_actual)
-        arg_vars = tuple(Var(j) for j in reversed(range(m)))
-        scrut_like = apply_term(ctor, *params_actual_shifted, *arg_vars)
-        motive_shifted = shift(motive, m)
 
-        # 3.3 compute result indices for this ctor
+        # 3.2 Work in context Γ,fields: shift Γ-level params and motive by m.
+        params_in_fields_ctx = tuple(shift(p, m) for p in params_actual)
+        motive_in_fields_ctx = shift(motive, m)
+
+        # Build a scrutinee-shaped term: C params field_vars.
+        # field_vars are Var(m-1) .. Var(0) in the Γ,fields context.
+        field_vars = tuple(Var(j) for j in reversed(range(m)))
+        scrut_like = apply_term(ctor, *params_in_fields_ctx, *field_vars)
+
+        # 3.3 Instantiate ctor result indices under fields (params only).
         result_indices_inst = instantiate_ctor_result_indices_under_fields(
-            ctor.result_indices, params_actual_shifted, m
+            ctor.result_indices, params_in_fields_ctx, m
         )
 
-        # 3.4 Build IH types
-        # ih_j : motive indices_j arg_j
-        # in Γ, args (only)
-        rps = [j for j, x in enumerate(inst_arg_types) if decompose_app(x)[0] is ind]
-        r = len(rps)
-        ih_types = []
-        for ri, j in enumerate(rps):
-            inst_ty = inst_arg_types[j]
-            _, args_j = decompose_app(inst_ty)
-            params_field = args_j[:p]
-            indices_field = args_j[p : p + q]
+        # 3.4 Build IH types for recursive fields.
+        # Each IH is in context Γ,fields,ihs_so_far, so shift by m + ri.
+        recursive_field_positions = [
+            j
+            for j, field_ty in enumerate(inst_arg_types)
+            if decompose_app(field_ty)[0] is ind
+        ]
+        r = len(recursive_field_positions)
+        ih_types: list[Term] = []
+        for ri, field_index in enumerate(recursive_field_positions):
+            field_ty = inst_arg_types[field_index]
+            _, field_args = decompose_app(field_ty)
+            params_field = field_args[:p]
+            indices_field = field_args[p : p + q]
             assert params_field == params_actual
-            args_offset = m - 1 - j
+
+            # field_index is outermost → innermost. Translate to de Bruijn index.
+            field_var_index = m - 1 - field_index
             ih_type = apply_term(
                 shift(motive, m + ri),
-                *(shift(i, args_offset + ri) for i in indices_field),
-                Var(args_offset + ri),
+                *(shift(i, field_var_index + ri) for i in indices_field),
+                Var(field_var_index + ri),
             )
             ih_types.append(ih_type)
 
-        # # 3.6 branch codomain: motive result_indices scrut_like
-        codomain_base = apply_term(motive_shifted, *result_indices_inst, scrut_like)
-        codomain = shift(codomain_base, r)  # because r IH binders are inserted inside
+        # 3.5 Branch codomain in Γ,fields; then shift for inserted IH binders.
+        codomain_in_fields_ctx = apply_term(
+            motive_in_fields_ctx, *result_indices_inst, scrut_like
+        )
+        codomain = shift(codomain_in_fields_ctx, r)
 
-        # 3.7 add binders left-to-right (outermost → innermost).
+        # 3.6 Expected branch type: Π fields. Π ihs. codomain.
         telescope = (*inst_arg_types, *ih_types)
-        branch_ty = codomain
-        for t in reversed(telescope):
-            branch_ty = Pi(t, branch_ty)
+        branch_ty = nested_pi(*telescope, return_ty=codomain)
         if not type_check(case, branch_ty, ctx):
             raise TypeError(
                 f"Case for constructor has wrong type1\n{ctor}\n{normalize(case)}\n{normalize(codomain)}"
