@@ -34,7 +34,12 @@ def _ctor_type(ctor: Ctor) -> Term:
     """
     ind = ctor.inductive
     if len(ctor.result_indices) != len(ind.index_types):
-        raise TypeError("Constructor result indices must match inductive index arity")
+        raise TypeError(
+            "Constructor result indices must match inductive index arity:\n"
+            f"  ctor = {ctor}\n"
+            f"  expected arity = {len(ind.index_types)}\n"
+            f"  found arity = {len(ctor.result_indices)}"
+        )
     # Parameters bind outermost, then constructor arguments.
     #   [params][args] from outermost to innermost.
     offset = len(ctor.arg_types)
@@ -57,7 +62,10 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
     scrut_ty_head, scrut_ty_bindings = decompose_app(scrut_ty)
     if scrut_ty_head is not ind:
         raise TypeError(
-            f"Eliminator scrutinee not of the right inductive type\n{scrut}\n{scrut_ty_head}"
+            "Eliminator scrutinee not of the right inductive type:\n"
+            f"  scrutinee = {scrut}\n"
+            f"  expected head = {ind}\n"
+            f"  found head = {scrut_ty_head}"
         )
 
     # 2.1 Partially apply motive to the actual indices
@@ -73,8 +81,8 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
     if not isinstance(motive_applied_ty, Pi):
         raise TypeError(
             "InductiveElim motive must take scrutinee after indices:\n"
-            f"  motive          = {motive}\n"
-            f"  motive_applied  = {motive_applied}\n"
+            f"  motive = {motive}\n"
+            f"  motive_applied = {motive_applied}\n"
             f"  motive_applied_ty = {motive_applied_ty}"
         )
 
@@ -84,7 +92,7 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
         raise TypeError(
             "InductiveElim motive scrutinee domain mismatch:\n"
             f"  expected scrut_ty = {scrut_ty}\n"
-            f"  found    scrut_dom    = {scrut_dom}"
+            f"  found scrut_dom = {scrut_dom}"
         )
 
     # 2.4 The motive codomain must be a universe
@@ -92,6 +100,7 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
     if not isinstance(body_ty, Univ):
         raise TypeError(
             "InductiveElim motive codomain must be a universe:\n"
+            f"  motive_applied = {motive_applied}\n"
             f"  motive_applied_ty.return_ty = {motive_applied_ty.return_ty}\n"
             f"  normalized = {body_ty}"
         )
@@ -179,7 +188,11 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
     _ = _expect_universe(infer_type(target_ty, ctx), ctx)
 
     if u < ind.level:
-        raise TypeError("Eliminator motive returns too small a universe")
+        raise TypeError(
+            "Eliminator motive returns too small a universe:\n"
+            f"  motive level = {u}\n"
+            f"  inductive level = {ind.level}"
+        )
 
     return target_ty
 
@@ -239,7 +252,9 @@ def _expect_universe(term: Term, ctx: Ctx) -> int:
     ty = infer_type(term, ctx)
     ty = whnf(ty)
     if not isinstance(ty, Univ):
-        raise TypeError(f"Expected a universe, got {ty!r}")
+        raise TypeError(
+            "Expected a universe:\n" f"  term = {term}\n" f"  inferred = {ty}"
+        )
     return ty.level
 
 
@@ -268,7 +283,10 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
             f_ty = whnf(infer_type(f, ctx))
             if not isinstance(f_ty, Pi):
                 raise TypeError(
-                    f"Application of non-function\narg: {a},\narg_ty: {infer_type(a, ctx)}\nf: {f}\nf_ty: {f_ty}\nctx: {ctx}"
+                    "Application of non-function:\n"
+                    f"  term = {term}\n"
+                    f"  function = {f}\n"
+                    f"  inferred f_ty = {f_ty}"
                 )
             try:
                 type_check(a, f_ty.arg_ty, ctx)
@@ -301,7 +319,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
         case Elim():
             return _infer_inductive_elim(term, ctx)
 
-    raise TypeError(f"Unexpected term in infer_type: {term!r}")
+    raise TypeError("Unexpected term in infer_type:\n" f"  term = {term!r}")
 
 
 def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> None:
@@ -436,7 +454,7 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> None:
                 )
             return None
 
-    raise TypeError(f"Unexpected term in type_check: {term!r}")
+    raise TypeError("Unexpected term in type_check:\n" f"  term = {term!r}")
 
 
 __all__ = ["type_equal", "infer_type", "type_check"]
