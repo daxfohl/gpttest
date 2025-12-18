@@ -135,8 +135,11 @@ def decompose_ctor_app(
     return None
 
 
-def instantiate_ctor_arg_types(ctor_arg_types, params_actual):
-    schemas = []
+def instantiate_ctor_arg_types(
+    ctor_arg_types: Sequence[Term],
+    params_actual: Sequence[Term],
+) -> tuple[Term, ...]:
+    schemas: list[Term] = []
     p = len(params_actual)
     for i, schema in enumerate(ctor_arg_types):
         t = schema
@@ -145,7 +148,7 @@ def instantiate_ctor_arg_types(ctor_arg_types, params_actual):
             index = i + p - s - 1
             t = subst(t, shift(param, i + (p - s - 1)), index)
         schemas.append(t)
-    return schemas
+    return tuple(schemas)
 
 
 def instantiate_ctor_result_indices_under_fields(

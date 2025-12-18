@@ -234,7 +234,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
         case Var(i):
             # A variable is well-typed only if a binder exists at that index.
             if i < len(ctx):
-                return ctx[i].ty
+                return shift(ctx[i].ty, i + 1)
             else:
                 raise TypeError(f"Unbound variable {i}")
         case Lam(arg_ty, body):
@@ -286,7 +286,7 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
             # A variable is well-typed only if a binder exists at that index.
             if i >= len(ctx):
                 raise TypeError(f"Unbound variable {i}")
-            return type_equal(ctx[i].ty, expected_ty, ctx)
+            return type_equal(shift(ctx[i].ty, i + 1), expected_ty, ctx)
         case Lam(arg_ty, body):
             # Lambdas must check against a Pi; ensure domains align, then check
             # the body under the extended context.

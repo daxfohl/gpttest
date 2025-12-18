@@ -36,30 +36,26 @@ class Ctx:
         outer binder, and so on.
 
     Invariant:
-        Every stored entry type is a well-scoped term in the *entire current
-        context*. In particular, when a new binder is added, all existing entry
-        types (and the new binder type itself) are shifted so that references to
-        previously bound variables continue to point at the same syntactic
-        entities after extension.
+        Each stored entry type is scoped in the *tail context* beneath it. The
+        type of Var(0) is stored in the context of Var(1..), the type of Var(1)
+        is stored in the context of Var(2..), and so on.
 
     Extension discipline:
-        `prepend(t)` prepends a new binder at index 0 and shifts all stored types
-        by 1. `prepend(t0, t1, ..., tn)` is equivalent to repeated single-binder
-        extension:
+        `prepend(t)` prepends a new binder at index 0 without rewriting existing
+        entry types. `prepend(t0, t1, ..., tn)` is equivalent to repeated
+        single-binder extension:
             prepend(t0, t1, ..., tn) == prepend(t0).prepend(t1)...prepend(tn)
         where binder types are ordered outermost → innermost, matching the order
         of arguments to `nested_pi` / `nested_lam`.
 
     Interpretation:
         Given a context Γ and an index k, `Var(k)` refers to the binder whose
-        type is stored at Γ[k]. The shifting performed during extension ensures
-        that this interpretation is stable across context growth.
+        type is stored at Γ[k]. Lookup shifts the stored type by k to account
+        for the binders in front of it.
 
     Notes:
-        This design chooses to eagerly maintain well-scoped entry types under
-        extension, rather than interpreting entry types in a relative tail
-        context. This simplifies lookup and type checking at the cost of extra
-        shifting during context extension.
+        This design keeps entry types relative to their tails and shifts on
+        lookup, matching standard de Bruijn conventions for Pi/Lam codomains.
     """
 
     entries: tuple[CtxEntry, ...] = ()
@@ -83,23 +79,12 @@ class Ctx:
             prepend(t0, t1, ..., tk) == prepend(t0).prepend(t1)...prepend(tk)
 
         De Bruijn invariant:
-            The newest binder is at index 0. All stored entry types are maintained
-            as well-scoped in the resulting (extended) context by shifting as needed.
+            The newest binder is at index 0. Stored entry types are not rewritten
+            on extension; lookup shifts by index instead.
         """
-
-        k = len(tys)
-        # Shift existing entries by k because k new binders are inserted in front
-        existing = ((shift(entry.ty, k)) for entry in self)
-
-        # Now compute the new entries exactly as repeated prepend would.
-        # Insert from innermost to outermost (reverse order), and shift each ty by 1,
-        # then 2, ... as it gets placed under previously inserted binders.
-        tys1 = ((shift(ty, depth)) for depth, ty in enumerate(reversed(tys), start=1))
-
-        # new_entries currently is [innermost shifted by1, ..., outermost shifted by k]
-        # but those should appear *before* existing entries, and in the same order
-        # as ctx.entries (index 0 is innermost), so keep as built:
-        return Ctx.as_ctx(*tys1, *existing)
+        # prepend(t0, ..., tk) == prepend(t0).prepend(t1)...prepend(tk)
+        # so insert from innermost to outermost (reverse order).
+        return Ctx.as_ctx(*reversed(tys), *self.entries)
 
     @staticmethod
     def as_ctx(*ctx: CtxEntry | Term) -> Ctx:
@@ -116,7 +101,7 @@ class Ctx:
     def types(self) -> tuple[Term, ...]:
         return tuple(e.ty for e in self.entries)
 
-    def __str__(self):
+    def __str__(self) -> str:
         if len(self.entries) < 2:
             return f"Ctx{self.entries}"
         return f"Ctx(\n{"".join([f"  #{i}: {e.ty}\n" for i, e in enumerate(self)])})"
