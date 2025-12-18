@@ -138,7 +138,7 @@ __all__ = [
 ]
 
 
-def _repr(self: Term) -> str:
+def _str(self: Term) -> str:
     # Deferred import to avoid cycles when pretty-printing from dataclass repr.
     from .pretty import pretty
 
@@ -155,4 +155,4 @@ for _cls in (
     I,
     # Elim,
 ):
-    _cls.__repr__ = _repr  # type: ignore
+    _cls.__str__ = _str  # type: ignore

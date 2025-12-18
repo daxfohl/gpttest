@@ -2,11 +2,10 @@ import mltt.inductive.sigma as sigma
 from mltt.core.ast import App, Lam, Pi, Univ, Var
 from mltt.core.debruijn import shift
 from mltt.core.inductive_utils import nested_lam, nested_pi, apply_term
-from mltt.core.reduce import normalize
+from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_check, type_equal
-from mltt.inductive.eq import Id, Refl
 from mltt.inductive.fin import Fin, FZCtor
-from mltt.inductive.nat import NatType, Succ, Zero, numeral, SuccCtor, add
+from mltt.inductive.nat import NatType, Succ, Zero, numeral
 
 
 def test_infer_sigma_type_constructor() -> None:

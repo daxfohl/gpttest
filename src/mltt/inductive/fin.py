@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from .nat import NatRec, NatType, Succ, Zero, numeral
+from .nat import NatType, Succ, Zero, numeral
 from ..core.ast import (
     App,
     Ctor,
     Elim,
     I,
-    Lam,
-    Pi,
     Term,
     Var,
 )

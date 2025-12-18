@@ -3,9 +3,9 @@ import pytest
 import mltt.inductive.vec as vec
 from mltt.core.ast import Term, Univ, Var
 from mltt.core.inductive_utils import nested_lam, nested_pi, apply_term
-from mltt.core.reduce import normalize, whnf
+from mltt.core.reduce.normalize import normalize, whnf
 from mltt.core.typing import infer_type, type_check
-from mltt.inductive.nat import NatType, Succ, Zero, numeral, add_terms
+from mltt.inductive.nat import NatType, Succ, Zero, numeral, add
 from mltt.inductive.vec import VecType
 
 
@@ -57,7 +57,7 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
         elem_ty,  # x : A
         vec.VecType(elem_ty, Var(1)),  # xs : Vec A n (Var(1) = n)
         apply_term(P, Var(2), Var(0)),  # ih : P n xs
-        body=add_terms(Var(0), Var(2)),  # ih + x
+        body=add(Var(0), Var(2)),  # ih + x
     )
 
     xs: Term = vec.Nil(elem_ty)

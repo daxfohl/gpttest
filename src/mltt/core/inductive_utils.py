@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from itertools import islice
-from typing import Sequence, Any, TypeVar, Iterator
+from typing import Sequence, TypeVar
 
-from .ast import App, Ctor, Elim, Term, Lam, Pi, Var
+from .ast import App, Ctor, Term, Lam, Pi
 from .debruijn import subst, shift
 
 T = TypeVar("T")
@@ -173,64 +172,6 @@ def instantiate_ctor_result_indices_under_fields(
     return tuple(out)
 
 
-# def instantiate_ctor_result_indices(
-#     result_indices: tuple[Term, ...],
-#     params_actual: tuple[Term, ...],
-#     indices_actual: tuple[Term, ...],
-#     m: int,  # number of ctor args
-# ) -> tuple[Term, ...]:
-#     p = len(params_actual)
-#     q = len(indices_actual)
-#
-#     out: list[Term] = []
-#     for schema in result_indices:
-#         t = schema
-#
-#         for s in range(p):
-#             j = m + q + (p - 1 - s)
-#             t = subst(t, shift(params_actual[s], m), j)
-#
-#         for s in range(q):
-#             j = m + (q - 1 - s)
-#             t = subst(t, shift(indices_actual[s], m), j)
-#
-#         out.append(t)
-#
-#     return tuple(out)
-
-
-def instantiate_into(*params: Term, target: tuple[Term, ...]) -> tuple[Term, ...]:
-    """Instantiate ``target`` types with ``params`` inserted outermost-first.
-
-    Args:
-        params: Parameter terms to substitute, ordered from outermost to
-            innermost.
-        target: Types whose de Bruijn references are adjusted as parameters are
-            threaded in.
-
-    Returns:
-        A tuple of instantiated target types.
-    """
-    output = []
-    for i, arg in enumerate(target):
-        for j, param in enumerate(params):
-            index = i + len(params) - j - 1
-            arg = subst(arg, param, index)
-        output.append(arg)
-    return tuple(output)
-
-
-def split_to_match(
-    seq: Sequence[T], *shape: Sequence[Any]
-) -> tuple[tuple[T, ...], ...]:
-    """
-    Splits a sequence into segments to match the lengths (shape)
-    of an existing sequence of sequences.
-    """
-    seq_iter: Iterator[T] = iter(seq)
-    return tuple(tuple(islice(seq_iter, len(sublist))) for sublist in shape)
-
-
 def ctor_index(ctor: Ctor) -> int:
     """Position of ``ctor`` inside ``inductive.constructors``.
 
@@ -256,10 +197,8 @@ __all__ = [
     "decompose_ctor_app",
     "decompose_lam",
     "decompose_pi",
-    "instantiate_into",
     "nested_lam",
     "nested_pi",
-    "split_to_match",
     "instantiate_ctor_arg_types",
     "instantiate_ctor_result_indices_under_fields",
 ]

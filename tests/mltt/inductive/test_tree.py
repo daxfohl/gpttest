@@ -1,9 +1,9 @@
 import mltt.inductive.tree as treem
 from mltt.core.ast import Lam, Univ, Var
 from mltt.core.inductive_utils import nested_lam, nested_pi, apply_term
-from mltt.core.reduce import normalize
+from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_check
-from mltt.inductive.nat import NatType, Succ, Zero, add_terms
+from mltt.inductive.nat import NatType, Succ, Zero, add
 
 
 def test_infer_tree_type_constructor() -> None:
@@ -39,7 +39,7 @@ def test_treerec_counts_leaves() -> None:
         tree_ty,
         apply_term(P, Var(1)),
         apply_term(P, Var(1)),
-        body=add_terms(Var(1), Var(0)),
+        body=add(Var(1), Var(0)),
     )
     left = treem.Leaf(leaf_ty, node_ty, Zero())
     right = treem.Leaf(leaf_ty, node_ty, Succ(Zero()))

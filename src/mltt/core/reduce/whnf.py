@@ -11,7 +11,6 @@ from ..inductive_utils import (
     ctor_index,
     decompose_app,
     apply_term,
-    split_to_match,
 )
 
 
@@ -24,14 +23,12 @@ def iota_reduce(
     """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
     ind = ctor.inductive
     arg_types = ctor.arg_types
-    _, ctor_args = split_to_match(args, ind.param_types, arg_types)
+    ctor_args = args[len(ind.param_types) :]
 
     ihs: list[Term] = []
     for arg_term, arg_ty in zip(ctor_args, arg_types, strict=True):
         head, head_args = decompose_app(arg_ty)
         if head is ctor.inductive:
-            # only works if after substituting param_args and index_args into ctor_arg_types.
-            # assert head_args[:param_count] == param_args, f"{arg_ty}: {head_args[:param_count]!r} == {param_args}"
             ih = Elim(
                 inductive=ctor.inductive,
                 motive=motive,

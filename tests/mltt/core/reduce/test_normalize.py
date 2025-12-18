@@ -1,7 +1,7 @@
 from mltt.core.ast import App, Lam, Univ, Var
 from mltt.core.inductive_utils import nested_lam
 from mltt.core.reduce.normalize import normalize, normalize_step
-from mltt.inductive.nat import NatRec, NatType, Succ, Zero, add
+from mltt.inductive.nat import NatRec, NatType, Succ, Zero, add_term
 
 
 def test_normalize_performs_nested_reduction() -> None:
@@ -21,7 +21,7 @@ def test_normalize_step_unfolds_add_base_case() -> None:
         ),
     )
 
-    assert normalize_step(App(add(), Zero())) == expected
+    assert normalize_step(App(add_term(), Zero())) == expected
 
 
 def test_normalize_fully_reduces_application_chain() -> None:

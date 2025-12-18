@@ -3,10 +3,10 @@ import pytest
 from mltt.core.ast import App, Lam, Pi, Term, Univ, Var
 from mltt.core.debruijn import Ctx
 from mltt.core.inductive_utils import apply_term, nested_lam
-from mltt.core.reduce import normalize
+from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.eq import Id, IdElim, Refl
-from mltt.inductive.nat import NatRec, NatType, Zero, add_terms, numeral
+from mltt.inductive.nat import NatRec, NatType, Zero, add, numeral
 
 
 def test_infer_var() -> None:
@@ -188,7 +188,7 @@ def test_type_check_natrec_rejects_invalid_base_case() -> None:
 
 
 def test_type_check_accepts_add_application() -> None:
-    term = add_terms(numeral(2), numeral(3))
+    term = add(numeral(2), numeral(3))
 
     type_check(term, NatType())
 

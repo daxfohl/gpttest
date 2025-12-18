@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from .maybe import MaybeType, Nothing, Just
 from ..core.ast import App, Ctor, Elim, I, Lam, Term, Var
 from ..core.inductive_utils import apply_term, nested_lam
-from .maybe import MaybeType, Nothing, Just
 
 Nat = I(name="Nat", level=0)
 ZeroCtor = Ctor(name="Zero", inductive=Nat)
@@ -44,7 +44,7 @@ def numeral(value: int) -> Term:
     return term
 
 
-def add() -> Term:
+def add_term() -> Term:
     """
     add : Nat → Nat → Nat
     Addition by recursion on the first argument.
@@ -72,13 +72,13 @@ def add() -> Term:
     )
 
 
-def add_terms(lhs: Term, rhs: Term) -> Term:
+def add(lhs: Term, rhs: Term) -> Term:
     """Build ``add lhs rhs`` as nested applications."""
 
-    return apply_term(add(), lhs, rhs)
+    return apply_term(add_term(), lhs, rhs)
 
 
-def pred_maybe() -> Term:
+def pred_maybe_term() -> Term:
     """Predecessor as ``Maybe Nat``: ``Nothing`` for zero, ``Just k`` for ``Succ k``."""
 
     return nested_lam(
@@ -96,5 +96,5 @@ def pred_maybe() -> Term:
     )
 
 
-def pred_maybe_terms(n: Term) -> Term:
-    return App(pred_maybe(), n)
+def pred_maybe(n: Term) -> Term:
+    return App(pred_maybe_term(), n)

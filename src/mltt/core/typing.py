@@ -21,7 +21,7 @@ from .inductive_utils import (
     instantiate_ctor_arg_types,
     instantiate_ctor_result_indices_under_fields,
 )
-from .reduce import normalize
+from .reduce.normalize import normalize
 from .reduce.whnf import whnf
 
 

@@ -6,7 +6,7 @@ from ..core.ast import Lam, Term, Var, Pi
 from ..core.debruijn import shift
 from ..core.inductive_utils import nested_lam, apply_term
 from ..inductive.eq import Refl, Id, ap, trans, sym
-from ..inductive.nat import NatType, Succ, Zero, add_terms, NatRec
+from ..inductive.nat import NatType, Succ, Zero, add, NatRec
 
 
 def add_zero_right() -> Term:
@@ -18,7 +18,7 @@ def add_zero_right() -> Term:
             # motive P(n) = Id Nat (add n 0) n
             P=Lam(
                 NatType(),
-                Id(NatType(), add_terms(Var(0), Zero()), Var(0)),
+                Id(NatType(), add(Var(0), Zero()), Var(0)),
             ),
             # base: add 0 0 ≡ 0  ⇒ refl
             base=Refl(ty=NatType(), t=Zero()),
@@ -27,12 +27,12 @@ def add_zero_right() -> Term:
             # so use ap Succ ih : Id Nat (Succ (add k 0)) (Succ k)
             step=nested_lam(
                 NatType(),  # k
-                Id(NatType(), add_terms(Var(0), Zero()), Var(0)),  # ih
+                Id(NatType(), add(Var(0), Zero()), Var(0)),  # ih
                 body=ap(
                     f=Lam(NatType(), Succ(Var(0))),  # Succ as a function
                     A=NatType(),
                     B0=NatType(),
-                    x=add_terms(Var(1), Zero()),  # add k 0
+                    x=add(Var(1), Zero()),  # add k 0
                     y=Var(1),  # k
                     p=Var(0),  # ih
                 ),
@@ -47,7 +47,7 @@ def add_zero_left() -> Term:
 
     return Lam(
         NatType(),
-        Refl(NatType(), add_terms(Zero(), Var(0))),
+        Refl(NatType(), add(Zero(), Var(0))),
     )
 
 
@@ -57,7 +57,7 @@ def succ_add() -> Term:
     return nested_lam(
         NatType(),
         NatType(),
-        body=Refl(NatType(), add_terms(Succ(Var(1)), Var(0))),
+        body=Refl(NatType(), add(Succ(Var(1)), Var(0))),
     )
 
 
@@ -69,8 +69,8 @@ def add_succ_right() -> Term:
         NatType(),  # m
         Id(
             NatType(),
-            add_terms(Var(0), Succ(Var(1))),  # add m (Succ n)
-            Succ(add_terms(Var(0), Var(1))),  # Succ (add m n)
+            add(Var(0), Succ(Var(1))),  # add m (Succ n)
+            Succ(add(Var(0), Var(1))),  # Succ (add m n)
         ),
     )
 
@@ -87,8 +87,8 @@ def add_succ_right() -> Term:
             f=Lam(NatType(), Succ(Var(0))),
             A=NatType(),
             B0=NatType(),
-            x=add_terms(Var(1), Succ(Var(2))),  # add k (Succ n)
-            y=Succ(add_terms(Var(1), Var(2))),  # Succ (add k n)
+            x=add(Var(1), Succ(Var(2))),  # add k (Succ n)
+            y=Succ(add(Var(1), Var(2))),  # Succ (add k n)
             p=Var(0),  # ih
         ),
     )
@@ -115,8 +115,8 @@ def add_comm() -> Term:
             NatType(),  # m
             Id(
                 NatType(),
-                add_terms(Var(1), Var(0)),  # add n m
-                add_terms(Var(0), Var(1)),  # add m n
+                add(Var(1), Var(0)),  # add n m
+                add(Var(0), Var(1)),  # add m n
             ),
         ),
     )
@@ -125,7 +125,7 @@ def add_comm() -> Term:
         NatType(),  # m
         sym(
             NatType(),
-            add_terms(Var(0), Zero()),  # x = add m 0
+            add(Var(0), Zero()),  # x = add m 0
             Var(0),  # y = m
             apply_term(add_zero_right(), Var(0)),  # p : add m 0 = m
         ),
@@ -138,28 +138,28 @@ def add_comm() -> Term:
             NatType(),  # m
             trans(
                 NatType(),
-                add_terms(Succ(Var(2)), Var(0)),  # add (Succ n) m
-                Succ(add_terms(Var(0), Var(2))),  # Succ (add m n)
-                add_terms(Var(0), Succ(Var(2))),  # add m (Succ n)
+                add(Succ(Var(2)), Var(0)),  # add (Succ n) m
+                Succ(add(Var(0), Var(2))),  # Succ (add m n)
+                add(Var(0), Succ(Var(2))),  # add m (Succ n)
                 trans(
                     NatType(),
-                    add_terms(Succ(Var(2)), Var(0)),  # add (Succ n) m
-                    Succ(add_terms(Var(2), Var(0))),  # Succ (add n m)
-                    Succ(add_terms(Var(0), Var(2))),  # Succ (add m n)
+                    add(Succ(Var(2)), Var(0)),  # add (Succ n) m
+                    Succ(add(Var(2), Var(0))),  # Succ (add n m)
+                    Succ(add(Var(0), Var(2))),  # Succ (add m n)
                     apply_term(succ_add(), Var(2), Var(0)),  # succ_add n m
                     ap(
                         f=Lam(NatType(), Succ(Var(0))),
                         A=NatType(),
                         B0=NatType(),
-                        x=add_terms(Var(2), Var(0)),  # add n m
-                        y=add_terms(Var(0), Var(2)),  # add m n
+                        x=add(Var(2), Var(0)),  # add n m
+                        y=add(Var(0), Var(2)),  # add m n
                         p=apply_term(Var(1), Var(0)),  # ih m
                     ),
                 ),
                 sym(
                     NatType(),
-                    add_terms(Var(0), Succ(Var(2))),  # x
-                    Succ(add_terms(Var(0), Var(2))),  # y
+                    add(Var(0), Succ(Var(2))),  # x
+                    Succ(add(Var(0), Var(2))),  # y
                     apply_term(add_succ_right(), Var(2), Var(0)),
                 ),
             ),

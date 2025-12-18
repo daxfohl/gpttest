@@ -3,7 +3,7 @@ import pytest
 import mltt.inductive.fin as fin
 from mltt.core.ast import Pi, Univ, Var
 from mltt.core.inductive_utils import apply_term, nested_lam, nested_pi
-from mltt.core.reduce import normalize
+from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_check
 from mltt.inductive.fin import (
     FZCtor,

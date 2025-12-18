@@ -2,33 +2,33 @@ import pytest
 
 from mltt.core.ast import Pi
 from mltt.core.inductive_utils import nested_pi
-from mltt.core.reduce import normalize
+from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_check
 from mltt.inductive.maybe import MaybeType, Nothing, Just
 from mltt.inductive.nat import (
     NatType,
     Succ,
     Zero,
+    add_term,
     add,
-    add_terms,
     numeral,
     ZeroCtor,
     SuccCtor,
-    pred_maybe_terms,
+    pred_maybe,
 )
 
 
 def test_add_has_expected_pi_type() -> None:
     add_type = nested_pi(NatType(), NatType(), return_ty=NatType())
 
-    type_check(add(), add_type)
+    type_check(add_term(), add_type)
 
 
 def test_add_zero_left_identity() -> None:
     n_term = numeral(4)
     expected = numeral(4)
 
-    result = normalize(add_terms(Zero(), n_term))
+    result = normalize(add(Zero(), n_term))
 
     assert result == expected
 
@@ -37,14 +37,14 @@ def test_add_satisfies_recursive_step() -> None:
     k_term = numeral(2)
     n_term = numeral(3)
 
-    lhs = normalize(add_terms(Succ(k_term), n_term))
-    rhs = normalize(Succ(add_terms(k_term, n_term)))
+    lhs = normalize(add(Succ(k_term), n_term))
+    rhs = normalize(Succ(add(k_term, n_term)))
 
     assert lhs == rhs
 
 
 def test_add_produces_expected_numeral() -> None:
-    result = normalize(add_terms(numeral(2), numeral(3)))
+    result = normalize(add(numeral(2), numeral(3)))
 
     assert result == numeral(5)
 
@@ -63,7 +63,7 @@ def test_ctor_type() -> None:
 
 
 def test_pred_maybe_zero() -> None:
-    result = pred_maybe_terms(Zero())
+    result = pred_maybe(Zero())
     assert normalize(result) == Nothing(NatType())
 
     type_check(result, MaybeType(NatType()))
@@ -72,7 +72,7 @@ def test_pred_maybe_zero() -> None:
 @pytest.mark.parametrize("i", range(1, 4))
 def test_pred_maybe_succ(i: int) -> None:
     n = numeral(i)
-    result = pred_maybe_terms(n)
+    result = pred_maybe(n)
     assert normalize(result) == Just(NatType(), numeral(i - 1))
 
     type_check(result, MaybeType(NatType()))
