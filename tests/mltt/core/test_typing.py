@@ -2,9 +2,9 @@ import pytest
 
 from mltt.core.ast import App, Lam, Pi, Term, Univ, Var
 from mltt.core.debruijn import Ctx
-from mltt.core.util import apply_term, nested_lam
 from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_check, type_equal
+from mltt.core.util import apply_term, nested_lam
 from mltt.inductive.eq import Id, IdElim, Refl
 from mltt.inductive.nat import NatRec, NatType, Zero, add, numeral
 

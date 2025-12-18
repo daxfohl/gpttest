@@ -2,9 +2,9 @@ import pytest
 
 import mltt.inductive.vec as vec
 from mltt.core.ast import Term, Univ, Var
-from mltt.core.util import apply_term, nested_pi, nested_lam
 from mltt.core.reduce.normalize import normalize, whnf
 from mltt.core.typing import infer_type, type_check
+from mltt.core.util import apply_term, nested_pi, nested_lam
 from mltt.inductive.nat import NatType, Succ, Zero, numeral, add
 from mltt.inductive.vec import VecType
 

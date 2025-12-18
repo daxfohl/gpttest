@@ -18,9 +18,9 @@ from .inductive_utils import (
     instantiate_ctor_arg_types,
     instantiate_ctor_result_indices_under_fields,
 )
-from .util import apply_term, nested_pi, decompose_app
 from .reduce.normalize import normalize
 from .reduce.whnf import whnf
+from .util import apply_term, nested_pi, decompose_app
 
 
 def _ctor_type(ctor: Ctor) -> Term:

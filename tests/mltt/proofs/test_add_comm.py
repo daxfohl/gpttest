@@ -1,7 +1,7 @@
 from mltt.core.ast import Var
-from mltt.core.util import apply_term, nested_pi
 from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_equal, type_check
+from mltt.core.util import apply_term, nested_pi
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Succ, Zero, add, numeral
 from mltt.proofs.add_comm import (

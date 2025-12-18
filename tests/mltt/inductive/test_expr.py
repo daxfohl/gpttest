@@ -1,7 +1,7 @@
 from mltt.core.ast import Lam, Univ, Var
 from mltt.core.debruijn import shift
-from mltt.core.util import apply_term, nested_pi
 from mltt.core.typing import infer_type, type_check, type_equal
+from mltt.core.util import apply_term, nested_pi
 from mltt.inductive.expr import Const, ConstCtor, ExprType, Pair, PairCtor
 from mltt.inductive.nat import NatType, Zero
 from mltt.inductive.sigma import Sigma

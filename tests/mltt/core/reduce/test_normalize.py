@@ -1,6 +1,6 @@
 from mltt.core.ast import App, Lam, Univ, Var
-from mltt.core.util import nested_lam
 from mltt.core.reduce.normalize import normalize, normalize_step
+from mltt.core.util import nested_lam
 from mltt.inductive.nat import NatRec, NatType, Succ, Zero, add_term
 
 

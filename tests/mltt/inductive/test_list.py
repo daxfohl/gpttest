@@ -2,9 +2,9 @@ import pytest
 
 import mltt.inductive.list as listm
 from mltt.core.ast import Lam, Pi, Univ, Var, Term
-from mltt.core.util import apply_term, nested_pi, nested_lam
 from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_check
+from mltt.core.util import apply_term, nested_pi, nested_lam
 from mltt.inductive.list import ConsCtor, NilCtor
 from mltt.inductive.nat import NatType, Succ, Zero
 

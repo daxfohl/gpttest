@@ -1,9 +1,9 @@
 import pytest
 
 from mltt.core.ast import Univ, Var
-from mltt.core.util import apply_term, nested_pi
 from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_check, type_equal
+from mltt.core.util import apply_term, nested_pi
 from mltt.inductive.bool import (
     BoolType,
     False_,
