@@ -1,6 +1,7 @@
 from mltt.core.ast import App, Elim, Lam, Pi, Term, Univ, Var
 from mltt.core.debruijn import shift, subst
-from mltt.core.inductive_utils import nested_lam, nested_pi
+from mltt.core.util import nested_pi
+from mltt.core.utli import nested_lam
 from mltt.inductive.eq import Id, IdElim
 from mltt.inductive.nat import NatRec, Succ, Zero
 

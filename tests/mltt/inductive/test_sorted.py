@@ -1,5 +1,5 @@
 from mltt.core.ast import Lam, Pi, Univ, Var, Term
-from mltt.core.inductive_utils import apply_term, nested_pi
+from mltt.core.util import apply_term, nested_pi
 from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.list import Cons, List, Nil

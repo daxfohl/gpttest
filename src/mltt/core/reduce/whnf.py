@@ -7,11 +7,9 @@ from typing import Callable
 from ..ast import Term, App, Lam, Elim, Ctor, I, Var, Univ, Pi
 from ..debruijn import subst
 from ..inductive_utils import (
-    decompose_ctor_app,
     ctor_index,
-    decompose_app,
-    apply_term,
 )
+from ..util import apply_term, decompose_app
 
 
 def iota_reduce(
@@ -54,17 +52,15 @@ def whnf(term: Term) -> Term:
 
         case Elim(inductive, motive, cases, scrutinee):
             scrutinee_whnf = whnf(scrutinee)
-            match decompose_ctor_app(scrutinee_whnf):
-                case None:
-                    # Decomposition terminates in Var or Axiom, etc.
-                    return Elim(inductive, motive, cases, scrutinee_whnf)
-                case ctor, args if ctor.inductive is inductive:
+            match decompose_app(scrutinee_whnf):
+                case Ctor() as ctor, args if ctor.inductive is inductive:
                     expected_args = len(inductive.param_types) + len(ctor.arg_types)
                     if len(args) != expected_args:
                         raise ValueError()
                     return whnf(iota_reduce(ctor, cases, args, motive))
                 case _:
-                    raise ValueError()
+                    # Decomposition terminates in Var or Axiom, etc.
+                    return Elim(inductive, motive, cases, scrutinee_whnf)
         case _:
             return term
 

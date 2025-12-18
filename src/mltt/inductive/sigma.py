@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from ..core.ast import App, Ctor, Elim, I, Lam, Pi, Term, Univ, Var
 from ..core.debruijn import shift
-from ..core.inductive_utils import apply_term, nested_lam, nested_pi
+from ..core.utli import nested_lam
+from ..core.util import apply_term, nested_pi
 
 Sigma = I(
     name="Sigma",

@@ -11,7 +11,7 @@ from ..core.ast import (
     Univ,
     Var,
 )
-from ..core.inductive_utils import apply_term
+from ..core.util import apply_term
 
 List = I(name="List", param_types=(Univ(0),), level=0)
 NilCtor = Ctor(name="Nil", inductive=List)

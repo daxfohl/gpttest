@@ -11,7 +11,7 @@ from ..core.ast import (
     Univ,
     Var,
 )
-from ..core.inductive_utils import apply_term
+from ..core.util import apply_term
 
 Vec = I(name="Vec", param_types=(Univ(0),), index_types=(NatType(),), level=0)
 NilCtor = Ctor(

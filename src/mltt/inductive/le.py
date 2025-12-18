@@ -6,7 +6,8 @@ from .eq import Id, Refl
 from .nat import NatType, Succ
 from .rtc import RTCRefl, RTCStep, RTCType
 from ..core.ast import Ctor, Elim, I, Term, Var
-from ..core.inductive_utils import apply_term, nested_lam
+from ..core.utli import nested_lam
+from ..core.util import apply_term
 
 Le = I(name="Le", index_types=(NatType(), NatType()), level=0)
 LeReflCtor = Ctor(

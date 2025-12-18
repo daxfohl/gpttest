@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from ..core.ast import App, Ctor, Elim, I, Lam, Term, Univ, Var
-from ..core.inductive_utils import apply_term, nested_lam
+from ..core.utli import nested_lam
+from ..core.util import apply_term
 
 Bool = I(name="Bool", level=0)
 FalseCtor = Ctor(name="False", inductive=Bool)

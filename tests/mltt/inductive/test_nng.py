@@ -1,6 +1,7 @@
 from mltt.core.ast import Lam, Var
 from mltt.core.debruijn import Ctx
-from mltt.core.inductive_utils import nested_lam, nested_pi
+from mltt.core.util import nested_pi
+from mltt.core.utli import nested_lam
 from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.eq import Id, Refl, ap
 from mltt.inductive.nat import NatType, Succ, add, numeral

@@ -1,5 +1,5 @@
 from mltt.core.ast import App, Lam, Pi, Var
-from mltt.core.inductive_utils import nested_lam
+from mltt.core.utli import nested_lam
 from mltt.core.pretty import pretty
 from mltt.inductive.nat import NatType, Succ, Zero
 

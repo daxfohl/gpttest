@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..core.ast import App, Ctor, Elim, I, Term, Univ, Var
-from ..core.inductive_utils import apply_term
+from ..core.util import apply_term
 
 Maybe = I(name="Maybe", param_types=(Univ(0),), level=0)
 NothingCtor = Ctor(name="Nothing", inductive=Maybe)

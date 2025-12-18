@@ -1,5 +1,5 @@
 from mltt.core.ast import Var
-from mltt.core.inductive_utils import nested_pi, apply_term
+from mltt.core.util import apply_term, nested_pi
 from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_equal, type_check
 from mltt.inductive.eq import Id, Refl

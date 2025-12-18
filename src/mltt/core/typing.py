@@ -15,12 +15,10 @@ from .ast import (
 )
 from .debruijn import Ctx, subst, shift
 from .inductive_utils import (
-    apply_term,
-    decompose_app,
-    nested_pi,
     instantiate_ctor_arg_types,
     instantiate_ctor_result_indices_under_fields,
 )
+from .util import apply_term, nested_pi, decompose_app
 from .reduce.normalize import normalize
 from .reduce.whnf import whnf
 

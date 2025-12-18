@@ -1,5 +1,5 @@
 from mltt.core.ast import App, Lam, Univ, Var
-from mltt.core.inductive_utils import nested_lam
+from mltt.core.utli import nested_lam
 from mltt.core.reduce.whnf import whnf
 from mltt.inductive.eq import IdElim, Refl
 from mltt.inductive.nat import NatRec, Zero, Succ

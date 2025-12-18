@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from .maybe import MaybeType, Nothing, Just
 from ..core.ast import App, Ctor, Elim, I, Lam, Term, Var
-from ..core.inductive_utils import apply_term, nested_lam
+from ..core.utli import nested_lam
+from ..core.util import apply_term
 
 Nat = I(name="Nat", level=0)
 ZeroCtor = Ctor(name="Zero", inductive=Nat)

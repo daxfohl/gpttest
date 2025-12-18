@@ -11,7 +11,8 @@ from ..core.ast import (
     Term,
     Var,
 )
-from ..core.inductive_utils import apply_term, nested_lam
+from ..core.utli import nested_lam
+from ..core.util import apply_term
 
 Fin = I(name="Fin", index_types=(NatType(),), level=0)
 FZCtor = Ctor(

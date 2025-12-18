@@ -1,7 +1,7 @@
 import pytest
 
 from mltt.core.ast import Pi
-from mltt.core.inductive_utils import nested_pi
+from mltt.core.util import nested_pi
 from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_check
 from mltt.inductive.maybe import MaybeType, Nothing, Just

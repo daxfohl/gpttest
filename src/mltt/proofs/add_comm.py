@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from ..core.ast import Lam, Term, Var, Pi
 from ..core.debruijn import shift
-from ..core.inductive_utils import nested_lam, apply_term
+from ..core.utli import nested_lam
+from ..core.util import apply_term
 from ..inductive.eq import Refl, Id, ap, trans, sym
 from ..inductive.nat import NatType, Succ, Zero, add, NatRec
 

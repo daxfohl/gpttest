@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..core.ast import Ctor, Elim, I, Pi, Term, Univ, Var
-from ..core.inductive_utils import apply_term
+from ..core.util import apply_term
 
 RTC = I(
     name="RTC",
