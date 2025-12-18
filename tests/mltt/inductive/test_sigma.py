@@ -35,7 +35,7 @@ def test_sigmarec_returns_first_projection() -> None:
         body=Var(1),  # return the first projection
     )
 
-    fst = sigma.SigmaRec(P, pair_case, pair)
+    fst = sigma.SigmaElim(P, pair_case, pair)
 
     assert normalize(fst) == Succ(Zero())
 

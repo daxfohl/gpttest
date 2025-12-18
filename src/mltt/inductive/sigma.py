@@ -33,9 +33,7 @@ def Pair(A: Term, B: Term, a: Term, b: Term) -> Term:
     return apply_term(PairCtor, A, B, a, b)
 
 
-def SigmaRec(P: Term, pair_case: Term, pair: Term) -> Elim:
-    """Recursor for ``Sigma A B`` using the generic eliminator."""
-
+def SigmaElim(P: Term, pair_case: Term, pair: Term) -> Elim:
     return Elim(
         inductive=Sigma,
         motive=P,
@@ -44,14 +42,17 @@ def SigmaRec(P: Term, pair_case: Term, pair: Term) -> Elim:
     )
 
 
-def fst(A: Term, B: Term, p: Term) -> Term:
-    return SigmaRec(
-        # P : Sigma A B -> Type, here constant A
-        P=Lam(SigmaType(A, B), shift(A, 1)),
-        # pair_case : Π a:A. Π b:B a. A  returning a
-        pair_case=nested_lam(A, App(shift(B, 1), Var(0)), body=Var(1)),
-        pair=p,
+def SigmaRec(A: Term, B: Term, C: Term, pair_case: Term, pair: Term) -> Term:
+    # C is constant result type (may have free vars), so shift by 1 under the motive binder
+    return SigmaElim(
+        P=Lam(SigmaType(A, B), shift(C, 1)),
+        pair_case=pair_case,
+        pair=pair,
     )
+
+
+def fst(A: Term, B: Term, p: Term) -> Term:
+    return SigmaRec(A, B, A, nested_lam(A, App(shift(B, 1), Var(0)), body=Var(1)), p)
 
 
 def fst_term() -> Term:
@@ -68,7 +69,7 @@ def snd(A: Term, B: Term, p: Term) -> Term:
     A1 = shift(A, 1)
     B1 = shift(B, 1)
 
-    return SigmaRec(
+    return SigmaElim(
         # P p := B (fst p)
         P=Lam(SigmaType(A, B), App(B1, fst(A1, B1, Var(0)))),
         # pair_case : Π a:A. Π b:B a. B (fst (Pair a b))  (and fst (Pair a b) ≡ a)
@@ -116,15 +117,8 @@ def let_pair_dep_term() -> Term:
 
 
 def let_pair_fn(A: Term, B: Term, C: Term, p: Term, f: Term) -> Term:
-    return SigmaRec(
-        P=Lam(SigmaType(A, B), shift(C, 1)),
-        pair_case=nested_lam(
-            A,
-            App(shift(B, 1), Var(0)),
-            body=apply_term(shift(f, 2), Var(1), Var(0)),
-        ),
-        pair=p,
-    )
+    C_const = nested_lam(A, App(shift(B, 1), Var(0)), body=shift(C, 2))
+    return let_pair_dep_fn(A, B, C_const, p, f)
 
 
 def let_pair(A: Term, B: Term, C: Term, p: Term, f: Term) -> Term:
