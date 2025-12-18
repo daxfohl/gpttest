@@ -1,8 +1,7 @@
 import mltt.inductive.sigma as sigma
 from mltt.core.ast import App, Lam, Pi, Univ, Var
 from mltt.core.debruijn import shift
-from mltt.core.utli import nested_lam
-from mltt.core.util import apply_term, nested_pi
+from mltt.core.util import apply_term, nested_pi, nested_lam
 from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_check, type_equal
 from mltt.inductive.fin import Fin, FZCtor

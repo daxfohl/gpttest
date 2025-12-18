@@ -1,7 +1,6 @@
 import mltt.inductive.tree as treem
 from mltt.core.ast import Lam, Univ, Var
-from mltt.core.utli import nested_lam
-from mltt.core.util import apply_term, nested_pi
+from mltt.core.util import apply_term, nested_pi, nested_lam
 from mltt.core.reduce.normalize import normalize
 from mltt.core.typing import infer_type, type_check
 from mltt.inductive.nat import NatType, Succ, Zero, add
