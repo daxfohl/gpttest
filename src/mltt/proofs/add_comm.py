@@ -87,8 +87,8 @@ def add_succ_right() -> Term:
             f=Lam(NatType(), Succ(Var(0))),
             A=NatType(),
             B0=NatType(),
-            x=add_terms(Var(1), Succ(Var(3))),  # add k (Succ n)
-            y=Succ(add_terms(Var(1), Var(3))),  # Succ (add k n)
+            x=add_terms(Var(1), Succ(Var(2))),  # add k (Succ n)
+            y=Succ(add_terms(Var(1), Var(2))),  # Succ (add k n)
             p=Var(0),  # ih
         ),
     )

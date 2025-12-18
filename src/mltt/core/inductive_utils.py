@@ -140,44 +140,33 @@ def instantiate_ctor_arg_types(ctor_arg_types, params_actual):
     p = len(params_actual)
     for i, schema in enumerate(ctor_arg_types):
         t = schema
-        # eliminate param binders one by one at the same depth i
-        for s in reversed(range(p)):  # B first, then A
-            t = subst(t, shift(params_actual[s], i), i)
+        # eliminate param binders outermost → innermost at their indexed depth
+        for s, param in enumerate(params_actual):
+            index = i + p - s - 1
+            t = subst(t, shift(param, i + (p - s - 1)), index)
         schemas.append(t)
     return schemas
 
 
-def instantiate_ctor_result_indices(
+def instantiate_ctor_result_indices_under_fields(
     result_indices: tuple[Term, ...],
-    params_actual: tuple[Term, ...],
-    ctor_args: tuple[Term, ...],
+    params_actual_shifted: tuple[Term, ...],  # already shifted by m at callsite
+    m: int,  # number of ctor fields in scope
 ) -> tuple[Term, ...]:
     """
-    Instantiate ctor.result_indices schemas.
-
-    The schema context is (params)(fields). We substitute the actual params and
-    constructor fields (in that order) to obtain indices in the ambient
-    context, with all binders discharged.
+    result_indices schemas are written in context (params)(fields).
+    We are currently in context Γ,(fields) (params already in Γ but shifted by m).
+    Discharge params binders only; keep field vars (0..m-1) intact.
     """
-    p = len(params_actual)
-    m = len(ctor_args)
-
+    p = len(params_actual_shifted)
     out: list[Term] = []
     for schema in result_indices:
         t = schema
-
-        # 1) Substitute params. They sit outermost, above all ctor args.
-        for s in range(p):
-            j = m + (p - 1 - s)  # from m+p-1 down to m
-            t = subst(t, shift(params_actual[s], m), j)
-
-        # 2) Substitute constructor fields from outermost to innermost.
-        for s in range(m):
-            j = m - 1 - s  # from m-1 down to 0
-            t = subst(t, ctor_args[s], j)
-
+        # eliminate param binders outermost → innermost so inner indices stay stable
+        for s, param in enumerate(params_actual_shifted):
+            index = m + p - s - 1
+            t = subst(t, shift(param, p - s - 1), index)
         out.append(t)
-
     return tuple(out)
 
 
@@ -269,5 +258,5 @@ __all__ = [
     "nested_pi",
     "split_to_match",
     "instantiate_ctor_arg_types",
-    "instantiate_ctor_result_indices",
+    "instantiate_ctor_result_indices_under_fields",
 ]

@@ -19,11 +19,9 @@ from .inductive_utils import (
     decompose_app,
     nested_pi,
     instantiate_ctor_arg_types,
-    instantiate_ctor_result_indices,
-    decompose_lam,
-    nested_lam,
+    instantiate_ctor_result_indices_under_fields,
 )
-from .reduce import normalize, beta_step
+from .reduce import normalize
 from .reduce.whnf import whnf
 
 
@@ -113,8 +111,8 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
         motive_shifted = shift(motive, m)
 
         # 3.3 compute result indices for this ctor
-        result_indices_inst = instantiate_ctor_result_indices(
-            ctor.result_indices, params_actual_shifted, arg_vars
+        result_indices_inst = instantiate_ctor_result_indices_under_fields(
+            ctor.result_indices, params_actual_shifted, m
         )
 
         # 3.4 Build IH types
@@ -131,7 +129,7 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
             assert params_field == params_actual
             args_offset = m - 1 - j
             ih_type = apply_term(
-                shift(motive, ri),
+                shift(motive, m + ri),
                 *(shift(i, args_offset + ri) for i in indices_field),
                 Var(args_offset + ri),
             )
@@ -144,28 +142,12 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
         # 3.7 add binders left-to-right (outermost → innermost).
         telescope = (*inst_arg_types, *ih_types)
         branch_ty = codomain
-        for j, t in reversed(list(enumerate(telescope))):
-            t = shift(
-                t, j, cutoff=j
-            )  # shift outer refs; keep earlier binders (0..j-1) fixed
+        for t in reversed(telescope):
             branch_ty = Pi(t, branch_ty)
-
-        print(f"ctor:           {ctor}")
-        print(f"case:           {case}")
-        print(f"inst_arg_types: {inst_arg_types}")
-        print(f"codomain:       {codomain}")
-        print(f"branch_ty:      {branch_ty}")
-        print(f"case_inf:       {infer_type(case, ctx)}")
-        print(f"case_inf_nrm:   {normalize(infer_type(case, ctx))}")
-        print(f"branch_ty_nrm:  {normalize(branch_ty)}")
-        print(f"scrut_like: {scrut_like}")
-        print(f"ctx: {ctx}")
         if not type_check(case, branch_ty, ctx):
-            print(f"error:           {ctor}")
             raise TypeError(
                 f"Case for constructor has wrong type1\n{ctor}\n{normalize(case)}\n{normalize(codomain)}"
             )
-        print(f"success:           {ctor}")
 
     u = _expect_universe(motive_applied_ty.return_ty, ctx)  # cod should be Univ(u)
 
@@ -262,7 +244,7 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
         case App(f, a):
             # Application: infer the function, ensure it is a Pi, and that the
             # argument checks against its domain.
-            f_ty = infer_type(f, ctx)
+            f_ty = whnf(infer_type(f, ctx))
             if not isinstance(f_ty, Pi):
                 raise TypeError(
                     f"Application of non-function\narg: {a},\narg_ty: {infer_type(a, ctx)}\nf: {f}\nf_ty: {f_ty}\nctx: {ctx}"
@@ -329,7 +311,7 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
                 case _:
                     raise TypeError("Lambda expected to have Pi type")
         case App(f, a):
-            f_ty = infer_type(f, ctx)
+            f_ty = whnf(infer_type(f, ctx))
             if not isinstance(f_ty, Pi):
                 raise TypeError("Application of non-function")
             if not type_check(a, f_ty.arg_ty, ctx):

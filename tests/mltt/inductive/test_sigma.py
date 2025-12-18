@@ -130,6 +130,8 @@ def test_let_pair_handles_dependent_B() -> None:
 def test_let_pair_dep_term_typechecks() -> None:
     lp = sigma.let_pair_dep_term()
     infer_type(lp)
+
+
 def test_fst_beta() -> None:
     A = NatType()
     B = Lam(NatType(), App(Fin, Succ(Var(0))))
@@ -139,6 +141,7 @@ def test_fst_beta() -> None:
 
     assert type_equal(infer_type(sigma.fst(A, B, p)), A)
     assert type_equal(normalize(sigma.fst(A, B, p)), a)
+
 
 def test_snd_beta() -> None:
     A = NatType()
