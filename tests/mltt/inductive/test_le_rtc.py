@@ -7,7 +7,7 @@ def test_le_rtc_refl_typechecks() -> None:
     n = numeral(3)
     proof = LeRTCRefl(n)
     expected = LeRTCType(n, n)
-    assert type_check(proof, expected)
+    type_check(proof, expected)
     assert type_equal(infer_type(proof), expected)
 
 
@@ -18,5 +18,5 @@ def test_le_rtc_step_chain() -> None:
     proof = LeRTCStep(n, Succ(Zero()), proof)
     expected = LeRTCType(n, numeral(2))
 
-    assert type_check(proof, expected)
+    type_check(proof, expected)
     assert type_equal(infer_type(proof), expected)

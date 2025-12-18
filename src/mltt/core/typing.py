@@ -160,10 +160,15 @@ def _infer_inductive_elim(elim: Elim, ctx: Ctx) -> Term:
         # 3.6 Expected branch type: Π fields. Π ihs. codomain.
         telescope = (*inst_arg_types, *ih_types)
         branch_ty = nested_pi(*telescope, return_ty=codomain)
-        if not type_check(case, branch_ty, ctx):
+        try:
+            type_check(case, branch_ty, ctx)
+        except TypeError as exc:
             raise TypeError(
-                f"Case for constructor has wrong type1\n{ctor}\n{normalize(case)}\n{normalize(codomain)}"
-            )
+                "Case for constructor has wrong type:\n"
+                f"  ctor = {ctor}\n"
+                f"  case = {normalize(case)}\n"
+                f"  expected = {normalize(branch_ty)}"
+            ) from exc
 
     u = _expect_universe(motive_applied_ty.return_ty, ctx)  # cod should be Univ(u)
 
@@ -265,10 +270,17 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
                 raise TypeError(
                     f"Application of non-function\narg: {a},\narg_ty: {infer_type(a, ctx)}\nf: {f}\nf_ty: {f_ty}\nctx: {ctx}"
                 )
-            if not type_check(a, f_ty.arg_ty, ctx):
+            try:
+                type_check(a, f_ty.arg_ty, ctx)
+            except TypeError as exc:
                 raise TypeError(
-                    f"Application argument type mismatch\narg: {a},\narg_ty: {infer_type(a, ctx)}\nf: {f}\nf_ty: {f_ty}\nf_arg_ty: {f_ty.arg_ty}\nctx: {ctx}"
-                )
+                    "Application argument type mismatch:\n"
+                    f"  term = {term}\n"
+                    f"  argument = {a}\n"
+                    f"  expected arg_ty = {f_ty.arg_ty}\n"
+                    f"  inferred arg_ty = {infer_type(a, ctx)}\n"
+                    f"  inferred f_ty = {f_ty}"
+                ) from exc
             return subst(f_ty.return_ty, a)
         case Pi(arg_ty, body):
             # Pi formation: both sides must be types; universe level is max.
@@ -292,8 +304,8 @@ def infer_type(term: Term, ctx: Ctx | None = None) -> Term:
     raise TypeError(f"Unexpected term in infer_type: {term!r}")
 
 
-def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
-    """Check that ``term`` has type ``ty`` under ``ctx``, raising on mismatches."""
+def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> None:
+    """Raise ``TypeError`` if ``term`` is not well-typed with type ``ty``."""
 
     ctx = ctx or Ctx()
     expected_ty = whnf(ty)
@@ -302,7 +314,15 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
             # A variable is well-typed only if a binder exists at that index.
             if i >= len(ctx):
                 raise TypeError(f"Unbound variable {i}")
-            return type_equal(shift(ctx[i].ty, i + 1), expected_ty, ctx)
+            found_ty = shift(ctx[i].ty, i + 1)
+            if not type_equal(found_ty, expected_ty, ctx):
+                raise TypeError(
+                    "Variable type mismatch:\n"
+                    f"  term = {term}\n"
+                    f"  expected = {expected_ty}\n"
+                    f"  found = {found_ty}"
+                )
+            return None
         case Lam(arg_ty, body):
             # Lambdas must check against a Pi; ensure domains align, then check
             # the body under the extended context.
@@ -313,40 +333,108 @@ def type_check(term: Term, ty: Term, ctx: Ctx | None = None) -> bool:
 
                     if not type_equal(arg_ty, dom, ctx):
                         raise TypeError(
-                            f"Lambda domain mismatch\n"
-                            f"arg_ty:{arg_ty}\n"
-                            f"dom: {dom}\n"
-                            f"ctx: {ctx}\n"
+                            "Lambda domain mismatch:\n"
+                            f"  term = {term}\n"
+                            f"  expected domain = {dom}\n"
+                            f"  found domain = {arg_ty}"
                         )
                     ctx1 = ctx.prepend_each(arg_ty)
-                    if not type_check(body, cod, ctx1):
+                    try:
+                        type_check(body, cod, ctx1)
+                    except TypeError as exc:
                         raise TypeError(
-                            f"Type error in Lam\nbody: {body}\ncod: {cod}\nctx1: {ctx1}"
-                        )
-                    return True
+                            "Lambda body has wrong type:\n"
+                            f"  term = {term}\n"
+                            f"  expected codomain = {cod}\n"
+                            f"  inferred body = {infer_type(body, ctx1)}"
+                        ) from exc
+                    return None
                 case _:
-                    raise TypeError("Lambda expected to have Pi type")
+                    raise TypeError(
+                        "Lambda expected to have Pi type:\n"
+                        f"  term = {term}\n"
+                        f"  expected = {expected_ty}"
+                    )
         case App(f, a):
             f_ty = whnf(infer_type(f, ctx))
             if not isinstance(f_ty, Pi):
-                raise TypeError("Application of non-function")
-            if not type_check(a, f_ty.arg_ty, ctx):
                 raise TypeError(
-                    f"Application argument type mismatch\n{a},\n{f_ty},\n{ctx}"
+                    "Application of non-function:\n"
+                    f"  term = {term}\n"
+                    f"  function = {f}\n"
+                    f"  inferred f_ty = {f_ty}"
                 )
-            return type_equal(expected_ty, subst(f_ty.return_ty, a))
+            try:
+                type_check(a, f_ty.arg_ty, ctx)
+            except TypeError as exc:
+                raise TypeError(
+                    "Application argument type mismatch:\n"
+                    f"  term = {term}\n"
+                    f"  argument = {a}\n"
+                    f"  expected arg_ty = {f_ty.arg_ty}\n"
+                    f"  inferred arg_ty = {infer_type(a, ctx)}\n"
+                    f"  inferred f_ty = {f_ty}"
+                ) from exc
+            inferred_ty = subst(f_ty.return_ty, a)
+            if not type_equal(expected_ty, inferred_ty):
+                raise TypeError(
+                    "Application result type mismatch:\n"
+                    f"  term = {term}\n"
+                    f"  expected = {expected_ty}\n"
+                    f"  inferred = {inferred_ty}"
+                )
+            return None
         case Pi(_, _):
             # Pi formation uses inference for its type; just compare expected.
-            return type_equal(expected_ty, infer_type(term, ctx))
+            inferred_ty = infer_type(term, ctx)
+            if not type_equal(expected_ty, inferred_ty, ctx):
+                raise TypeError(
+                    "Pi type mismatch:\n"
+                    f"  term = {term}\n"
+                    f"  expected = {expected_ty}\n"
+                    f"  inferred = {inferred_ty}"
+                )
+            return None
         case I():
-            return type_equal(expected_ty, infer_type(term, ctx))
+            inferred_ty = infer_type(term, ctx)
+            if not type_equal(expected_ty, inferred_ty, ctx):
+                raise TypeError(
+                    "Inductive type mismatch:\n"
+                    f"  term = {term}\n"
+                    f"  expected = {expected_ty}\n"
+                    f"  inferred = {inferred_ty}"
+                )
+            return None
         case Ctor():
-            return type_equal(expected_ty, _ctor_type(term))
+            inferred_ty = _ctor_type(term)
+            if not type_equal(expected_ty, inferred_ty, ctx):
+                raise TypeError(
+                    "Constructor type mismatch:\n"
+                    f"  term = {term}\n"
+                    f"  expected = {expected_ty}\n"
+                    f"  inferred = {inferred_ty}"
+                )
+            return None
         case Elim():
             inferred = _infer_inductive_elim(term, ctx)
-            return type_equal(expected_ty, inferred)
+            if not type_equal(expected_ty, inferred, ctx):
+                raise TypeError(
+                    "Eliminator type mismatch:\n"
+                    f"  term = {term}\n"
+                    f"  expected = {expected_ty}\n"
+                    f"  inferred = {inferred}\n"
+                    f"  normalized expected = {normalize(expected_ty)}\n"
+                    f"  normalized inferred = {normalize(inferred)}"
+                )
+            return None
         case Univ(_):
-            return isinstance(expected_ty, Univ)
+            if not isinstance(expected_ty, Univ):
+                raise TypeError(
+                    "Universe type mismatch:\n"
+                    f"  term = {term}\n"
+                    f"  expected = {expected_ty}"
+                )
+            return None
 
     raise TypeError(f"Unexpected term in type_check: {term!r}")
 

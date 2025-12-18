@@ -190,7 +190,7 @@ def test_type_check_natrec_rejects_invalid_base_case() -> None:
 def test_type_check_accepts_add_application() -> None:
     term = add_terms(numeral(2), numeral(3))
 
-    assert type_check(term, NatType())
+    type_check(term, NatType())
 
 
 def test_type_check_lambda_with_wrong_domain() -> None:

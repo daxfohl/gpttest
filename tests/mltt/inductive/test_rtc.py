@@ -15,7 +15,7 @@ def test_rtc_refl_typechecks() -> None:
     R = nat_relation()
     proof = RTCRefl(A, R, Zero())
     expected = RTCType(A, R, Zero(), Zero())
-    assert type_check(proof, expected)
+    type_check(proof, expected)
     assert type_equal(infer_type(proof), expected)
 
 
@@ -29,7 +29,7 @@ def test_rtc_step_typechecks() -> None:
     ih = RTCRefl(A, R, z)
     proof = RTCStep(A, R, x, z, y, step, ih)
     expected = RTCType(A, R, x, z)
-    assert type_check(proof, expected)
+    type_check(proof, expected)
     assert type_equal(infer_type(proof), expected)
 
 
@@ -53,5 +53,5 @@ def test_rtc_succ_chain_two_steps() -> None:
     # Path 0 -> 2 by prepending the 0 -> 1 edge
     proof = RTCStep(A, R, Zero(), two, one, Refl(NatType(), one), step1)
     expected = RTCType(A, R, Zero(), two)
-    assert type_check(proof, expected)
+    type_check(proof, expected)
     assert type_equal(infer_type(proof), expected)

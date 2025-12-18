@@ -18,12 +18,12 @@ def test_leaf_and_node_type_check() -> None:
     tree_ty = treem.TreeType(leaf_ty, node_ty)
 
     leaf = treem.Leaf(leaf_ty, node_ty, Zero())
-    assert type_check(leaf, tree_ty)
+    type_check(leaf, tree_ty)
 
     left = treem.Leaf(leaf_ty, node_ty, Zero())
     right = treem.Leaf(leaf_ty, node_ty, Succ(Zero()))
     node = treem.Node(leaf_ty, node_ty, Zero(), left, right)
-    assert type_check(node, tree_ty)
+    type_check(node, tree_ty)
 
 
 def test_treerec_counts_leaves() -> None:
@@ -50,4 +50,4 @@ def test_treerec_counts_leaves() -> None:
     count = treem.TreeRec(P, leaf_case, node_case, tree)
 
     assert normalize(count) == Succ(Succ(Zero()))
-    assert type_check(count, NatType())
+    type_check(count, NatType())

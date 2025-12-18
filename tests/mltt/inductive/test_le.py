@@ -5,7 +5,8 @@ from mltt.inductive.nat import Succ, Zero, numeral
 
 def test_lerefl_typechecks() -> None:
     n = numeral(2)
-    assert type_check(LeRefl(n), LeType(n, n))
+
+    type_check(LeRefl(n), LeType(n, n))
 
 
 def test_lestep_typechecks() -> None:
@@ -13,13 +14,15 @@ def test_lestep_typechecks() -> None:
     m = Zero()
     p = LeRefl(m)
     proof = LeStep(n, m, p)
-    assert type_check(proof, LeType(n, Succ(m)))
+
+    type_check(proof, LeType(n, Succ(m)))
 
 
 def test_lestep_chain_builds_longer_proof() -> None:
     proof = LeStep(Zero(), Zero(), LeRefl(Zero()))
     proof2 = LeStep(Zero(), Succ(Zero()), proof)
-    assert type_check(proof2, LeType(Zero(), numeral(2)))
+
+    type_check(proof2, LeType(Zero(), numeral(2)))
 
 
 def test_infer_type_le_refl() -> None:

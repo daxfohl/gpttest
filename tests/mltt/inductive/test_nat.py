@@ -21,7 +21,7 @@ from mltt.inductive.nat import (
 def test_add_has_expected_pi_type() -> None:
     add_type = nested_pi(NatType(), NatType(), return_ty=NatType())
 
-    assert type_check(add(), add_type)
+    type_check(add(), add_type)
 
 
 def test_add_zero_left_identity() -> None:
@@ -65,7 +65,8 @@ def test_ctor_type() -> None:
 def test_pred_maybe_zero() -> None:
     result = pred_maybe_terms(Zero())
     assert normalize(result) == Nothing(NatType())
-    assert type_check(result, MaybeType(NatType()))
+
+    type_check(result, MaybeType(NatType()))
 
 
 @pytest.mark.parametrize("i", range(1, 4))
@@ -73,4 +74,5 @@ def test_pred_maybe_succ(i: int) -> None:
     n = numeral(i)
     result = pred_maybe_terms(n)
     assert normalize(result) == Just(NatType(), numeral(i - 1))
-    assert type_check(result, MaybeType(NatType()))
+
+    type_check(result, MaybeType(NatType()))

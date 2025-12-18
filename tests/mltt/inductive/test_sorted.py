@@ -24,8 +24,8 @@ def test_sorted_nil_and_one_typecheck() -> None:
     R = reflexive_relation(A)
     nil_proof = SortedNil(A, R)
     one_proof = SortedOne(A, R, Zero())
-    assert type_check(nil_proof, SortedType(A, R, Nil(A)))
-    assert type_check(one_proof, SortedType(A, R, Cons(A, Zero(), Nil(A))))
+    type_check(nil_proof, SortedType(A, R, Nil(A)))
+    type_check(one_proof, SortedType(A, R, Cons(A, Zero(), Nil(A))))
 
 
 def test_sorted_cons_typechecks() -> None:
@@ -36,7 +36,7 @@ def test_sorted_cons_typechecks() -> None:
     ih = SortedOne(A, R, Zero())
     proof = SortedCons(A, R, xs, Zero(), Zero(), rel, ih)
     expected = SortedType(A, R, Cons(A, Zero(), Cons(A, Zero(), xs)))
-    assert type_check(proof, expected)
+    type_check(proof, expected)
     assert type_equal(infer_type(proof), expected)
 
 

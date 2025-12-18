@@ -16,14 +16,16 @@ def test_infer_vec_type() -> None:
 def test_nil_has_zero_length() -> None:
     elem_ty = NatType()
     nil = vec.Nil(elem_ty)
-    assert type_check(nil, vec.VecType(elem_ty, Zero()))
+
+    type_check(nil, vec.VecType(elem_ty, Zero()))
 
 
 def test_cons_increments_length() -> None:
     elem_ty = NatType()
     tail = vec.Nil(elem_ty)
     cons = vec.Cons(elem_ty, Zero(), Zero(), tail)
-    assert type_check(cons, vec.VecType(elem_ty, Succ(Zero())))
+
+    type_check(cons, vec.VecType(elem_ty, Succ(Zero())))
 
 
 def test_vec_rec_on_nil_reduces_to_zero() -> None:
@@ -64,7 +66,8 @@ def test_vec_rec_preserves_length_index1(vec_len: int, b: int, v: int) -> None:
     rec = vec.VecRec(P, base, step, xs)
     normalized = normalize(rec)
     assert normalized == numeral(v * vec_len + b)
-    assert type_check(rec, NatType())
+
+    type_check(rec, NatType())
 
 
 def test_vec_rec_preserves_length_index() -> None:
@@ -92,7 +95,8 @@ def test_vec_rec_preserves_length_index() -> None:
     rec = vec.VecRec(P, base, step, xs)
     normalized = normalize(rec)
     assert normalized == Succ(Zero())
-    assert type_check(rec, NatType())
+
+    type_check(rec, NatType())
 
 
 @pytest.mark.parametrize(

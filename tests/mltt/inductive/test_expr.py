@@ -13,7 +13,7 @@ def test_const_typechecks() -> None:
     value = Zero()
     term = Const(Ty, tau, value)
     expected = ExprType(Ty, tau)
-    assert type_check(term, expected)
+    type_check(term, expected)
     assert type_equal(infer_type(term), expected)
 
 
@@ -26,7 +26,7 @@ def test_pair_typechecks() -> None:
     term = Pair(Ty, A, B, lhs, rhs)
     expected_idx = apply_term(Sigma, A, Lam(A, B))
     expected = ExprType(Ty, expected_idx)
-    assert type_check(term, expected)
+    type_check(term, expected)
     assert type_equal(infer_type(term), expected)
 
 

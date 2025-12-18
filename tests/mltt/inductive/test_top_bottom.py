@@ -6,7 +6,7 @@ from mltt.inductive.top_bottom import BotRec, BotType, TopRec, TopType, Tt
 
 
 def test_top_has_canonical_inhabitant() -> None:
-    assert type_check(Tt(), TopType())
+    type_check(Tt(), TopType())
 
 
 def test_toprec_eliminates_to_motive() -> None:
@@ -14,7 +14,7 @@ def test_toprec_eliminates_to_motive() -> None:
     case = Zero()
     term = TopRec(motive, case, Tt())
 
-    assert type_check(term, NatType())
+    type_check(term, NatType())
     assert type_equal(infer_type(term), NatType())
 
 
@@ -23,7 +23,7 @@ def test_botrec_ex_falso() -> None:
     lam = Lam(BotType(), BotRec(motive, Var(0)))
     expected_ty = Pi(BotType(), NatType())
 
-    assert type_check(lam, expected_ty)
+    type_check(lam, expected_ty)
     assert type_equal(infer_type(lam), expected_ty)
 
 
@@ -33,5 +33,5 @@ def test_toprec_dependent_motive() -> None:
     term = TopRec(motive, case, Tt())
     expected = Id(TopType(), Tt(), Tt())
 
-    assert type_check(term, expected)
+    type_check(term, expected)
     assert type_equal(infer_type(term), expected)

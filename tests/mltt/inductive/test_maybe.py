@@ -41,8 +41,9 @@ def test_maybe_rec_eliminates() -> None:
 
     assert normalize(term_just) == Succ(Zero())
     assert normalize(term_nothing) == Zero()
-    assert type_check(term_just, NatType())
-    assert type_check(term_nothing, NatType())
+
+    type_check(term_just, NatType())
+    type_check(term_nothing, NatType())
 
 
 @pytest.mark.parametrize(

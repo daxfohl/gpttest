@@ -11,7 +11,8 @@ def test_refl_proves_succ_self_equality() -> None:
     ty = NatType()
     proof = Refl(ty, witness)
     ctx = Ctx.as_ctx(ty)
-    assert type_check(proof, Id(ty, witness, witness), ctx)
+
+    type_check(proof, Id(ty, witness, witness), ctx)
 
 
 def test_double_preserves_y_equals_x_plus_seven() -> None:

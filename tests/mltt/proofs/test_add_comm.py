@@ -46,7 +46,7 @@ def test_add_zero_right_applied_term_typechecks() -> None:
         three,
     )
 
-    assert type_check(applied, expected)
+    type_check(applied, expected)
 
 
 def test_add_zero_left_typechecks() -> None:
@@ -100,4 +100,5 @@ def test_add_comm_typechecks_and_examples() -> None:
     n = numeral(3)
     proof = apply_term(lemma, m, n)
     expected_proof_ty = Id(NatType(), add_terms(m, n), add_terms(n, m))
-    assert type_check(proof, expected_proof_ty)
+
+    type_check(proof, expected_proof_ty)

@@ -16,10 +16,10 @@ def test_infer_list_type_constructor() -> None:
 def test_list_nil_and_cons_type_check() -> None:
     elem_ty = NatType()
     nil_nat = listm.Nil(elem_ty)
-    assert type_check(nil_nat, listm.ListType(elem_ty))
+    type_check(nil_nat, listm.ListType(elem_ty))
 
     cons_nat = listm.Cons(elem_ty, Zero(), nil_nat)
-    assert type_check(cons_nat, listm.ListType(elem_ty))
+    type_check(cons_nat, listm.ListType(elem_ty))
 
 
 def test_listrec_length_of_singleton() -> None:
@@ -38,7 +38,7 @@ def test_listrec_length_of_singleton() -> None:
     length_term = listm.ListRec(P, base, step, xs)
 
     assert normalize(length_term) == Succ(Zero())
-    assert type_check(length_term, NatType())
+    type_check(length_term, NatType())
 
 
 @pytest.mark.parametrize(

@@ -20,7 +20,7 @@ def test_pair_type_check() -> None:
     B = Lam(A, NatType())
     pair = sigma.Pair(A, B, Zero(), Zero())
 
-    assert type_check(pair, sigma.SigmaType(A, B))
+    type_check(pair, sigma.SigmaType(A, B))
 
 
 def test_sigmarec_returns_first_projection() -> None:
@@ -39,7 +39,8 @@ def test_sigmarec_returns_first_projection() -> None:
     fst = sigma.SigmaRec(P, pair_case, pair)
 
     assert normalize(fst) == Succ(Zero())
-    assert type_check(fst, A)
+
+    type_check(fst, A)
 
 
 def test_let_pair_iota_reduces() -> None:

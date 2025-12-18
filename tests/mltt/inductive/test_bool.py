@@ -48,9 +48,9 @@ def test_operator_types() -> None:
     bool_to_bool = nested_pi(BoolType(), return_ty=BoolType())
     bool_binop = nested_pi(BoolType(), BoolType(), return_ty=BoolType())
 
-    assert type_check(not_term(), bool_to_bool)
-    assert type_check(and_term(), bool_binop)
-    assert type_check(or_term(), bool_binop)
+    type_check(not_term(), bool_to_bool)
+    type_check(and_term(), bool_binop)
+    type_check(or_term(), bool_binop)
 
 
 def test_and_rejects_non_bool_argument() -> None:

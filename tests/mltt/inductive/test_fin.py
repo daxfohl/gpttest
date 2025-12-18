@@ -24,10 +24,10 @@ def test_fz_and_fs_types() -> None:
     n2 = Succ(n1)
 
     fz = fin.FZ(n0)
-    assert type_check(fz, fin.FinType(n1))
+    type_check(fz, fin.FinType(n1))
 
     fs = fin.FS(n1, fz)
-    assert type_check(fs, fin.FinType(n2))
+    type_check(fs, fin.FinType(n2))
 
 
 def test_fin_rec_respects_index() -> None:
@@ -43,7 +43,7 @@ def test_fin_rec_respects_index() -> None:
     k = fin.FZ(Zero())
     rec = fin.FinRec(P, base, step, k)
     assert normalize(rec) == Zero()
-    assert type_check(rec, NatType())
+    type_check(rec, NatType())
 
 
 @pytest.mark.parametrize("n", range(1, 5))
@@ -71,7 +71,7 @@ def test_fin_modulus() -> None:
     for i in range(n):
         term = fin_modulus(numeral(n), fin.of_int(i, n))
         assert normalize(term) == numeral(n)
-        assert type_check(term, NatType())
+        type_check(term, NatType())
 
 
 def test_fin_to_nat() -> None:
@@ -79,4 +79,4 @@ def test_fin_to_nat() -> None:
     for i in range(n):
         term = fin_to_nat(numeral(n), fin.of_int(i, n))
         assert normalize(term) == numeral(i)
-        assert type_check(term, NatType())
+        type_check(term, NatType())
