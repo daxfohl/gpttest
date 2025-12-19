@@ -181,7 +181,7 @@ def test_type_check_natrec_rejects_invalid_base_case() -> None:
     n = Zero()
     term = NatRec(A, z, s, n)
 
-    with pytest.raises(TypeError, match="Case for constructor has wrong type"):
+    with pytest.raises(TypeError, match="Universe type mismatch"):
         term.type_check(A)
 
 
@@ -201,7 +201,7 @@ def test_type_check_lambda_with_wrong_domain() -> None:
 def test_type_check_application_argument_mismatch() -> None:
     f = Lam(NatType(), Var(0))
     term = App(f, Univ())
-    with pytest.raises(TypeError, match="Application argument type mismatch"):
+    with pytest.raises(TypeError, match="Universe type mismatch"):
         term.type_check(NatType())
 
 

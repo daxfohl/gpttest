@@ -252,15 +252,7 @@ class Lam(Term):
                 f"  found domain = {self.arg_ty}"
             )
         ctx1 = ctx.prepend_each(self.arg_ty)
-        try:
-            self.body.type_check(expected_ty.return_ty, ctx1)
-        except TypeError as exc:
-            raise TypeError(
-                "Lambda body has wrong type:\n"
-                f"  term = {self}\n"
-                f"  body = {self.body}\n"
-                f"  expected codomain = {expected_ty.return_ty}\n"
-            ) from exc
+        self.body.type_check(expected_ty.return_ty, ctx1)
 
     def _type_equal_with(self, other: Term, ctx: "Ctx") -> bool:
         if not isinstance(other, Lam):
@@ -335,16 +327,7 @@ class App(Term):
                 f"  function = {self.func}\n"
                 f"  inferred f_ty = {f_ty}"
             )
-        try:
-            self.arg.type_check(f_ty.arg_ty, ctx)
-        except TypeError as exc:
-            raise TypeError(
-                "Application argument type mismatch:\n"
-                f"  term = {self}\n"
-                f"  argument = {self.arg}\n"
-                f"  expected arg_ty = {f_ty.arg_ty}\n"
-                f"  inferred f_ty = {f_ty}"
-            ) from exc
+        self.arg.type_check(f_ty.arg_ty, ctx)
         return f_ty.return_ty.subst(self.arg)
 
     def _type_check(self, ty: Term, ctx: "Ctx") -> None:
@@ -357,16 +340,7 @@ class App(Term):
                 f"  function = {self.func}\n"
                 f"  inferred f_ty = {f_ty}"
             )
-        try:
-            self.arg.type_check(f_ty.arg_ty, ctx)
-        except TypeError as exc:
-            raise TypeError(
-                "Application argument type mismatch:\n"
-                f"  term = {self}\n"
-                f"  argument = {self.arg}\n"
-                f"  expected arg_ty = {f_ty.arg_ty}\n"
-                f"  inferred f_ty = {f_ty}"
-            ) from exc
+        self.arg.type_check(f_ty.arg_ty, ctx)
         inferred_ty = f_ty.return_ty.subst(self.arg)
         if not expected_ty.type_equal(inferred_ty, ctx):
             raise TypeError(

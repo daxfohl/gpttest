@@ -387,15 +387,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
         # 3.6 Expected branch type: Π fields. Π ihs. codomain.
         telescope = (*inst_arg_types, *ih_types)
         branch_ty = nested_pi(*telescope, return_ty=codomain)
-        try:
-            case.type_check(branch_ty, ctx)
-        except TypeError as exc:
-            raise TypeError(
-                "Case for constructor has wrong type:\n"
-                f"  ctor = {ctor}\n"
-                f"  case = {case.normalize()}\n"
-                f"  expected = {branch_ty.normalize()}"
-            ) from exc
+        case.type_check(branch_ty, ctx)
 
     u = motive_applied_ty.return_ty.expect_universe(ctx)  # cod should be Univ(u)
 
