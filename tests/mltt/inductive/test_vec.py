@@ -186,6 +186,28 @@ def test_vec_len_recursor_shifts_open_param() -> None:
     term.type_check(expected_ty)
 
 
+def test_vec_len_recursor_reduces_with_open_param() -> None:
+    vec_len = _vec_len_recursor()
+    term = nested_lam(
+        Univ(0),  # A
+        Var(0),  # a : A
+        body=apply_term(
+            vec_len,
+            Var(1),
+            Succ(Zero()),
+            vec.Cons(Var(1), Zero(), Var(0), vec.Nil(Var(1))),
+        ),
+    )
+
+    expected_ty = nested_pi(Univ(0), Var(0), return_ty=NatType())
+    term.type_check(expected_ty)
+
+    normalized = term.normalize()
+    assert normalized == nested_lam(Univ(0), Var(0), body=Succ(Zero()))
+    applied = apply_term(term, NatType(), Zero()).normalize()
+    assert applied == Succ(Zero())
+
+
 def test_recursive_detection_whnfs_field_head() -> None:
     lazy = Ind(name="Lazy", param_types=(), level=0)
     lazy_ctor = Ctor(
