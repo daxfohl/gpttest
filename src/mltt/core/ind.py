@@ -10,236 +10,6 @@ from .debruijn import Ctx
 from .util import nested_pi, apply_term, decompose_app
 
 
-@dataclass(frozen=True)
-class CtorAnalysis:
-    inst_arg_types: tuple[Term, ...]
-    recursive_field_positions: tuple[int, ...]
-    ih_types: tuple[Term, ...] = ()
-
-
-def discharge_binders(
-    schema: Term, actuals: tuple[Term, ...], *, depth_above: int
-) -> Term:
-    """
-    Substitute ``actuals`` for the outer binder block of ``schema``.
-
-    Schema is assumed written under (actuals)(...) where ``depth_above`` is the number
-    of binders *below* the actuals block that remain in scope at substitution time.
-    For each actual, eliminate at de Bruijn index:
-        index = depth_above + len(actuals) - i - 1
-    using the project’s convention:
-        schema = schema.subst(actual.shift(index), index)
-    """
-    t = schema
-    k = len(actuals)
-    for i, a in enumerate(actuals):
-        index = depth_above + k - i - 1
-        t = t.subst(a.shift(index), index)
-    return t
-
-
-def instantiate_field_type_in_gamma(
-    schema: Term,
-    *,
-    field_index: int,
-    params_actual: tuple[Term, ...],
-    fields_prefix_actual: tuple[Term, ...],
-) -> Term:
-    """
-    schema context: (params)(fields_prefix length i)
-    output context: Γ
-    """
-    t = discharge_binders(schema, params_actual, depth_above=field_index)
-    t = discharge_binders(t, fields_prefix_actual, depth_above=0)
-    return t
-
-
-def instantiate_field_type_under_fields(
-    schema: Term,
-    *,
-    field_index: int,
-    params_actual: tuple[Term, ...],
-) -> Term:
-    """
-    schema context: (params)(fields_prefix length i)
-    output context: Γ,(fields_prefix length i)
-    (params discharged; fields remain as Vars)
-    """
-    return discharge_binders(schema, params_actual, depth_above=field_index)
-
-
-def instantiate_ctor_arg_types_under_fields(
-    ctor_arg_types: tuple[Term, ...],
-    params_actual: tuple[Term, ...],
-) -> tuple[Term, ...]:
-    return tuple(
-        instantiate_field_type_under_fields(
-            schema, field_index=i, params_actual=params_actual
-        )
-        for i, schema in enumerate(ctor_arg_types)
-    )
-
-
-def _instantiate_ctor_result_indices_under_fields(
-    result_indices: tuple[Term, ...],
-    params_actual_shifted: tuple[Term, ...],  # already shifted by m at callsite
-    m: int,  # number of ctor fields in scope
-) -> tuple[Term, ...]:
-    """
-    result_indices schemas are written in context (params)(fields).
-    We are currently in context Γ,(fields) (params already in Γ but shifted by m).
-    Discharge params binders only; keep field vars (0..m-1) intact.
-    """
-    p = len(params_actual_shifted)
-    out: list[Term] = []
-    for schema in result_indices:
-        t = schema
-        # eliminate param binders outermost → innermost so inner indices stay stable
-        for s, param in enumerate(params_actual_shifted):
-            index = m + p - s - 1
-            t = t.subst(param.shift(p - s - 1), index)
-        out.append(t)
-    return tuple(out)
-
-
-def build_ih_types_from_analysis(
-    *,
-    ind: Ind,
-    inst_arg_types: tuple[Term, ...],
-    params_actual: tuple[Term, ...],
-    params_in_fields_ctx: tuple[Term, ...],
-    motive: Term,
-    recursive_field_positions: tuple[int, ...],
-    heads_and_args: tuple[tuple[Term, tuple[Term, ...]], ...],
-) -> list[Term]:
-    """
-    Compute the induction hypothesis telescope for a constructor.
-
-    All inputs are expressed in context Γ; ``inst_arg_types`` are written in
-    contexts Γ,(fields_prefix) for each field. IH types are returned in context
-    Γ,(fields),(ihs_so_far) so they can be appended directly after the fields.
-    """
-
-    p = len(ind.param_types)
-    q = len(ind.index_types)
-    m = len(inst_arg_types)
-
-    ih_types: list[Term] = []
-    for ri, field_index in enumerate(recursive_field_positions):
-        _, field_args = heads_and_args[field_index]
-        params_field = field_args[:p]
-        indices_field = field_args[p : p + q]
-
-        # field types are written under the previous fields only; shift them
-        # into the full Γ,(fields) context before comparing.
-        shift_into_fields_ctx = m - field_index
-        params_field_in_fields_ctx = tuple(
-            param.shift(shift_into_fields_ctx) for param in params_field
-        )
-        if params_field_in_fields_ctx != params_in_fields_ctx:
-            raise TypeError(
-                "Inductive recursive argument parameters do not match scrutinee:\n"
-                f"  ctor fields = {inst_arg_types}\n"
-                f"  field index = {field_index}\n"
-                f"  params_field (in Γ,fields) = {params_field_in_fields_ctx}\n"
-                f"  params_actual (in Γ) = {params_actual}"
-            )
-
-        indices_field_in_fields_ctx = tuple(
-            index.shift(shift_into_fields_ctx) for index in indices_field
-        )
-
-        # field_index is counted outermost → innermost; translate to Var index
-        # in Γ,(fields).
-        field_var_index = m - 1 - field_index
-        ih_type = apply_term(
-            motive.shift(m + ri),
-            *(index.shift(ri) for index in indices_field_in_fields_ctx),
-            Var(field_var_index + ri),
-        ).whnf()
-        ih_types.append(ih_type)
-
-    return ih_types
-
-
-def analyze_ctor_for_elim(
-    *,
-    ind: "Ind",
-    ctor: "Ctor",
-    params_actual: tuple[Term, ...],
-    params_in_fields_ctx: tuple[Term, ...],
-    motive: Term,
-    want_ih_types: bool,
-) -> CtorAnalysis:
-    """
-    Produces one canonical notion of recursive fields and IH ordering.
-    - Recursive detection must use instantiated field schemas and WHNF.
-    - IH ordering must match recursive_field_positions order.
-    """
-    inst_arg_types = instantiate_ctor_arg_types_under_fields(
-        ctor.arg_types, params_actual
-    )
-
-    heads_and_args = tuple(
-        decompose_app(field_ty.whnf()) for field_ty in inst_arg_types
-    )
-    recursive_field_positions = tuple(
-        i for i, (head, _) in enumerate(heads_and_args) if head is ind
-    )
-
-    if not want_ih_types:
-        return CtorAnalysis(
-            inst_arg_types=inst_arg_types,
-            recursive_field_positions=recursive_field_positions,
-        )
-
-    ih_types = build_ih_types_from_analysis(
-        ind=ind,
-        inst_arg_types=inst_arg_types,
-        params_actual=params_actual,
-        params_in_fields_ctx=params_in_fields_ctx,
-        motive=motive,
-        recursive_field_positions=recursive_field_positions,
-        heads_and_args=heads_and_args,
-    )
-    return CtorAnalysis(
-        inst_arg_types=inst_arg_types,
-        recursive_field_positions=recursive_field_positions,
-        ih_types=tuple(ih_types),
-    )
-
-
-def _instantiate_ctor_arg_types(
-    ctor_arg_types: tuple[Term, ...],
-    params_actual: tuple[Term, ...],
-) -> tuple[Term, ...]:
-    return instantiate_ctor_arg_types_under_fields(ctor_arg_types, params_actual)
-
-
-def _build_ih_types(
-    ind: Ind,
-    inst_arg_types: tuple[Term, ...],
-    params_actual: tuple[Term, ...],
-    params_in_fields_ctx: tuple[Term, ...],
-    motive: Term,
-) -> list[Term]:
-    heads_and_args = tuple(
-        decompose_app(field_ty.whnf()) for field_ty in inst_arg_types
-    )
-    recursive_field_positions = tuple(
-        j for j, (head, _) in enumerate(heads_and_args) if head is ind
-    )
-    return build_ih_types_from_analysis(
-        ind=ind,
-        inst_arg_types=inst_arg_types,
-        params_actual=params_actual,
-        params_in_fields_ctx=params_in_fields_ctx,
-        motive=motive,
-        recursive_field_positions=recursive_field_positions,
-        heads_and_args=heads_and_args,
-    )
-
-
 def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
     """Compute the dependent function type of an inductive.
 
@@ -279,6 +49,44 @@ def infer_ctor_type(ctor: Ctor) -> Term:
         *ctor.arg_types,
         return_ty=apply_term(ctor.inductive, *param_vars, *ctor.result_indices),
     )
+
+
+def _instantiate_ctor_arg_types(
+    ctor_arg_types: tuple[Term, ...],
+    params_actual: tuple[Term, ...],
+) -> tuple[Term, ...]:
+    schemas: list[Term] = []
+    p = len(params_actual)
+    for i, schema in enumerate(ctor_arg_types):
+        t = schema
+        # eliminate param binders outermost → innermost at their indexed depth
+        for s, param in enumerate(params_actual):
+            index = i + p - s - 1
+            t = t.subst(param.shift(index), index)
+        schemas.append(t)
+    return tuple(schemas)
+
+
+def _instantiate_ctor_result_indices_under_fields(
+    result_indices: tuple[Term, ...],
+    params_actual_shifted: tuple[Term, ...],  # already shifted by m at callsite
+    m: int,  # number of ctor fields in scope
+) -> tuple[Term, ...]:
+    """
+    result_indices schemas are written in context (params)(fields).
+    We are currently in context Γ,(fields) (params already in Γ but shifted by m).
+    Discharge params binders only; keep field vars (0..m-1) intact.
+    """
+    p = len(params_actual_shifted)
+    out: list[Term] = []
+    for schema in result_indices:
+        t = schema
+        # eliminate param binders outermost → innermost so inner indices stay stable
+        for s, param in enumerate(params_actual_shifted):
+            index = m + p - s - 1
+            t = t.subst(param.shift(p - s - 1), index)
+        out.append(t)
+    return tuple(out)
 
 
 def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
@@ -346,23 +154,12 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
         # instantiate only those param binders and keep fields as de Bruijn
         # variables.
 
-        m = len(ctor.arg_types)
-        params_in_fields_ctx = tuple(p.shift(m) for p in params_actual)
-
-        analysis = analyze_ctor_for_elim(
-            ind=ind,
-            ctor=ctor,
-            params_actual=params_actual,
-            params_in_fields_ctx=params_in_fields_ctx,
-            motive=motive,
-            want_ih_types=True,
-        )
-        inst_arg_types = analysis.inst_arg_types
-        ih_types = list(analysis.ih_types)
+        # 3.1 Instantiate ctor field types with the actual parameters.
+        inst_arg_types = _instantiate_ctor_arg_types(ctor.arg_types, params_actual)
         m = len(inst_arg_types)
-        r = len(ih_types)
 
         # 3.2 Work in context Γ,fields: shift Γ-level params and motive by m.
+        params_in_fields_ctx = tuple(p.shift(m) for p in params_actual)
         motive_in_fields_ctx = motive.shift(m)
 
         # Build a scrutinee-shaped term: C params field_vars.
@@ -377,12 +174,34 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
 
         # 3.4 Build IH types for recursive fields.
         # Each IH is in context Γ,fields,ihs_so_far, so shift by m + ri.
+        recursive_field_positions = [
+            j
+            for j, field_ty in enumerate(inst_arg_types)
+            if decompose_app(field_ty)[0] is ind
+        ]
+        r = len(recursive_field_positions)
+        ih_types: list[Term] = []
+        for ri, field_index in enumerate(recursive_field_positions):
+            field_ty = inst_arg_types[field_index]
+            _, field_args = decompose_app(field_ty)
+            params_field = field_args[:p]
+            indices_field = field_args[p : p + q]
+            assert params_field == params_actual
+
+            # field_index is outermost → innermost. Translate to de Bruijn index.
+            field_var_index = m - 1 - field_index
+            ih_type = apply_term(
+                motive.shift(m + ri),
+                *(i.shift(field_var_index + ri) for i in indices_field),
+                Var(field_var_index + ri),
+            )
+            ih_types.append(ih_type)
 
         # 3.5 Branch codomain in Γ,fields; then shift for inserted IH binders.
         codomain_in_fields_ctx = apply_term(
             motive_in_fields_ctx, *result_indices_inst, scrut_like
         )
-        codomain = codomain_in_fields_ctx.shift(r).whnf()
+        codomain = codomain_in_fields_ctx.shift(r)
 
         # 3.6 Expected branch type: Π fields. Π ihs. codomain.
         telescope = (*inst_arg_types, *ih_types)
@@ -466,21 +285,11 @@ class Ctor(Term):
         from .util import apply_term, decompose_app
 
         ind = self.inductive
-        p = len(ind.param_types)
-        params_actual = args[:p]
-        ctor_args = args[p:]
+        ctor_args = args[len(ind.param_types) :]
 
         ihs: list[Term] = []
-        for i, (arg_term, arg_ty) in enumerate(
-            zip(ctor_args, self.arg_types, strict=True)
-        ):
-            inst_ty = instantiate_field_type_in_gamma(
-                arg_ty,
-                field_index=i,
-                params_actual=params_actual,
-                fields_prefix_actual=ctor_args[:i],
-            ).whnf()
-            head, _ = decompose_app(inst_ty)
+        for arg_term, arg_ty in zip(ctor_args, self.arg_types, strict=True):
+            head, _ = decompose_app(arg_ty)
             if head is self.inductive:
                 ihs.append(
                     Elim(
