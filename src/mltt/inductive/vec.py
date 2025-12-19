@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .fin import FinType, FZ, FS
 from .nat import NatType, Succ, Zero
 from ..core.ast import (
     Ctor,
@@ -11,7 +12,7 @@ from ..core.ast import (
     Univ,
     Var,
 )
-from ..core.util import apply_term
+from ..core.util import apply_term, nested_lam
 
 Vec = Ind(name="Vec", param_types=(Univ(0),), index_types=(NatType(),), level=0)
 NilCtor = Ctor(
@@ -54,3 +55,39 @@ def VecRec(P: Term, base: Term, step: Term, xs: Term) -> Elim:
         cases=(base, step),
         scrutinee=xs,
     )
+
+
+def vec_to_fin_term() -> Term:
+    """
+    Π A. Π n. Vec A n -> Fin (Succ n)
+
+    Converts a length-indexed vector into an inhabitant of ``Fin (Succ n)`` by
+    recursion on the vector, incrementing the induction hypothesis in the
+    ``Cons`` branch.
+    """
+
+    motive = nested_lam(
+        NatType(),  # n
+        VecType(Var(3), Var(0)),  # xs : Vec A n (A is Var(3) in Γ,n,xs)
+        body=FinType(Succ(Var(1))),  # Fin (Succ n)
+    )
+    step = nested_lam(
+        NatType(),  # n
+        Var(3),  # x : A
+        VecType(Var(4), Var(1)),  # xs : Vec A n
+        apply_term(motive.shift(2), Var(2), Var(0)),  # ih : P n xs
+        body=FS(Succ(Var(3)), Var(0)),  # Fin (Succ (Succ n))
+    )
+
+    return nested_lam(
+        Univ(0),  # A
+        NatType(),  # n
+        VecType(Var(1), Var(0)),  # xs : Vec A n
+        body=VecRec(motive, FZ(Zero()), step, Var(0)),
+    )
+
+
+def to_fin(elem_ty: Term, length: Term, xs: Term) -> Term:
+    """Apply ``vec_to_fin_term`` to concrete arguments."""
+
+    return apply_term(vec_to_fin_term(), elem_ty, length, xs)

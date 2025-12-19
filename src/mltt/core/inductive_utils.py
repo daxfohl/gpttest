@@ -18,7 +18,7 @@ def _instantiate_ctor_arg_types(
         # eliminate param binders outermost → innermost at their indexed depth
         for s, param in enumerate(params_actual):
             index = i + p - s - 1
-            t = t.subst(param.shift(i + (p - s - 1)), index)
+            t = t.subst(param.shift(index), index)
         schemas.append(t)
     return tuple(schemas)
 
@@ -43,6 +43,70 @@ def _instantiate_ctor_result_indices_under_fields(
             t = t.subst(param.shift(p - s - 1), index)
         out.append(t)
     return tuple(out)
+
+
+def _build_ih_types(
+    ind: Ind,
+    inst_arg_types: tuple[Term, ...],
+    params_actual: tuple[Term, ...],
+    params_in_fields_ctx: tuple[Term, ...],
+    motive: Term,
+) -> list[Term]:
+    """
+    Compute the induction hypothesis telescope for a constructor.
+
+    All inputs are expressed in context Γ; ``inst_arg_types`` are written in
+    contexts Γ,(fields_prefix) for each field. IH types are returned in context
+    Γ,(fields),(ihs_so_far) so they can be appended directly after the fields.
+    """
+
+    p = len(ind.param_types)
+    q = len(ind.index_types)
+    m = len(inst_arg_types)
+
+    field_heads_and_args = [
+        decompose_app(field_ty.whnf()) for field_ty in inst_arg_types
+    ]
+    recursive_field_positions = [
+        j for j, (head, _) in enumerate(field_heads_and_args) if head is ind
+    ]
+
+    ih_types: list[Term] = []
+    for ri, field_index in enumerate(recursive_field_positions):
+        _, field_args = field_heads_and_args[field_index]
+        params_field = field_args[:p]
+        indices_field = field_args[p : p + q]
+
+        # field types are written under the previous fields only; shift them
+        # into the full Γ,(fields) context before comparing.
+        shift_into_fields_ctx = m - field_index
+        params_field_in_fields_ctx = tuple(
+            param.shift(shift_into_fields_ctx) for param in params_field
+        )
+        if params_field_in_fields_ctx != params_in_fields_ctx:
+            raise TypeError(
+                "Inductive recursive argument parameters do not match scrutinee:\n"
+                f"  ctor fields = {inst_arg_types}\n"
+                f"  field index = {field_index}\n"
+                f"  params_field (in Γ,fields) = {params_field_in_fields_ctx}\n"
+                f"  params_actual (in Γ) = {params_actual}"
+            )
+
+        indices_field_in_fields_ctx = tuple(
+            index.shift(shift_into_fields_ctx) for index in indices_field
+        )
+
+        # field_index is counted outermost → innermost; translate to Var index
+        # in Γ,(fields).
+        field_var_index = m - 1 - field_index
+        ih_type = apply_term(
+            motive.shift(m + ri),
+            *(index.shift(ri) for index in indices_field_in_fields_ctx),
+            Var(field_var_index + ri),
+        ).whnf()
+        ih_types.append(ih_type)
+
+    return ih_types
 
 
 def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
@@ -171,34 +235,20 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
 
         # 3.4 Build IH types for recursive fields.
         # Each IH is in context Γ,fields,ihs_so_far, so shift by m + ri.
-        recursive_field_positions = [
-            j
-            for j, field_ty in enumerate(inst_arg_types)
-            if decompose_app(field_ty)[0] is ind
-        ]
-        r = len(recursive_field_positions)
-        ih_types: list[Term] = []
-        for ri, field_index in enumerate(recursive_field_positions):
-            field_ty = inst_arg_types[field_index]
-            _, field_args = decompose_app(field_ty)
-            params_field = field_args[:p]
-            indices_field = field_args[p : p + q]
-            assert params_field == params_actual
-
-            # field_index is outermost → innermost. Translate to de Bruijn index.
-            field_var_index = m - 1 - field_index
-            ih_type = apply_term(
-                motive.shift(m + ri),
-                *(i.shift(field_var_index + ri) for i in indices_field),
-                Var(field_var_index + ri),
-            )
-            ih_types.append(ih_type)
+        ih_types = _build_ih_types(
+            ind=ind,
+            inst_arg_types=inst_arg_types,
+            params_actual=params_actual,
+            params_in_fields_ctx=params_in_fields_ctx,
+            motive=motive,
+        )
+        r = len(ih_types)
 
         # 3.5 Branch codomain in Γ,fields; then shift for inserted IH binders.
         codomain_in_fields_ctx = apply_term(
             motive_in_fields_ctx, *result_indices_inst, scrut_like
         )
-        codomain = codomain_in_fields_ctx.shift(r)
+        codomain = codomain_in_fields_ctx.shift(r).whnf()
 
         # 3.6 Expected branch type: Π fields. Π ihs. codomain.
         telescope = (*inst_arg_types, *ih_types)

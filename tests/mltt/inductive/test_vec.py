@@ -1,9 +1,11 @@
 import pytest
 
 import mltt.inductive.vec as vec
-from mltt.core.ast import Term, Univ, Var
+from mltt.core.ast import Ctor, Elim, Ind, Term, Univ, Var
 from mltt.core.util import apply_term, nested_pi, nested_lam
-from mltt.inductive.nat import NatType, Succ, Zero, numeral, add
+from mltt.inductive import list as lst
+from mltt.inductive.fin import FinType, FZ, FS
+from mltt.inductive.nat import NatType, Succ, Zero, add, numeral
 from mltt.inductive.vec import VecType
 
 
@@ -132,3 +134,106 @@ def test_scrut_type() -> None:
     scrut = vec.Cons(NatType(), Zero(), Zero(), scrut)
     t = scrut.infer_type()
     assert t == apply_term(vec.Vec, NatType(), Succ(Zero()))
+
+
+def _vec_len_recursor() -> Term:
+    """Length via ``VecRec`` with IH bound to the recursive tail."""
+
+    motive = nested_lam(
+        NatType(),  # n
+        vec.VecType(Var(3), Var(0)),  # xs : Vec A n; A is Var(3) in Γ,n
+        body=NatType(),
+    )
+    step = nested_lam(
+        NatType(),  # n : Nat
+        Var(3),  # x : A (Var(3) = A in Γ,n,x)
+        vec.VecType(Var(4), Var(1)),  # xs : Vec A n (Var(1) = n)
+        apply_term(
+            motive.shift(2), Var(2), Var(0)
+        ),  # ih : P n xs (shift motive under n,x)
+        body=Succ(Var(0)),  # Succ ih
+    )
+
+    return nested_lam(
+        Univ(0),  # A
+        NatType(),  # n
+        vec.VecType(Var(1), Var(0)),  # xs : Vec A n
+        body=vec.VecRec(motive, Zero(), step, Var(0)),
+    )
+
+
+def test_vec_len_recursor_handles_field_indices() -> None:
+    vec_len = _vec_len_recursor()
+    expected_ty = nested_pi(
+        Univ(0), NatType(), vec.VecType(Var(1), Var(0)), return_ty=NatType()
+    )
+    vec_len.type_check(expected_ty)
+
+    elem_ty = NatType()
+    scrut = vec.Cons(elem_ty, Zero(), Zero(), vec.Nil(elem_ty))
+    reduced = apply_term(vec_len, elem_ty, Succ(Zero()), scrut).normalize()
+    assert reduced == Succ(Zero())
+
+
+def test_vec_len_recursor_shifts_open_param() -> None:
+    vec_len = _vec_len_recursor()
+    term = nested_lam(Univ(0), body=apply_term(vec_len, Var(0)))
+
+    expected_ty = nested_pi(
+        Univ(0), NatType(), vec.VecType(Var(1), Var(0)), return_ty=NatType()
+    )
+    term.type_check(expected_ty)
+
+
+def test_recursive_detection_whnfs_field_head() -> None:
+    lazy = Ind(name="Lazy", param_types=(), level=0)
+    lazy_ctor = Ctor(
+        name="Thunk",
+        inductive=lazy,
+        arg_types=(apply_term(nested_lam(Univ(0), body=Var(0)), lazy),),
+    )
+    object.__setattr__(lazy, "constructors", (lazy_ctor,))
+
+    motive = nested_lam(apply_term(lazy), body=Univ(0))
+    branch = nested_lam(
+        apply_term(nested_lam(Univ(0), body=Var(0)), lazy),
+        Univ(0),  # ih : motive scrutinee
+        body=Univ(0),
+    )
+
+    elim = Elim(inductive=lazy, motive=motive, cases=(branch,), scrutinee=Var(0))
+    Lam_ty = nested_pi(apply_term(lazy), return_ty=Univ(0))
+
+    term = nested_lam(apply_term(lazy), body=elim)
+    term.type_check(Lam_ty)
+
+
+def test_nat_and_list_elims_stay_sane() -> None:
+    elem_ty = NatType()
+    xs = lst.Cons(elem_ty, Zero(), lst.Nil(elem_ty))
+
+    list_motive = nested_lam(lst.ListType(elem_ty), body=NatType())
+    list_step = nested_lam(elem_ty, lst.ListType(elem_ty), NatType(), body=Succ(Var(0)))
+
+    length = lst.ListRec(list_motive, Zero(), list_step, xs)
+    assert length.normalize() == Succ(Zero())
+    length.type_check(NatType())
+
+
+def test_vec_to_fin() -> None:
+    to_fin = vec.vec_to_fin_term()
+    expected_ty = nested_pi(
+        Univ(0), NatType(), vec.VecType(Var(1), Var(0)), return_ty=FinType(Succ(Var(1)))
+    )
+    to_fin.type_check(expected_ty)
+
+    elem_ty = NatType()
+    nil = vec.Nil(elem_ty)
+    one = apply_term(to_fin, elem_ty, Zero(), nil).normalize()
+    assert one == FZ(Zero())
+    one.type_check(FinType(Succ(Zero())))
+
+    xs = vec.Cons(elem_ty, Zero(), Zero(), nil)
+    two = apply_term(to_fin, elem_ty, Succ(Zero()), xs).normalize()
+    assert two == FS(Succ(Zero()), FZ(Zero()))
+    two.type_check(FinType(Succ(Succ(Zero()))))
