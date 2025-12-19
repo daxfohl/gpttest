@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from ..core.ast import Ctor, Elim, Ind, Term, Univ, Var
+from ..core.ast import Term, Univ, Var
+from ..core.ind import Elim, Ctor, Ind
 from ..core.util import apply_term
 
 Tree = Ind(

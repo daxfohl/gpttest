@@ -1,7 +1,8 @@
 import pytest
 
 import mltt.inductive.vec as vec
-from mltt.core.ast import Ctor, Elim, Ind, Term, Univ, Var
+from mltt.core.ast import Term, Univ, Var
+from mltt.core.ind import Elim, Ctor, Ind
 from mltt.core.util import apply_term, nested_pi, nested_lam
 from mltt.inductive import list as lst
 from mltt.inductive.fin import FinType, FZ, FS

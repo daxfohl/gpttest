@@ -5,12 +5,10 @@ from __future__ import annotations
 from .nat import NatType, Succ, Zero, numeral
 from ..core.ast import (
     App,
-    Ctor,
-    Elim,
-    Ind,
     Term,
     Var,
 )
+from ..core.ind import Elim, Ctor, Ind
 from ..core.util import apply_term, nested_lam
 
 Fin = Ind(name="Fin", index_types=(NatType(),), level=0)

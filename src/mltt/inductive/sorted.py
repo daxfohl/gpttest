@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from .list import ConsCtor, List, NilCtor
-from ..core.ast import App, Ctor, Elim, Ind, Pi, Term, Univ, Var
+from ..core.ast import App, Pi, Term, Univ, Var
+from ..core.ind import Elim, Ctor, Ind
 from ..core.util import apply_term
 
 Sorted = Ind(

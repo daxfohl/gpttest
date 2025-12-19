@@ -4,13 +4,11 @@ from __future__ import annotations
 
 from ..core.ast import (
     App,
-    Ctor,
-    Elim,
-    Ind,
     Term,
     Univ,
     Var,
 )
+from ..core.ind import Elim, Ctor, Ind
 from ..core.util import apply_term
 
 List = Ind(name="List", param_types=(Univ(0),), level=0)

@@ -5,7 +5,8 @@ from __future__ import annotations
 from .eq import Id, Refl
 from .nat import NatType, Succ
 from .rtc import RTCRefl, RTCStep, RTCType
-from ..core.ast import Ctor, Elim, Ind, Term, Var
+from ..core.ast import Term, Var
+from ..core.ind import Elim, Ctor, Ind
 from ..core.util import apply_term, nested_lam
 
 Le = Ind(name="Le", index_types=(NatType(), NatType()), level=0)

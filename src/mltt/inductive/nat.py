@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from .maybe import MaybeType, Nothing, Just
-from ..core.ast import App, Ctor, Elim, Ind, Lam, Term, Var
+from ..core.ast import App, Lam, Term, Var
+from ..core.ind import Elim, Ctor, Ind
 from ..core.util import nested_lam
 
 Nat = Ind(name="Nat", level=0)

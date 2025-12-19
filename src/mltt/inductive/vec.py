@@ -4,14 +4,8 @@ from __future__ import annotations
 
 from .fin import FinType, FZ, FS
 from .nat import NatType, Succ, Zero
-from ..core.ast import (
-    Ctor,
-    Elim,
-    Ind,
-    Term,
-    Univ,
-    Var,
-)
+from ..core.ast import Term, Univ, Var
+from ..core.ind import Elim, Ctor, Ind
 from ..core.util import apply_term, nested_lam
 
 Vec = Ind(name="Vec", param_types=(Univ(0),), index_types=(NatType(),), level=0)

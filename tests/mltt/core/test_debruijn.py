@@ -1,4 +1,5 @@
-from mltt.core.ast import App, Elim, Lam, Pi, Term, Univ, Var
+from mltt.core.ast import App, Lam, Pi, Term, Univ, Var
+from mltt.core.ind import Elim
 from mltt.core.util import nested_pi, nested_lam
 from mltt.inductive.eq import Id, IdElim
 from mltt.inductive.nat import NatRec, Succ, Zero

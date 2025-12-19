@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields, is_dataclass, replace
-from functools import cached_property
+from dataclasses import dataclass, fields, is_dataclass, replace
 from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:  # pragma: no cover - type-checking only
@@ -406,151 +405,6 @@ class Univ(Term):
             )
 
 
-@dataclass(frozen=True, kw_only=True)
-class Ind(Term):
-    """A generalized inductive type with constructors."""
-
-    name: str
-    param_types: tuple[Term, ...] = field(repr=False, default=())
-    index_types: tuple[Term, ...] = field(repr=False, default=())
-    constructors: tuple["Ctor", ...] = field(repr=False, default=())
-    level: int = 0
-
-    @cached_property
-    def all_binders(self) -> tuple[Term, ...]:
-        return self.param_types + self.index_types
-
-    # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: "Ctx") -> Term:
-        from .inductive_utils import infer_ind_type
-
-        return infer_ind_type(ctx, self)
-
-    def shift(self, by: int, cutoff: int = 0) -> Term:  # type: ignore[override]
-        return self
-
-    def subst(self, sub: Term, j: int = 0) -> Term:  # type: ignore[override]
-        return self
-
-    def _type_check(self, ty: Term, ctx: "Ctx") -> None:
-        self._check_against_inferred(ty.whnf(), ctx, label="Inductive type")
-
-    def _type_equal_with(self, other: Term, ctx: "Ctx") -> bool:
-        return isinstance(other, Ind) and other is self
-
-
-@dataclass(frozen=True, kw_only=True)
-class Ctor(Term):
-    """A constructor for an inductive type."""
-
-    name: str
-    inductive: Ind = field(repr=False)
-    arg_types: tuple[Term, ...] = field(repr=False, default=())
-    result_indices: tuple[Term, ...] = field(repr=False, default=())
-
-    @cached_property
-    def all_binders(self) -> tuple[Term, ...]:
-        return self.arg_types + self.result_indices
-
-    def index_in_inductive(self) -> int:
-        for idx, ctor in enumerate(self.inductive.constructors):
-            if ctor is self:
-                return idx
-        raise TypeError("Constructor does not belong to inductive type")
-
-    def iota_reduce(
-        self, cases: tuple[Term, ...], args: tuple[Term, ...], motive: Term
-    ) -> Term:
-        """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
-        from .util import apply_term, decompose_app
-
-        ind = self.inductive
-        ctor_args = args[len(ind.param_types) :]
-
-        ihs: list[Term] = []
-        for arg_term, arg_ty in zip(ctor_args, self.arg_types, strict=True):
-            head, _ = decompose_app(arg_ty)
-            if head is self.inductive:
-                ihs.append(
-                    Elim(
-                        inductive=self.inductive,
-                        motive=motive,
-                        cases=cases,
-                        scrutinee=arg_term,
-                    )
-                )
-
-        case = cases[self.index_in_inductive()]
-        return apply_term(case, *ctor_args, *ihs)
-
-    # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: "Ctx") -> Term:
-        from .inductive_utils import infer_ctor_type
-
-        return infer_ctor_type(self)
-
-    def shift(self, by: int, cutoff: int = 0) -> Term:  # type: ignore[override]
-        return self
-
-    def subst(self, sub: Term, j: int = 0) -> Term:  # type: ignore[override]
-        return self
-
-    def _type_check(self, ty: Term, ctx: "Ctx") -> None:
-        self._check_against_inferred(ty.whnf(), ctx, label="Constructor")
-
-    def _type_equal_with(self, other: Term, ctx: "Ctx") -> bool:
-        return isinstance(other, Ctor) and other is self
-
-
-@dataclass(frozen=True)
-class Elim(Term):
-    """Elimination principle for an inductive type."""
-
-    inductive: Ind
-    motive: Term
-    cases: tuple[Term, ...]
-    scrutinee: Term
-
-    # Reduction ----------------------------------------------------------------
-    def whnf(self) -> Term:
-        from .util import decompose_app
-
-        scrutinee_whnf = self.scrutinee.whnf()
-        head, args = decompose_app(scrutinee_whnf)
-        if isinstance(head, Ctor) and head.inductive is self.inductive:
-            expected_args = len(self.inductive.param_types) + len(head.arg_types)
-            if len(args) != expected_args:
-                raise ValueError()
-            return head.iota_reduce(self.cases, args, self.motive).whnf()
-        return Elim(self.inductive, self.motive, self.cases, scrutinee_whnf)
-
-    def _reduce_children(self, reducer: Reducer) -> Term:
-        return self._reduce_dataclass_children(reducer)
-
-    # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: "Ctx") -> Term:
-        from .inductive_utils import infer_elim_type
-
-        return infer_elim_type(self, ctx)
-
-    def _type_check(self, ty: Term, ctx: "Ctx") -> None:
-        self._check_against_inferred(ty.whnf(), ctx, label="Eliminator")
-
-    def _type_equal_with(self, other: Term, ctx: "Ctx") -> bool:
-        if not isinstance(other, Elim) or other.inductive is not self.inductive:
-            return False
-        if len(self.cases) != len(other.cases):
-            return False
-        return (
-            self.motive.type_equal(other.motive, ctx)
-            and all(
-                case1.type_equal(case2, ctx)
-                for case1, case2 in zip(self.cases, other.cases, strict=True)
-            )
-            and self.scrutinee.type_equal(other.scrutinee, ctx)
-        )
-
-
 __all__ = [
     "Term",
     "Var",
@@ -558,7 +412,4 @@ __all__ = [
     "Pi",
     "App",
     "Univ",
-    "Ctor",
-    "Ind",
-    "Elim",
 ]

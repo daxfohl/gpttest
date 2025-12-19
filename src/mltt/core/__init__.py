@@ -1,7 +1,7 @@
 __all__ = [
     "ast",
     "debruijn",
-    "inductive_utils",
+    "ind",
     "pretty",
     "reduce",
     "typing",

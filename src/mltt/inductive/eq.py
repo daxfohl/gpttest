@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from ..core.ast import App, Ctor, Elim, Ind, Lam, Term, Univ, Var
+from ..core.ast import App, Lam, Term, Univ, Var
+from ..core.ind import Elim, Ctor, Ind
 from ..core.util import apply_term, nested_lam
 
 IdType = Ind(

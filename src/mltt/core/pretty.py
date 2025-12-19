@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from .ast import App, Ctor, Elim, Ind, Lam, Pi, Term, Univ, Var
+from .ast import App, Lam, Pi, Term, Univ, Var
+from .ind import Elim, Ctor, Ind
 
 ATOM_PREC = 3
 APP_PREC = 2

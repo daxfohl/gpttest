@@ -1,7 +1,7 @@
 import mltt.inductive.vec as vec
-from mltt.core.util import apply_term
 from mltt.core.ast import Var
-from mltt.core.inductive_utils import _build_ih_types, _instantiate_ctor_arg_types
+from mltt.core.ind import _build_ih_types, _instantiate_ctor_arg_types
+from mltt.core.util import apply_term
 from mltt.inductive.fin import FinType
 from mltt.inductive.nat import Succ
 
