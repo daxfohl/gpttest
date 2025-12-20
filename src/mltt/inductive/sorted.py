@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from .list import ConsCtor, List, NilCtor
 from ..core.ast import App, Pi, Term, Univ, Var
+from ..core.debruijn import mk_app
 from ..core.ind import Elim, Ctor, Ind
-from ..core.util import apply_term
 
 Sorted = Ind(
     name="Sorted",
@@ -28,30 +28,30 @@ SortedOneCtor = Ctor(
     name="sorted_one",
     inductive=Sorted,
     arg_types=(Var(1),),  # x : A
-    result_indices=(apply_term(ConsCtor, Var(2), Var(0), App(NilCtor, Var(2))),),  # [x]
+    result_indices=(mk_app(ConsCtor, Var(2), Var(0), App(NilCtor, Var(2))),),  # [x]
 )
 
 SortedConsCtor = Ctor(
     name="sorted_cons",
     inductive=Sorted,
     arg_types=(
-        apply_term(List, Var(1)),  # xs : List A
+        mk_app(List, Var(1)),  # xs : List A
         Var(2),  # x : A
         Var(3),  # y : A
-        apply_term(Var(3), Var(1), Var(0)),  # R x y
-        apply_term(  # ih : Sorted A R (y :: xs)
+        mk_app(Var(3), Var(1), Var(0)),  # R x y
+        mk_app(  # ih : Sorted A R (y :: xs)
             Sorted,
             Var(5),
             Var(4),
-            apply_term(ConsCtor, Var(5), Var(1), Var(3)),
+            mk_app(ConsCtor, Var(5), Var(1), Var(3)),
         ),
     ),
     result_indices=(
-        apply_term(  # x :: y :: xs
+        mk_app(  # x :: y :: xs
             ConsCtor,
             Var(6),
             Var(3),
-            apply_term(ConsCtor, Var(6), Var(2), Var(4)),
+            mk_app(ConsCtor, Var(6), Var(2), Var(4)),
         ),
     ),
 )
@@ -62,21 +62,21 @@ object.__setattr__(
 
 
 def SortedType(A: Term, R: Term, xs: Term) -> Term:
-    return apply_term(Sorted, A, R, xs)
+    return mk_app(Sorted, A, R, xs)
 
 
 def SortedNil(A: Term, R: Term) -> Term:
-    return apply_term(SortedNilCtor, A, R)
+    return mk_app(SortedNilCtor, A, R)
 
 
 def SortedOne(A: Term, R: Term, x: Term) -> Term:
-    return apply_term(SortedOneCtor, A, R, x)
+    return mk_app(SortedOneCtor, A, R, x)
 
 
 def SortedCons(
     A: Term, R: Term, xs: Term, x: Term, y: Term, rel: Term, ih: Term
 ) -> Term:
-    return apply_term(SortedConsCtor, A, R, xs, x, y, rel, ih)
+    return mk_app(SortedConsCtor, A, R, xs, x, y, rel, ih)
 
 
 def SortedRec(

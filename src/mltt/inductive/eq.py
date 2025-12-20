@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from ..core.ast import App, Lam, Term, Univ, Var
+from ..core.debruijn import mk_app, mk_lams
 from ..core.ind import Elim, Ctor, Ind
-from ..core.util import apply_term, nested_lam
 
 IdType = Ind(
     name="Id",
@@ -24,13 +24,13 @@ object.__setattr__(IdType, "constructors", (ReflCtor,))
 def Id(ty: Term, lhs: Term, rhs: Term) -> Term:
     """Identity type over ``ty`` relating ``lhs`` and ``rhs``."""
 
-    return apply_term(IdType, ty, lhs, rhs)
+    return mk_app(IdType, ty, lhs, rhs)
 
 
 def Refl(ty: Term, t: Term) -> Term:
     """Canonical inhabitant ``Id ty t t``."""
 
-    return apply_term(ReflCtor, ty, t)
+    return mk_app(ReflCtor, ty, t)
 
 
 def IdElim(A: Term, x: Term, P: Term, d: Term, y: Term, p: Term) -> Elim:
@@ -44,7 +44,7 @@ def IdElim(A: Term, x: Term, P: Term, d: Term, y: Term, p: Term) -> Elim:
 def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
     """Dependent congruence for arbitrary codomains."""
 
-    P = nested_lam(
+    P = mk_lams(
         A,
         Id(A.shift(1), x.shift(1), Var(0)),
         body=Id(
@@ -66,7 +66,7 @@ def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
     f2 = f.shift(2)
     x2 = x.shift(2)
 
-    P = nested_lam(
+    P = mk_lams(
         A,
         Id(A1, x1, Var(0)),
         body=Id(App(B2, Var(1)), App(f2, x2), App(f2, Var(1))),
@@ -89,7 +89,7 @@ def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
     A2 = A.shift(2)
     x2 = x.shift(2)
 
-    P = nested_lam(
+    P = mk_lams(
         A,
         Id(A1, x1, Var(0)),
         body=Id(A2, Var(1), x2),
@@ -106,7 +106,7 @@ def trans(A: Term, x: Term, y: Term, z: Term, p: Term, q: Term) -> Term:
     A2 = A.shift(2)
     x2 = x.shift(2)
 
-    Q = nested_lam(
+    Q = mk_lams(
         A,
         Id(A1, y1, Var(0)),
         body=Id(A2, x2, Var(1)),

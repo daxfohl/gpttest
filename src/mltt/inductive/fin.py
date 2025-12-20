@@ -8,8 +8,8 @@ from ..core.ast import (
     Term,
     Var,
 )
+from ..core.debruijn import mk_app, mk_lams
 from ..core.ind import Elim, Ctor, Ind
-from ..core.util import apply_term, nested_lam
 
 Fin = Ind(name="Fin", index_types=(NatType(),), level=0)
 FZCtor = Ctor(
@@ -39,12 +39,10 @@ def FZ(n: Term) -> Term:
 
 
 def FS(n: Term, k: Term) -> Term:
-    return apply_term(FSCtor, n, k)
+    return mk_app(FSCtor, n, k)
 
 
-def FinRec(P: Term, base: Term, step: Term, k: Term) -> Elim:
-    """Recursor for ``Fin`` expressed via the generalized eliminator."""
-
+def FinElim(P: Term, base: Term, step: Term, k: Term) -> Elim:
     return Elim(
         inductive=Fin,
         motive=P,
@@ -68,7 +66,7 @@ def fin_modulus(n: Term, f: Term) -> Term:
 
 
 def fin_modulus_term() -> Term:
-    return nested_lam(
+    return mk_lams(
         NatType(),  # n
         FinType(Var(0)),  # x : Fin n
         body=fin_modulus(Var(1), Var(0)),  # return n
@@ -76,7 +74,7 @@ def fin_modulus_term() -> Term:
 
 
 def fin_to_nat_term() -> Term:
-    return nested_lam(
+    return mk_lams(
         NatType(),
         FinType(Var(0)),
         body=fin_to_nat(Var(1), Var(0)),  # return n
@@ -84,13 +82,13 @@ def fin_to_nat_term() -> Term:
 
 
 def fin_to_nat(n: Term, k: Term) -> Term:
-    P = nested_lam(NatType(), FinType(Var(0)), body=NatType())
-    base = nested_lam(NatType(), body=Zero())
-    step = nested_lam(
+    P = mk_lams(NatType(), FinType(Var(0)), body=NatType())
+    base = mk_lams(NatType(), body=Zero())
+    step = mk_lams(
         NatType(),
         FinType(Var(0)),
-        apply_term(P, Var(1), Var(0)),
+        mk_app(P, Var(1), Var(0)),
         body=Succ(Var(0)),
     )
 
-    return FinRec(P=P, base=base, step=step, k=k)
+    return FinElim(P=P, base=base, step=step, k=k)

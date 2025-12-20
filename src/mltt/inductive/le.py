@@ -6,8 +6,8 @@ from .eq import Id, Refl
 from .nat import NatType, Succ
 from .rtc import RTCRefl, RTCStep, RTCType
 from ..core.ast import Term, Var
+from ..core.debruijn import mk_app, mk_lams
 from ..core.ind import Elim, Ctor, Ind
-from ..core.util import apply_term, nested_lam
 
 Le = Ind(name="Le", index_types=(NatType(), NatType()), level=0)
 LeReflCtor = Ctor(
@@ -22,7 +22,7 @@ LeStepCtor = Ctor(
     arg_types=(
         NatType(),  # n : Nat
         NatType(),  # m : Nat
-        apply_term(Le, Var(1), Var(0)),  # Le n m
+        mk_app(Le, Var(1), Var(0)),  # Le n m
     ),
     result_indices=(
         Var(2),  # n
@@ -33,15 +33,15 @@ object.__setattr__(Le, "constructors", (LeReflCtor, LeStepCtor))
 
 
 def LeType(n: Term, m: Term) -> Term:
-    return apply_term(Le, n, m)
+    return mk_app(Le, n, m)
 
 
 def LeRefl(n: Term) -> Term:
-    return apply_term(LeReflCtor, n)
+    return mk_app(LeReflCtor, n)
 
 
 def LeStep(n: Term, m: Term, p: Term) -> Term:
-    return apply_term(LeStepCtor, n, m, p)
+    return mk_app(LeStepCtor, n, m, p)
 
 
 def LeRec(motive: Term, refl_case: Term, step_case: Term, proof: Term) -> Elim:
@@ -52,7 +52,7 @@ def LeRec(motive: Term, refl_case: Term, step_case: Term, proof: Term) -> Elim:
     )
 
 
-PredRelation = nested_lam(
+PredRelation = mk_lams(
     NatType(),
     NatType(),
     body=Id(NatType(), Var(1), Succ(Var(0))),

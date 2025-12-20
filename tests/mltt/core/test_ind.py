@@ -1,8 +1,7 @@
 import mltt.inductive.vec as vec
 from mltt.core.ast import Univ, Var
+from mltt.core.debruijn import mk_app, mk_pis, mk_lams
 from mltt.core.ind import Ctor, Elim, Ind, _instantiate_ctor_arg_types
-from mltt.core.util import apply_term, nested_lam, nested_pi
-from mltt.inductive.fin import FinType
 from mltt.inductive.nat import NatType, Succ, Zero
 
 
@@ -15,7 +14,7 @@ def test_instantiate_ctor_arg_types_shifts_params_by_fields() -> None:
     # head : A at depth 1 (under previous field n)
     assert inst[1] == Var(1)
     # tail : Vec A n with A at depth 2 (under n, head)
-    assert inst[2] == apply_term(vec.Vec, Var(2), Var(1))
+    assert inst[2] == mk_app(vec.Vec, Var(2), Var(1))
 
 
 # def test_ih_types_shift_indices_under_remaining_fields() -> None:
@@ -45,20 +44,20 @@ def test_iota_reduce_detects_whnf_recursive_fields() -> None:
     wrap_ctor = Ctor(
         name="Wrap",
         inductive=wrap,
-        arg_types=(apply_term(nested_lam(Univ(0), body=Var(0)), wrap),),
+        arg_types=(mk_app(mk_lams(Univ(0), body=Var(0)), wrap),),
         result_indices=(),
     )
     object.__setattr__(wrap, "constructors", (base_ctor, wrap_ctor))
 
-    motive = nested_lam(wrap, body=NatType())
+    motive = mk_lams(wrap, body=NatType())
     base_case = Zero()
-    wrap_case = nested_lam(
-        apply_term(nested_lam(Univ(0), body=Var(0)), wrap),
-        apply_term(motive.shift(1), Var(0)),
+    wrap_case = mk_lams(
+        mk_app(mk_lams(Univ(0), body=Var(0)), wrap),
+        mk_app(motive.shift(1), Var(0)),
         body=Succ(Var(0)),
     )
 
-    scrutinee = apply_term(wrap_ctor, apply_term(base_ctor))
+    scrutinee = mk_app(wrap_ctor, mk_app(base_ctor))
     elim = Elim(
         inductive=wrap, motive=motive, cases=(base_case, wrap_case), scrutinee=scrutinee
     )
@@ -73,28 +72,28 @@ def test_iota_reduce_shares_instantiation_with_typing() -> None:
     s_ctor = Ctor(
         name="S",
         inductive=wrap,
-        arg_types=(apply_term(nested_lam(Univ(0), body=Var(0)), wrap),),
+        arg_types=(mk_app(mk_lams(Univ(0), body=Var(0)), wrap),),
         result_indices=(),
     )
     object.__setattr__(wrap, "constructors", (z_ctor, s_ctor))
 
-    motive = nested_lam(wrap, body=NatType())
+    motive = mk_lams(wrap, body=NatType())
     z_case = Zero()
-    s_case = nested_lam(
-        apply_term(nested_lam(Univ(0), body=Var(0)), wrap),
-        apply_term(motive.shift(1), Var(0)),
+    s_case = mk_lams(
+        mk_app(mk_lams(Univ(0), body=Var(0)), wrap),
+        mk_app(motive.shift(1), Var(0)),
         body=Succ(Var(0)),
     )
 
-    height = nested_lam(
+    height = mk_lams(
         wrap,
         body=Elim(
             inductive=wrap, motive=motive, cases=(z_case, s_case), scrutinee=Var(0)
         ),
     )
 
-    expected_ty = nested_pi(wrap, return_ty=NatType())
+    expected_ty = mk_pis(wrap, return_ty=NatType())
     height.type_check(expected_ty)
 
-    scrutinee = apply_term(s_ctor, apply_term(z_ctor))
-    assert apply_term(height, scrutinee).normalize() == Succ(Zero())
+    scrutinee = mk_app(s_ctor, mk_app(z_ctor))
+    assert mk_app(height, scrutinee).normalize() == Succ(Zero())

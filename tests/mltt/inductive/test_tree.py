@@ -1,11 +1,11 @@
 import mltt.inductive.tree as treem
 from mltt.core.ast import Lam, Univ, Var
-from mltt.core.util import apply_term, nested_pi, nested_lam
+from mltt.core.debruijn import mk_app, mk_pis, mk_lams
 from mltt.inductive.nat import NatType, Succ, Zero, add
 
 
 def test_infer_tree_type_constructor() -> None:
-    expected = nested_pi(Univ(0), Univ(0), return_ty=Univ(0))
+    expected = mk_pis(Univ(0), Univ(0), return_ty=Univ(0))
 
     assert treem.Tree.infer_type() == expected
 
@@ -31,12 +31,12 @@ def test_treerec_counts_leaves() -> None:
 
     P = Lam(tree_ty, NatType())
     leaf_case = Lam(leaf_ty, Succ(Zero()))
-    node_case = nested_lam(
+    node_case = mk_lams(
         node_ty,
         tree_ty,
         tree_ty,
-        apply_term(P, Var(1)),
-        apply_term(P, Var(1)),
+        mk_app(P, Var(1)),
+        mk_app(P, Var(1)),
         body=add(Var(1), Var(0)),
     )
     left = treem.Leaf(leaf_ty, node_ty, Zero())

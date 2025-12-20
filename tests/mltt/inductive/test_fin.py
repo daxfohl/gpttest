@@ -2,7 +2,7 @@ import pytest
 
 import mltt.inductive.fin as fin
 from mltt.core.ast import Pi, Univ, Var
-from mltt.core.util import apply_term, nested_pi, nested_lam
+from mltt.core.debruijn import mk_app, mk_pis, mk_lams
 from mltt.inductive.fin import (
     FZCtor,
     FSCtor,
@@ -30,16 +30,16 @@ def test_fz_and_fs_types() -> None:
 
 def test_fin_rec_respects_index() -> None:
     # Motive specialized to the index produced by FZ 0 (i.e., Fin (Succ 0)).
-    P = nested_lam(NatType(), fin.FinType(Var(0)), body=NatType())
-    base = nested_lam(NatType(), body=Zero())
-    step = nested_lam(
+    P = mk_lams(NatType(), fin.FinType(Var(0)), body=NatType())
+    base = mk_lams(NatType(), body=Zero())
+    step = mk_lams(
         NatType(),
         fin.FinType(Var(0)),
-        apply_term(P, Var(1), Var(0)),
+        mk_app(P, Var(1), Var(0)),
         body=Var(0),
     )
     k = fin.FZ(Zero())
-    rec = fin.FinRec(P, base, step, k)
+    rec = fin.FinElim(P, base, step, k)
     assert rec.normalize() == Zero()
     rec.type_check(NatType())
 
@@ -54,10 +54,10 @@ def test_infer_type(n: int, i: int) -> None:
 def test_ctor_type() -> None:
     t = FZCtor.infer_type()
     # Pi x : Nat. Fin (Succ x)
-    assert t == nested_pi(NatType(), return_ty=fin.FinType(Succ(Var(0))))
+    assert t == mk_pis(NatType(), return_ty=fin.FinType(Succ(Var(0))))
     t = FSCtor.infer_type()
     # Pi x : Nat. Fin x -> Fin (Succ x)
-    assert t == nested_pi(
+    assert t == mk_pis(
         NatType(),
         fin.FinType(Var(0)),
         return_ty=fin.FinType(Succ(Var(1))),

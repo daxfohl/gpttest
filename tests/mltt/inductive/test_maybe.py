@@ -1,7 +1,7 @@
 import pytest
 
 from mltt.core.ast import Lam, Pi, Univ, Var, Term
-from mltt.core.util import nested_pi
+from mltt.core.debruijn import mk_pis
 from mltt.inductive.maybe import (
     Just,
     JustCtor,
@@ -20,9 +20,7 @@ def test_infer_maybe_type_constructor() -> None:
 
 def test_ctor_types() -> None:
     assert NothingCtor.infer_type() == Pi(Univ(0), MaybeType(Var(0)))
-    assert JustCtor.infer_type() == nested_pi(
-        Univ(0), Var(0), return_ty=MaybeType(Var(1))
-    )
+    assert JustCtor.infer_type() == mk_pis(Univ(0), Var(0), return_ty=MaybeType(Var(1)))
 
 
 def test_maybe_rec_eliminates() -> None:

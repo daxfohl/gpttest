@@ -6,8 +6,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 
 from .ast import Term, Var, Pi, Univ, App, Reducer
-from .debruijn import Ctx
-from .util import nested_pi, apply_term, decompose_app
+from .debruijn import Ctx, mk_app, mk_pis, decompose_app
 
 
 def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
@@ -19,8 +18,8 @@ def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
 
     for b in ind.all_binders:
         b.expect_universe(ctx)
-        ctx = ctx.prepend_each(b)
-    return nested_pi(*ind.all_binders, return_ty=Univ(ind.level))
+        ctx = ctx.insert(b)
+    return mk_pis(*ind.all_binders, return_ty=Univ(ind.level))
 
 
 def infer_ctor_type(ctor: Ctor) -> Term:
@@ -44,10 +43,10 @@ def infer_ctor_type(ctor: Ctor) -> Term:
     param_vars = [
         Var(i) for i in reversed(range(offset, offset + len(ind.param_types)))
     ]
-    return nested_pi(
+    return mk_pis(
         *ind.param_types,
         *ctor.arg_types,
-        return_ty=apply_term(ctor.inductive, *param_vars, *ctor.result_indices),
+        return_ty=mk_app(ctor.inductive, *param_vars, *ctor.result_indices),
     )
 
 
@@ -111,7 +110,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
     q = len(ind.index_types)
     params_actual = scrut_ty_bindings[:p]
     indices_actual = scrut_ty_bindings[p:]
-    motive_applied = apply_term(motive, *indices_actual)
+    motive_applied = mk_app(motive, *indices_actual)
 
     # 2.2 Infer the type of this partially applied motive
     motive_applied_ty = motive_applied.infer_type(ctx).whnf()
@@ -165,7 +164,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
         # Build a scrutinee-shaped term: C params field_vars.
         # field_vars are Var(m-1) .. Var(0) in the Γ,fields context.
         field_vars = tuple(Var(j) for j in reversed(range(m)))
-        scrut_like = apply_term(ctor, *params_in_fields_ctx, *field_vars)
+        scrut_like = mk_app(ctor, *params_in_fields_ctx, *field_vars)
 
         # 3.3 Instantiate ctor result indices under fields (params only).
         result_indices_inst = _instantiate_ctor_result_indices_under_fields(
@@ -190,7 +189,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
 
             # field_index is outermost → innermost. Translate to de Bruijn index.
             field_var_index = m - 1 - field_index
-            ih_type = apply_term(
+            ih_type = mk_app(
                 motive.shift(m + ri),
                 *(i.shift(field_var_index + ri) for i in indices_field),
                 Var(field_var_index + ri),
@@ -198,14 +197,14 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
             ih_types.append(ih_type)
 
         # 3.5 Branch codomain in Γ,fields; then shift for inserted IH binders.
-        codomain_in_fields_ctx = apply_term(
+        codomain_in_fields_ctx = mk_app(
             motive_in_fields_ctx, *result_indices_inst, scrut_like
         )
         codomain = codomain_in_fields_ctx.shift(r)
 
         # 3.6 Expected branch type: Π fields. Π ihs. codomain.
         telescope = (*inst_arg_types, *ih_types)
-        branch_ty = nested_pi(*telescope, return_ty=codomain)
+        branch_ty = mk_pis(*telescope, return_ty=codomain)
         case.type_check(branch_ty, ctx)
 
     u = motive_applied_ty.return_ty.expect_universe(ctx)  # cod should be Univ(u)
@@ -282,7 +281,6 @@ class Ctor(Term):
         self, cases: tuple[Term, ...], args: tuple[Term, ...], motive: Term
     ) -> Term:
         """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
-        from .util import apply_term, decompose_app
 
         ind = self.inductive
         ctor_args = args[len(ind.param_types) :]
@@ -301,7 +299,7 @@ class Ctor(Term):
                 )
 
         case = cases[self.index_in_inductive()]
-        return apply_term(case, *ctor_args, *ihs)
+        return mk_app(case, *ctor_args, *ihs)
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: "Ctx") -> Term:
@@ -333,7 +331,6 @@ class Elim(Term):
 
     # Reduction ----------------------------------------------------------------
     def whnf(self) -> Term:
-        from .util import decompose_app
 
         scrutinee_whnf = self.scrutinee.whnf()
         head, args = decompose_app(scrutinee_whnf)

@@ -1,7 +1,7 @@
 import pytest
 
 from mltt.core.ast import Pi
-from mltt.core.util import nested_pi
+from mltt.core.debruijn import mk_pis
 from mltt.inductive.maybe import MaybeType, Nothing, Just
 from mltt.inductive.nat import (
     NatType,
@@ -17,7 +17,7 @@ from mltt.inductive.nat import (
 
 
 def test_add_has_expected_pi_type() -> None:
-    add_type = nested_pi(NatType(), NatType(), return_ty=NatType())
+    add_type = mk_pis(NatType(), NatType(), return_ty=NatType())
 
     add_term().type_check(add_type)
 

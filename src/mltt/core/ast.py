@@ -233,7 +233,7 @@ class Lam(Term):
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: "Ctx") -> Term:
-        body_ty = self.body.infer_type(ctx.prepend_each(self.arg_ty))
+        body_ty = self.body.infer_type(ctx.insert(self.arg_ty))
         return Pi(self.arg_ty, body_ty)
 
     def _type_check(self, ty: Term, ctx: "Ctx") -> None:
@@ -251,14 +251,14 @@ class Lam(Term):
                 f"  expected domain = {expected_ty.arg_ty}\n"
                 f"  found domain = {self.arg_ty}"
             )
-        ctx1 = ctx.prepend_each(self.arg_ty)
+        ctx1 = ctx.insert(self.arg_ty)
         self.body.type_check(expected_ty.return_ty, ctx1)
 
     def _type_equal_with(self, other: Term, ctx: "Ctx") -> bool:
         if not isinstance(other, Lam):
             return False
         return self.arg_ty.type_equal(other.arg_ty, ctx) and self.body.type_equal(
-            other.body, ctx.prepend_each(self.arg_ty)
+            other.body, ctx.insert(self.arg_ty)
         )
 
 
@@ -286,7 +286,7 @@ class Pi(Term):
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: "Ctx") -> Term:
         arg_level = self.arg_ty.expect_universe(ctx)
-        body_level = self.return_ty.expect_universe(ctx.prepend_each(self.arg_ty))
+        body_level = self.return_ty.expect_universe(ctx.insert(self.arg_ty))
         return Univ(max(arg_level, body_level))
 
     def _type_check(self, ty: Term, ctx: "Ctx") -> None:
@@ -296,7 +296,7 @@ class Pi(Term):
         if not isinstance(other, Pi):
             return False
         return self.arg_ty.type_equal(other.arg_ty, ctx) and self.return_ty.type_equal(
-            other.return_ty, ctx.prepend_each(self.arg_ty)
+            other.return_ty, ctx.insert(self.arg_ty)
         )
 
 

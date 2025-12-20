@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from ..core.ast import App, Pi, Term, Univ, Var
-from ..core.ind import Ctor, Elim, Ind
-from ..core.util import apply_term
 from .nat import NatType, Succ, Zero
 from .vec import Cons, Nil, VecType
+from ..core.ast import App, Pi, Term, Univ, Var
+from ..core.debruijn import mk_app
+from ..core.ind import Ctor, Elim, Ind
 
 AllVec = Ind(
     name="AllVec",
@@ -33,7 +33,7 @@ AllConsCtor = Ctor(
         Var(2),  # x : A (context: (A,P,n))
         VecType(Var(3), Var(1)),  # xs : Vec A n (context: (A,P,n,x))
         App(Var(3), Var(1)),  # px : P x (context: (A,P,n,x,xs))
-        apply_term(AllVec, Var(5), Var(4), Var(3), Var(1)),  # ih : AllVec A P n xs
+        mk_app(AllVec, Var(5), Var(4), Var(3), Var(1)),  # ih : AllVec A P n xs
     ),
     result_indices=(
         Succ(Var(4)),  # S n
@@ -45,24 +45,18 @@ object.__setattr__(AllVec, "constructors", (AllNilCtor, AllConsCtor))
 
 
 def AllVecType(A: Term, P: Term, n: Term, xs: Term) -> Term:
-    return apply_term(AllVec, A, P, n, xs)
-
-
-def AllVecType2(A: Term, P: Term, n: Term, xs: Term) -> Term:
-    """Alias for the option-2 style predicate."""
-
-    return AllVecType(A, P, n, xs)
+    return mk_app(AllVec, A, P, n, xs)
 
 
 def AllNil(A: Term, P: Term) -> Term:
-    return apply_term(AllNilCtor, A, P)
+    return mk_app(AllNilCtor, A, P)
 
 
 def AllCons(A: Term, P: Term, n: Term, x: Term, xs: Term, px: Term, ih: Term) -> Term:
-    return apply_term(AllConsCtor, A, P, n, x, xs, px, ih)
+    return mk_app(AllConsCtor, A, P, n, x, xs, px, ih)
 
 
-def AllVecRec(motive: Term, all_nil: Term, all_cons: Term, scrutinee: Term) -> Elim:
+def AllVecElim(motive: Term, all_nil: Term, all_cons: Term, scrutinee: Term) -> Elim:
     return Elim(
         inductive=AllVec, motive=motive, cases=(all_nil, all_cons), scrutinee=scrutinee
     )

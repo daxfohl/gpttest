@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from ..core.ast import App, Term, Univ, Var
+from ..core.debruijn import mk_app
 from ..core.ind import Elim, Ctor, Ind
-from ..core.util import apply_term
 
 Maybe = Ind(name="Maybe", param_types=(Univ(0),), level=0)
 NothingCtor = Ctor(name="Nothing", inductive=Maybe)
@@ -21,7 +21,7 @@ def Nothing(elem_ty: Term) -> Term:
 
 
 def Just(elem_ty: Term, value: Term) -> Term:
-    return apply_term(JustCtor, elem_ty, value)
+    return mk_app(JustCtor, elem_ty, value)
 
 
 def MaybeRec(P: Term, nothing_case: Term, just_case: Term, scrutinee: Term) -> Elim:

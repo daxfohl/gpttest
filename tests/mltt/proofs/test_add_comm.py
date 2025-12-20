@@ -1,5 +1,5 @@
 from mltt.core.ast import Var
-from mltt.core.util import apply_term, nested_pi
+from mltt.core.debruijn import mk_app, mk_pis
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Succ, Zero, add, numeral
 from mltt.proofs.add_comm import (
@@ -13,7 +13,7 @@ from mltt.proofs.add_comm import (
 
 def test_add_zero_right_typechecks() -> None:
     lemma = add_zero_right()
-    expected_ty = nested_pi(
+    expected_ty = mk_pis(
         NatType(),
         return_ty=Id(NatType(), add(Var(0), Zero()), Var(0)),
     )
@@ -22,7 +22,7 @@ def test_add_zero_right_typechecks() -> None:
 
 def test_add_zero_right_normalizes() -> None:
     lemma = add_zero_right()
-    applied = apply_term(lemma, numeral(5))
+    applied = mk_app(lemma, numeral(5))
     assert applied.normalize() == Refl(NatType(), numeral(5))
 
 
@@ -30,14 +30,14 @@ def test_add_zero_right_normalizes_multiple_inputs() -> None:
     lemma = add_zero_right()
 
     for value in range(6):
-        applied = apply_term(lemma, numeral(value))
+        applied = mk_app(lemma, numeral(value))
         assert applied.normalize() == Refl(NatType(), numeral(value))
 
 
 def test_add_zero_right_applied_term_typechecks() -> None:
     lemma = add_zero_right()
     three = numeral(3)
-    applied = apply_term(lemma, three)
+    applied = mk_app(lemma, three)
     expected = Id(
         NatType(),
         add(three, Zero()),
@@ -49,7 +49,7 @@ def test_add_zero_right_applied_term_typechecks() -> None:
 
 def test_add_zero_left_typechecks() -> None:
     lemma = add_zero_left()
-    expected_ty = nested_pi(
+    expected_ty = mk_pis(
         NatType(),
         return_ty=Id(NatType(), add(Zero(), Var(0)), Var(0)),
     )
@@ -58,7 +58,7 @@ def test_add_zero_left_typechecks() -> None:
 
 def test_succ_add_typechecks() -> None:
     lemma = succ_add()
-    expected_ty = nested_pi(
+    expected_ty = mk_pis(
         NatType(),
         NatType(),
         return_ty=Id(
@@ -72,7 +72,7 @@ def test_succ_add_typechecks() -> None:
 
 def test_add_succ_right_typechecks() -> None:
     lemma = add_succ_right()
-    expected_ty = nested_pi(
+    expected_ty = mk_pis(
         NatType(),  # n
         NatType(),  # m
         return_ty=Id(
@@ -87,7 +87,7 @@ def test_add_succ_right_typechecks() -> None:
 
 def test_add_comm_typechecks_and_examples() -> None:
     lemma = add_comm()
-    expected_ty = nested_pi(
+    expected_ty = mk_pis(
         NatType(),
         NatType(),
         return_ty=Id(NatType(), add(Var(1), Var(0)), add(Var(0), Var(1))),
@@ -96,7 +96,7 @@ def test_add_comm_typechecks_and_examples() -> None:
 
     m = numeral(2)
     n = numeral(3)
-    proof = apply_term(lemma, m, n)
+    proof = mk_app(lemma, m, n)
     expected_proof_ty = Id(NatType(), add(m, n), add(n, m))
 
     proof.type_check(expected_proof_ty)

@@ -2,7 +2,7 @@ import pytest
 
 import mltt.inductive.list as listm
 from mltt.core.ast import Lam, Pi, Univ, Var, Term
-from mltt.core.util import apply_term, nested_pi, nested_lam
+from mltt.core.debruijn import mk_app, mk_pis, mk_lams
 from mltt.inductive.list import ConsCtor, NilCtor
 from mltt.inductive.nat import NatType, Succ, Zero
 
@@ -26,10 +26,10 @@ def test_listrec_length_of_singleton() -> None:
     xs = listm.Cons(elem_ty, Zero(), listm.Nil(elem_ty))
     P = Lam(list_ty, NatType())
     base = Zero()
-    step = nested_lam(
+    step = mk_lams(
         elem_ty,
         list_ty,
-        apply_term(P, Var(0)),
+        mk_app(P, Var(0)),
         body=Succ(Var(0)),
     )
 
@@ -58,7 +58,7 @@ def test_ctor_type() -> None:
     assert t == Pi(Univ(0), listm.ListType(Var(0)))
     t = ConsCtor.infer_type()
     # Pi x : Type. x -> List x -> List x
-    assert t == nested_pi(
+    assert t == mk_pis(
         Univ(0),
         Var(0),
         listm.ListType(Var(1)),

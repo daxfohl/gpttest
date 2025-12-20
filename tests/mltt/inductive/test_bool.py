@@ -1,7 +1,7 @@
 import pytest
 
 from mltt.core.ast import Univ, Var
-from mltt.core.util import apply_term, nested_pi
+from mltt.core.debruijn import mk_app, mk_pis
 from mltt.inductive.bool import (
     BoolType,
     False_,
@@ -43,8 +43,8 @@ def test_or_normalizes() -> None:
 
 
 def test_operator_types() -> None:
-    bool_to_bool = nested_pi(BoolType(), return_ty=BoolType())
-    bool_binop = nested_pi(BoolType(), BoolType(), return_ty=BoolType())
+    bool_to_bool = mk_pis(BoolType(), return_ty=BoolType())
+    bool_binop = mk_pis(BoolType(), BoolType(), return_ty=BoolType())
 
     not_term().type_check(bool_to_bool)
     and_term().type_check(bool_binop)
@@ -57,7 +57,7 @@ def test_and_rejects_non_bool_argument() -> None:
 
 
 def test_if_type() -> None:
-    expected = nested_pi(
+    expected = mk_pis(
         Univ(0),
         BoolType(),
         Var(1),
@@ -69,7 +69,7 @@ def test_if_type() -> None:
 
 
 def test_if_normalizes() -> None:
-    nat_if_true = apply_term(if_term(), NatType(), True_(), Zero(), Succ(Zero()))
+    nat_if_true = mk_app(if_term(), NatType(), True_(), Zero(), Succ(Zero()))
     nat_if_false = if_(NatType(), False_(), Zero(), Succ(Zero()))
 
     assert nat_if_true.normalize() == Zero()

@@ -1,12 +1,12 @@
 import mltt.inductive.sigma as sigma
 from mltt.core.ast import App, Lam, Pi, Univ, Var
-from mltt.core.util import apply_term, nested_pi, nested_lam
+from mltt.core.debruijn import mk_app, mk_pis, mk_lams
 from mltt.inductive.fin import Fin, FZCtor
 from mltt.inductive.nat import NatType, Succ, Zero, numeral
 
 
 def test_infer_sigma_type_constructor() -> None:
-    expected = nested_pi(Univ(0), Pi(Var(0), Univ(0)), return_ty=Univ(0))
+    expected = mk_pis(Univ(0), Pi(Var(0), Univ(0)), return_ty=Univ(0))
 
     assert sigma.Sigma.infer_type() == expected
 
@@ -26,7 +26,7 @@ def test_sigmarec_returns_first_projection() -> None:
     pair = sigma.Pair(A, B, Succ(Zero()), Zero())
 
     P = Lam(sigma.SigmaType(A, B), A)
-    pair_case = nested_lam(
+    pair_case = mk_lams(
         A,
         App(B, Var(0)),  # b : B a
         body=Var(1),  # return the first projection
@@ -59,7 +59,7 @@ def test_let_pair_term_typechecks() -> None:
     lp = sigma.let_pair_term()
     inferred = lp.infer_type()
 
-    expected = nested_pi(
+    expected = mk_pis(
         Univ(0),  # A
         Pi(Var(0), Univ(0)),  # B
         Univ(0),  # C
@@ -80,9 +80,9 @@ def test_let_pair_term_iota_equation() -> None:
     p = sigma.Pair(A, B, a, b)
 
     # f := λa:Nat. λb:Nat. a
-    f = nested_lam(NatType(), NatType(), body=Var(1))
+    f = mk_lams(NatType(), NatType(), body=Var(1))
 
-    term = apply_term(sigma.let_pair_term(), A, B, C, p, f)
+    term = mk_app(sigma.let_pair_term(), A, B, C, p, f)
     assert term.normalize().type_equal(a.normalize())
 
 
@@ -92,7 +92,7 @@ def test_let_pair_handles_nondependent_B() -> None:
     B = Lam(NatType(), App(Fin, Succ(Var(0))))  # B a = Fin (Succ a)
 
     a = numeral(3)
-    b = apply_term(FZCtor, a)  # FZ : n -> Fin (Succ n), so b : Fin (Succ a)
+    b = mk_app(FZCtor, a)  # FZ : n -> Fin (Succ n), so b : Fin (Succ a)
     p = sigma.Pair(A, B, a, b)
 
     # body returns b, so C is B a = Fin (Succ a)
@@ -106,7 +106,7 @@ def test_let_pair_handles_dependent_B() -> None:
     B = Lam(NatType(), App(Fin, Succ(Var(0))))
 
     a = numeral(3)
-    b = apply_term(FZCtor, a)
+    b = mk_app(FZCtor, a)
     p = sigma.Pair(A, B, a, b)
 
     # C : Π a:A. Π b:B a. Type
@@ -133,7 +133,7 @@ def test_fst_beta() -> None:
     A = NatType()
     B = Lam(NatType(), App(Fin, Succ(Var(0))))
     a = numeral(3)
-    b = apply_term(FZCtor, a)
+    b = mk_app(FZCtor, a)
     p = sigma.Pair(A, B, a, b)
 
     assert sigma.fst(A, B, p).infer_type().type_equal(A)
@@ -144,7 +144,7 @@ def test_snd_beta() -> None:
     A = NatType()
     B = Lam(NatType(), App(Fin, Succ(Var(0))))
     a = numeral(3)
-    b = apply_term(FZCtor, a)
+    b = mk_app(FZCtor, a)
     p = sigma.Pair(A, B, a, b)
 
     expected_ty = App(B, a)

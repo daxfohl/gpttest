@@ -1,5 +1,5 @@
 from mltt.core.ast import App, Lam, Var
-from mltt.core.util import nested_lam
+from mltt.core.debruijn import mk_lams
 from mltt.inductive.eq import Id, IdElim, Refl, cong, sym, trans
 from mltt.inductive.nat import NatType, Succ, Zero
 
@@ -14,7 +14,7 @@ def test_cong_builds_identity_elimination_over_function_application() -> None:
 
     result = cong(f, A, B, x, y, p)
 
-    P = nested_lam(
+    P = mk_lams(
         A,
         Id(A, x, Var(0)),
         body=Id(App(B, Var(1)), App(f, x), App(f, Var(1))),
@@ -33,7 +33,7 @@ def test_sym_builds_identity_elimination_with_swapped_arguments() -> None:
 
     result = sym(A, x, y, p)
 
-    P = nested_lam(
+    P = mk_lams(
         A,
         Id(A, x, Var(0)),
         body=Id(A, Var(1), x),
@@ -54,7 +54,7 @@ def test_trans_builds_identity_elimination_for_composition() -> None:
 
     result = trans(A, x, y, z, p, q)
 
-    Q = nested_lam(
+    Q = mk_lams(
         A,
         Id(A, y, Var(0)),
         body=Id(A, x, Var(1)),

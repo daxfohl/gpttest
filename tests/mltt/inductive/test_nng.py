@@ -1,6 +1,5 @@
 from mltt.core.ast import Lam, Var
-from mltt.core.debruijn import Ctx
-from mltt.core.util import nested_pi, nested_lam
+from mltt.core.debruijn import Ctx, mk_pis, mk_lams
 from mltt.inductive.eq import Id, Refl, ap
 from mltt.inductive.nat import NatType, Succ, add, numeral
 
@@ -25,7 +24,7 @@ def test_double_preserves_y_equals_x_plus_seven() -> None:
     # so that any proof of y = x + 7 can be turned into a proof that double y = double (x+7).
     # Because `ap` already packages the standard non-dependent congruence rule,
     # the actual body is just an invocation of `ap` with the appropriate substitutions.
-    lemma = nested_lam(
+    lemma = mk_lams(
         NatType(),  # 1st λ: x : Nat
         NatType(),  # 2nd λ: y : Nat
         Id(
@@ -46,7 +45,7 @@ def test_double_preserves_y_equals_x_plus_seven() -> None:
     # The inferred type of `lemma` should be the iterated Pi corresponding to the
     # english statement: for all x, y, and proofs that y = x + 7, the doubled values are equal.
     # We write out the Pi tower explicitly so the test checks that infer_type produces it.
-    expected_type = nested_pi(
+    expected_type = mk_pis(
         NatType(),
         NatType(),
         Id(NatType(), Var(0), add(Var(1), seven)),

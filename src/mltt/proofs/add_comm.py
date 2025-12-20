@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..core.ast import Lam, Term, Var, Pi
-from ..core.util import apply_term, nested_lam
+from ..core.debruijn import mk_app, mk_lams
 from ..inductive.eq import Refl, Id, ap, trans, sym
 from ..inductive.nat import NatType, Succ, Zero, add, NatElim
 
@@ -24,7 +24,7 @@ def add_zero_right() -> Term:
             # step: ih : Id Nat (add k 0) k  ⇒ need Id Nat (add (Succ k) 0) (Succ k)
             # definitional eqn: add (Succ k) 0 ≡ Succ (add k 0)
             # so use ap Succ ih : Id Nat (Succ (add k 0)) (Succ k)
-            step=nested_lam(
+            step=mk_lams(
                 NatType(),  # k
                 Id(NatType(), add(Var(0), Zero()), Var(0)),  # ih
                 body=ap(
@@ -53,7 +53,7 @@ def add_zero_left() -> Term:
 def succ_add() -> Term:
     """∀ n m. add (Succ n) m = Succ (add n m)."""
 
-    return nested_lam(
+    return mk_lams(
         NatType(),
         NatType(),
         body=Refl(NatType(), add(Succ(Var(1)), Var(0))),
@@ -79,9 +79,9 @@ def add_succ_right() -> Term:
     # In the step, the context after introducing k and ih is [ih, k, n].
     # ih : add (Succ k) (Succ n) = Succ (add (Succ k) n)
     # ap Succ ih witnesses the step for Succ k.
-    step = nested_lam(
+    step = mk_lams(
         NatType(),  # k
-        apply_term(P.shift(1), Var(0)),  # ih : P k, with n still referring to n
+        mk_app(P.shift(1), Var(0)),  # ih : P k, with n still referring to n
         body=ap(
             f=Lam(NatType(), Succ(Var(0))),
             A=NatType(),
@@ -92,7 +92,7 @@ def add_succ_right() -> Term:
         ),
     )
 
-    return nested_lam(
+    return mk_lams(
         NatType(),  # n
         NatType(),  # m
         body=NatElim(
@@ -126,13 +126,13 @@ def add_comm() -> Term:
             NatType(),
             add(Var(0), Zero()),  # x = add m 0
             Var(0),  # y = m
-            apply_term(add_zero_right(), Var(0)),  # p : add m 0 = m
+            mk_app(add_zero_right(), Var(0)),  # p : add m 0 = m
         ),
     )
 
-    step = nested_lam(
+    step = mk_lams(
         NatType(),  # n
-        apply_term(Q, Var(0)),  # ih
+        mk_app(Q, Var(0)),  # ih
         body=Lam(
             NatType(),  # m
             trans(
@@ -145,30 +145,30 @@ def add_comm() -> Term:
                     add(Succ(Var(2)), Var(0)),  # add (Succ n) m
                     Succ(add(Var(2), Var(0))),  # Succ (add n m)
                     Succ(add(Var(0), Var(2))),  # Succ (add m n)
-                    apply_term(succ_add(), Var(2), Var(0)),  # succ_add n m
+                    mk_app(succ_add(), Var(2), Var(0)),  # succ_add n m
                     ap(
                         f=Lam(NatType(), Succ(Var(0))),
                         A=NatType(),
                         B0=NatType(),
                         x=add(Var(2), Var(0)),  # add n m
                         y=add(Var(0), Var(2)),  # add m n
-                        p=apply_term(Var(1), Var(0)),  # ih m
+                        p=mk_app(Var(1), Var(0)),  # ih m
                     ),
                 ),
                 sym(
                     NatType(),
                     add(Var(0), Succ(Var(2))),  # x
                     Succ(add(Var(0), Var(2))),  # y
-                    apply_term(add_succ_right(), Var(2), Var(0)),
+                    mk_app(add_succ_right(), Var(2), Var(0)),
                 ),
             ),
         ),
     )
 
-    return nested_lam(
+    return mk_lams(
         NatType(),  # n
         NatType(),  # m
-        body=apply_term(
+        body=mk_app(
             NatElim(P=Q, base=base, step=step, n=Var(1)),
             Var(0),
         ),

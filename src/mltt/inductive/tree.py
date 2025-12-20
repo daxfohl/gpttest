@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from ..core.ast import Term, Univ, Var
+from ..core.debruijn import mk_app
 from ..core.ind import Elim, Ctor, Ind
-from ..core.util import apply_term
 
 Tree = Ind(
     name="Tree",
@@ -24,23 +24,23 @@ NodeCtor = Ctor(
     inductive=Tree,
     arg_types=(
         Var(0),  # label : B
-        apply_term(Tree, Var(2), Var(1)),  # left : Tree A B
-        apply_term(Tree, Var(3), Var(2)),  # right : Tree A B
+        mk_app(Tree, Var(2), Var(1)),  # left : Tree A B
+        mk_app(Tree, Var(3), Var(2)),  # right : Tree A B
     ),
 )
 object.__setattr__(Tree, "constructors", (LeafCtor, NodeCtor))
 
 
 def TreeType(leaf_ty: Term, node_ty: Term) -> Term:
-    return apply_term(Tree, leaf_ty, node_ty)
+    return mk_app(Tree, leaf_ty, node_ty)
 
 
 def Leaf(leaf_ty: Term, node_ty: Term, payload: Term) -> Term:
-    return apply_term(LeafCtor, leaf_ty, node_ty, payload)
+    return mk_app(LeafCtor, leaf_ty, node_ty, payload)
 
 
 def Node(leaf_ty: Term, node_ty: Term, label: Term, left: Term, right: Term) -> Term:
-    return apply_term(NodeCtor, leaf_ty, node_ty, label, left, right)
+    return mk_app(NodeCtor, leaf_ty, node_ty, label, left, right)
 
 
 def TreeRec(

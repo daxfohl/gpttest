@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from .list import ConsCtor, List, NilCtor
 from ..core.ast import App, Pi, Term, Univ, Var
+from ..core.debruijn import mk_app
 from ..core.ind import Elim, Ctor, Ind
-from ..core.util import apply_term
 
 All = Ind(
     name="All",
@@ -28,27 +28,27 @@ AllConsCtor = Ctor(
     name="all_cons",
     inductive=All,
     arg_types=(
-        apply_term(List, Var(1)),  # xs : List A
+        mk_app(List, Var(1)),  # xs : List A
         Var(2),  # x : A
-        apply_term(Var(2), Var(0)),  # px : P x
-        apply_term(All, Var(4), Var(3), Var(2)),  # ih : All A P xs
+        mk_app(Var(2), Var(0)),  # px : P x
+        mk_app(All, Var(4), Var(3), Var(2)),  # ih : All A P xs
     ),
-    result_indices=(apply_term(ConsCtor, Var(5), Var(2), Var(3)),),  # x :: xs
+    result_indices=(mk_app(ConsCtor, Var(5), Var(2), Var(3)),),  # x :: xs
 )
 
 object.__setattr__(All, "constructors", (AllNilCtor, AllConsCtor))
 
 
 def AllType(A: Term, P: Term, xs: Term) -> Term:
-    return apply_term(All, A, P, xs)
+    return mk_app(All, A, P, xs)
 
 
 def AllNil(A: Term, P: Term) -> Term:
-    return apply_term(AllNilCtor, A, P)
+    return mk_app(AllNilCtor, A, P)
 
 
 def AllCons(A: Term, P: Term, xs: Term, x: Term, px: Term, ih: Term) -> Term:
-    return apply_term(AllConsCtor, A, P, xs, x, px, ih)
+    return mk_app(AllConsCtor, A, P, xs, x, px, ih)
 
 
 def AllRec(motive: Term, nil_case: Term, cons_case: Term, proof: Term) -> Elim:

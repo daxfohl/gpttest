@@ -1,5 +1,5 @@
 from mltt.core.ast import Lam, Pi, Univ, Var, Term
-from mltt.core.util import apply_term, nested_pi
+from mltt.core.debruijn import mk_app, mk_pis
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.list import Cons, List, Nil
 from mltt.inductive.nat import NatType, Zero
@@ -40,14 +40,14 @@ def test_sorted_cons_typechecks() -> None:
 
 
 def test_sorted_ctor_types() -> None:
-    expected_nil = nested_pi(
+    expected_nil = mk_pis(
         Univ(0),
         Pi(Var(0), Pi(Var(1), Univ(0))),
         return_ty=SortedType(Var(1), Var(0), Nil(Var(1))),
     )
     assert SortedNilCtor.infer_type().type_equal(expected_nil)
 
-    expected_one = nested_pi(
+    expected_one = mk_pis(
         Univ(0),
         Pi(Var(0), Pi(Var(1), Univ(0))),
         Var(1),
@@ -55,13 +55,13 @@ def test_sorted_ctor_types() -> None:
     )
     assert SortedOneCtor.infer_type().type_equal(expected_one)
 
-    expected_cons = nested_pi(
+    expected_cons = mk_pis(
         Univ(0),
         Pi(Var(0), Pi(Var(1), Univ(0))),
-        apply_term(List, Var(1)),  # xs
+        mk_app(List, Var(1)),  # xs
         Var(2),  # x
         Var(3),  # y
-        apply_term(Var(3), Var(1), Var(0)),  # R x y
+        mk_app(Var(3), Var(1), Var(0)),  # R x y
         SortedType(
             Var(5), Var(4), Cons(Var(5), Var(1), Var(3))
         ),  # ih: Sorted (y :: xs)

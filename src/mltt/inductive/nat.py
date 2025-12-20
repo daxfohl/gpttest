@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from .maybe import MaybeType, Nothing, Just
 from ..core.ast import App, Lam, Term, Var
+from ..core.debruijn import mk_lams
 from ..core.ind import Elim, Ctor, Ind
-from ..core.util import nested_lam
 
 Nat = Ind(name="Nat", level=0)
 ZeroCtor = Ctor(name="Zero", inductive=Nat)
@@ -68,7 +68,7 @@ def add(lhs: Term, rhs: Term) -> Term:
     return NatRec(
         A=NatType(),
         base=rhs,
-        step=nested_lam(
+        step=mk_lams(
             NatType(),
             NatType(),
             body=Succ(Var(0)),
@@ -79,14 +79,14 @@ def add(lhs: Term, rhs: Term) -> Term:
 
 def add_term() -> Term:
     """Build ``add lhs rhs`` as nested applications."""
-    return nested_lam(NatType(), NatType(), body=add(Var(1), Var(0)))
+    return mk_lams(NatType(), NatType(), body=add(Var(1), Var(0)))
 
 
 def pred_maybe(n: Term) -> Term:
     return NatRec(
         A=MaybeType(NatType()),
         base=Nothing(NatType()),
-        step=nested_lam(
+        step=mk_lams(
             NatType(),
             MaybeType(NatType()),
             body=Just(NatType(), Var(1)),

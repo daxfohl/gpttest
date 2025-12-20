@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from ..core.ast import App, Lam, Term, Univ, Var
+from ..core.debruijn import mk_app, mk_lams
 from ..core.ind import Elim, Ctor, Ind
-from ..core.util import apply_term, nested_lam
 
 Bool = Ind(name="Bool", level=0)
 FalseCtor = Ctor(name="False", inductive=Bool)
@@ -62,13 +62,13 @@ def if_term() -> Term:
 
 
 def if_(A: Term, b: Term, t: Term, f: Term) -> Term:
-    return apply_term(if_term(), A, b, t, f)
+    return mk_app(if_term(), A, b, t, f)
 
 
 def not_term() -> Term:
     """Boolean negation."""
 
-    return nested_lam(
+    return mk_lams(
         BoolType(),
         body=BoolRec(Lam(BoolType(), BoolType()), True_(), False_(), Var(0)),
     )
@@ -81,7 +81,7 @@ def not_(b: Term) -> Term:
 def and_term() -> Term:
     """Boolean conjunction."""
 
-    return nested_lam(
+    return mk_lams(
         BoolType(),
         BoolType(),
         body=BoolRec(Lam(BoolType(), BoolType()), False_(), Var(0), scrutinee=Var(1)),
@@ -89,13 +89,13 @@ def and_term() -> Term:
 
 
 def and_(lhs: Term, rhs: Term) -> Term:
-    return apply_term(and_term(), lhs, rhs)
+    return mk_app(and_term(), lhs, rhs)
 
 
 def or_term() -> Term:
     """Boolean disjunction."""
 
-    return nested_lam(
+    return mk_lams(
         BoolType(),
         BoolType(),
         body=BoolRec(Lam(BoolType(), BoolType()), Var(0), True_(), scrutinee=Var(1)),
@@ -103,7 +103,7 @@ def or_term() -> Term:
 
 
 def or_(lhs: Term, rhs: Term) -> Term:
-    return apply_term(or_term(), lhs, rhs)
+    return mk_app(or_term(), lhs, rhs)
 
 
 __all__ = [

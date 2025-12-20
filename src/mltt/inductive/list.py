@@ -8,8 +8,8 @@ from ..core.ast import (
     Univ,
     Var,
 )
+from ..core.debruijn import mk_app
 from ..core.ind import Elim, Ctor, Ind
-from ..core.util import apply_term
 
 List = Ind(name="List", param_types=(Univ(0),), level=0)
 NilCtor = Ctor(name="Nil", inductive=List)
@@ -33,7 +33,7 @@ def Nil(elem_ty: Term) -> Term:
 
 
 def Cons(elem_ty: Term, head: Term, tail: Term) -> Term:
-    return apply_term(ConsCtor, elem_ty, head, tail)
+    return mk_app(ConsCtor, elem_ty, head, tail)
 
 
 def ListRec(P: Term, base: Term, step: Term, xs: Term) -> Elim:
