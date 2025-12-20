@@ -117,7 +117,7 @@ class Term:
 
         return self._infer_type(ctx or Ctx())
 
-    def _infer_type(self, ctx: "Ctx") -> "Term":
+    def _infer_type(self, ctx: Ctx) -> "Term":
         raise TypeError(f"Unexpected term in infer_type:\n  term = {self!r}")
 
     def type_check(self, ty: "Term", ctx: "Ctx | None" = None) -> None:
@@ -125,7 +125,7 @@ class Term:
 
         self._type_check(ty, ctx or Ctx())
 
-    def _type_check(self, ty: "Term", ctx: "Ctx") -> None:
+    def _type_check(self, ty: "Term", ctx: Ctx) -> None:
         raise TypeError(f"Unexpected term in type_check:\n  term = {self!r}")
 
     def expect_universe(self, ctx: "Ctx | None" = None) -> int:
@@ -146,11 +146,11 @@ class Term:
             return True
         return self_whnf._type_equal_with(other_whnf, ctx)
 
-    def _type_equal_with(self, other: "Term", ctx: "Ctx") -> bool:
+    def _type_equal_with(self, other: "Term", ctx: Ctx) -> bool:
         return False
 
     def _check_against_inferred(
-        self, expected_ty: "Term", ctx: "Ctx", *, label: str
+        self, expected_ty: "Term", ctx: Ctx, *, label: str
     ) -> None:
         inferred_ty = self.infer_type(ctx)
         if not expected_ty.type_equal(inferred_ty, ctx):
@@ -191,12 +191,12 @@ class Var(Term):
         return self
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: "Ctx") -> Term:
+    def _infer_type(self, ctx: Ctx) -> Term:
         if self.k < len(ctx):
             return ctx[self.k].ty.shift(self.k + 1)
         raise TypeError(f"Unbound variable {self.k}")
 
-    def _type_check(self, ty: Term, ctx: "Ctx") -> None:
+    def _type_check(self, ty: Term, ctx: Ctx) -> None:
         expected_ty = ty.whnf()
         if self.k >= len(ctx):
             raise TypeError(f"Unbound variable {self.k}")
@@ -232,11 +232,11 @@ class Lam(Term):
         return self._reduce_dataclass_children(reducer)
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: "Ctx") -> Term:
+    def _infer_type(self, ctx: Ctx) -> Term:
         body_ty = self.body.infer_type(ctx.insert(self.arg_ty))
         return Pi(self.arg_ty, body_ty)
 
-    def _type_check(self, ty: Term, ctx: "Ctx") -> None:
+    def _type_check(self, ty: Term, ctx: Ctx) -> None:
         expected_ty = ty.whnf()
         if not isinstance(expected_ty, Pi):
             raise TypeError(
@@ -254,7 +254,7 @@ class Lam(Term):
         ctx1 = ctx.insert(self.arg_ty)
         self.body.type_check(expected_ty.return_ty, ctx1)
 
-    def _type_equal_with(self, other: Term, ctx: "Ctx") -> bool:
+    def _type_equal_with(self, other: Term, ctx: Ctx) -> bool:
         if not isinstance(other, Lam):
             return False
         return self.arg_ty.type_equal(other.arg_ty, ctx) and self.body.type_equal(
@@ -284,15 +284,15 @@ class Pi(Term):
         return self._reduce_dataclass_children(reducer)
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: "Ctx") -> Term:
+    def _infer_type(self, ctx: Ctx) -> Term:
         arg_level = self.arg_ty.expect_universe(ctx)
         body_level = self.return_ty.expect_universe(ctx.insert(self.arg_ty))
         return Univ(max(arg_level, body_level))
 
-    def _type_check(self, ty: Term, ctx: "Ctx") -> None:
+    def _type_check(self, ty: Term, ctx: Ctx) -> None:
         self._check_against_inferred(ty.whnf(), ctx, label="Pi")
 
-    def _type_equal_with(self, other: Term, ctx: "Ctx") -> bool:
+    def _type_equal_with(self, other: Term, ctx: Ctx) -> bool:
         if not isinstance(other, Pi):
             return False
         return self.arg_ty.type_equal(other.arg_ty, ctx) and self.return_ty.type_equal(
@@ -318,7 +318,7 @@ class App(Term):
         return self._reduce_dataclass_children(reducer)
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: "Ctx") -> Term:
+    def _infer_type(self, ctx: Ctx) -> Term:
         f_ty = self.func.infer_type(ctx).whnf()
         if not isinstance(f_ty, Pi):
             raise TypeError(
@@ -330,7 +330,7 @@ class App(Term):
         self.arg.type_check(f_ty.arg_ty, ctx)
         return f_ty.return_ty.subst(self.arg)
 
-    def _type_check(self, ty: Term, ctx: "Ctx") -> None:
+    def _type_check(self, ty: Term, ctx: Ctx) -> None:
         expected_ty = ty.whnf()
         f_ty = self.func.infer_type(ctx).whnf()
         if not isinstance(f_ty, Pi):
@@ -350,7 +350,7 @@ class App(Term):
                 f"  inferred = {inferred_ty}"
             )
 
-    def _type_equal_with(self, other: Term, ctx: "Ctx") -> bool:
+    def _type_equal_with(self, other: Term, ctx: Ctx) -> bool:
         if not isinstance(other, App):
             return False
         return self.func.type_equal(other.func, ctx) and self.arg.type_equal(
@@ -369,10 +369,10 @@ class Univ(Term):
             raise ValueError("Universe level must be non-negative")
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: "Ctx") -> Term:  # pragma: no cover - trivial
+    def _infer_type(self, ctx: Ctx) -> Term:  # pragma: no cover - trivial
         return Univ(self.level + 1)
 
-    def _type_check(self, ty: Term, ctx: "Ctx") -> None:
+    def _type_check(self, ty: Term, ctx: Ctx) -> None:
         if not isinstance(ty, Univ):
             raise TypeError(
                 "Universe type mismatch:\n" f"  term = {self}\n" f"  expected = {ty}"
