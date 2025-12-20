@@ -133,7 +133,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
 
         # 3.3 Instantiate ctor result indices under fields.
         result_indices = tuple(
-            discharge_binders(schema, params_in_fields_ctx, depth_above=m + i)
+            discharge_binders(schema, params_actual, depth_above=m + i)
             for i, schema in enumerate(ctor.result_indices)
         )
 
@@ -143,13 +143,13 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
         r = len(rps)
         ih_types: list[Term] = []
         for ri, j in enumerate(rps):
-            rec_field_ty = ctor_field_types[j]
-            _, rec_field_args = decompose_app(rec_field_ty.shift(m).whnf())
+            h, rec_field_args = decompose_app(ctor_field_types[j].shift(m - j))
+            assert h is ind
             rec_params = rec_field_args[:p]
             rec_indices = rec_field_args[p : p + q]
-            assert rec_params == tuple(p.shift(m + j) for p in params_actual)
-            ih_type = mk_app(motive_in_fields_ctx, *rec_indices, Var(j)).shift(ri)
-            ih_types.append(ih_type)
+            assert rec_params == params_in_fields_ctx
+            ih_type = mk_app(motive_in_fields_ctx, *rec_indices, field_vars[j])
+            ih_types.append(ih_type.shift(ri))
 
         # 3.5 Branch codomain in Γ,fields,IHs.
         codomain = mk_app(motive_in_fields_ctx, *result_indices, scrut_like).shift(r)

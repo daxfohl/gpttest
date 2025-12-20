@@ -2,7 +2,7 @@ import pytest
 
 import mltt.inductive.list as listm
 from mltt.core.ast import Lam, Pi, Univ, Var, Term
-from mltt.core.debruijn import mk_app, mk_pis, mk_lams
+from mltt.core.debruijn import mk_app, mk_pis, mk_lams, discharge_binders
 from mltt.inductive.list import ConsCtor, NilCtor
 from mltt.inductive.nat import NatType, Succ, Zero
 
@@ -33,7 +33,7 @@ def test_listrec_length_of_singleton() -> None:
         body=Succ(Var(0)),
     )
 
-    length_term = listm.ListRec(P, base, step, xs)
+    length_term = listm.ListElim(P, base, step, xs)
 
     assert length_term.normalize() == Succ(Zero())
     length_term.type_check(NatType())

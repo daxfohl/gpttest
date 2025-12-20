@@ -236,7 +236,7 @@ def test_nat_and_list_elims_stay_sane() -> None:
     list_motive = mk_lams(lst.ListType(elem_ty), body=NatType())
     list_step = mk_lams(elem_ty, lst.ListType(elem_ty), NatType(), body=Succ(Var(0)))
 
-    length = lst.ListRec(list_motive, Zero(), list_step, xs)
+    length = lst.ListElim(list_motive, Zero(), list_step, xs)
     assert length.normalize() == Succ(Zero())
     length.type_check(NatType())
 
