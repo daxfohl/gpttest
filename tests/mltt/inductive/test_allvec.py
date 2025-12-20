@@ -47,7 +47,7 @@ def test_elim_allvec_allcons_requires_param_shift_under_fields_for_result_indice
     assert ty.type_equal(expected, Ctx())
 
 
-def mk_allvec_elim_body(*, recursive: bool = False) -> Term:
+def mk_allvec_elim_body(*, recursive: bool = False, nil: bool = False) -> Term:
     """
     Build the eliminator application under Γ = (Z,F,z,px0).
 
@@ -75,7 +75,7 @@ def mk_allvec_elim_body(*, recursive: bool = False) -> Term:
     xs0 = Nil(A)  # Vec.Nil A : Vec A 0
     ih0 = AllNil(A, P)  # AllNil A P : AllVec A P 0 (Nil A)
 
-    scrutinee = AllCons(A, P, n0, z0, xs0, px0, ih0)
+    scrutinee = AllNil(A, P) if nil else AllCons(A, P, n0, z0, xs0, px0, ih0)
 
     # ------------------------------------------------------------
     # Motive (constant Nat):
@@ -129,7 +129,7 @@ def test_allvec_elim_body_iota_nil() -> None:
         NatType(),  # n
         vec.VecType(Var(2), Var(0)),  # xs
         allvec.AllVecType(Var(3), Var(2), Var(1), Var(0)),  # pf
-        body=mk_allvec_elim_body(),
+        body=mk_allvec_elim_body(nil=True),  # <-- changed
     )
 
     A = NatType()
@@ -218,32 +218,26 @@ def test_allvec_elim_body_iota_cons_is_zero() -> None:
 def test_allvec_elim_body_param_vars_shift_correctly() -> None:
     closed = mk_allvec_elim_closed_over_ZFzpx0()
 
+    # term : Π Z:Type. Π F:(Z->Type). Π z:Z. Π px0:F z. Nat
     term = mk_lams(
-        Univ(0),  # Z
-        Pi(Var(0), Univ(0)),  # F : Z -> Type
+        Univ(0),  # Z : Type0
+        Pi(Var(0), Univ(0)),  # F : Z -> Type0
+        Var(1),  # z : Z
+        App(Var(1), Var(0)),  # px0 : F z
         body=mk_app(
             closed,
-            Var(1),  # Z
-            Var(0),  # F
-            Zero(),  # z : Z  (will be Nat if we instantiate Z later; for typecheck we keep it symbolic below)
-            Zero(),  # px0 : F z
+            Var(3),  # Z
+            Var(2),  # F
+            Var(1),  # z
+            Var(0),  # px0
         ),
     )
 
-    # This is only well-typed if Z and F are such that z:px0 choices make sense.
-    # So for a pure "shift sanity" test, close over z and px0 too:
-
-
-def test_allvec_elim_body_infers_nat() -> None:
-    closed = mk_allvec_elim_closed_over_ZFzpx0()
-    ty = closed.infer_type()
-    assert ty.type_equal(
-        mk_pis(
-            Univ(0),
-            Pi(Var(0), Univ(0)),
-            Var(1),
-            App(Var(1), Var(0)),
-            return_ty=NatType(),
-        ),
-        Ctx(),
+    expected_ty = mk_pis(
+        Univ(0),
+        Pi(Var(0), Univ(0)),
+        Var(1),
+        App(Var(1), Var(0)),
+        return_ty=NatType(),
     )
+    term.type_check(expected_ty)
