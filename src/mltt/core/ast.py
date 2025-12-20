@@ -2,22 +2,20 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, fields, is_dataclass, replace
+from dataclasses import dataclass, fields, replace
 from typing import TYPE_CHECKING, Any, Callable
 
-if TYPE_CHECKING:  # pragma: no cover - type-checking only
+if TYPE_CHECKING:
     from .debruijn import Ctx
 
-Reducer = Callable[["Term"], "Term"]
 
-
+@dataclass(frozen=True)
 class Term:
     """Base class for all MLTT terms."""
 
     # --- Structural utilities -------------------------------------------------
-    def _map_value(
-        self, value: Any, mapper: Callable[[Term], Term]
-    ) -> tuple[Any, bool]:
+    @staticmethod
+    def _map_value(value: Any, mapper: Reducer) -> tuple[Any, bool]:
         if isinstance(value, Term):
             mapped = mapper(value)
             return mapped, mapped != value
@@ -34,10 +32,7 @@ class Term:
             return (tuple(mapped_items), True) if changed else (value, False)
         return value, False
 
-    def _replace_terms(self, mapper: Callable[["Term"], "Term"]) -> Term:
-        if not is_dataclass(self):
-            return self
-
+    def _replace_terms(self, mapper: Reducer) -> Term:
         updates: dict[str, Any] = {}
         for field_info in fields(self):
             value = getattr(self, field_info.name)
@@ -46,9 +41,8 @@ class Term:
                 updates[field_info.name] = mapped
         return replace(self, **updates) if updates else self
 
-    def _reduce_value(
-        self, value: Any, reducer: Reducer
-    ) -> tuple[Any, bool]:  # pragma: no cover - tiny helper
+    @staticmethod
+    def _reduce_value(value: Any, reducer: Reducer) -> tuple[Any, bool]:
         if isinstance(value, Term):
             reduced = value.reduce_inside_step(reducer)
             return reduced, reduced != value
@@ -66,8 +60,6 @@ class Term:
         return value, False
 
     def _reduce_dataclass_children(self, reducer: Reducer) -> Term:
-        if not is_dataclass(self):
-            return self
         for field_info in fields(self):
             value = getattr(self, field_info.name)
             new_value, changed = self._reduce_value(value, reducer)
@@ -112,7 +104,7 @@ class Term:
             term = next_term
 
     # --- Typing ---------------------------------------------------------------
-    def infer_type(self, ctx: "Ctx | None" = None) -> Term:
+    def infer_type(self, ctx: Ctx | None = None) -> Term:
         from .debruijn import Ctx
 
         return self._infer_type(ctx or Ctx())
@@ -120,7 +112,7 @@ class Term:
     def _infer_type(self, ctx: Ctx) -> Term:
         raise TypeError(f"Unexpected term in infer_type:\n  term = {self!r}")
 
-    def type_check(self, ty: Term, ctx: "Ctx | None" = None) -> None:
+    def type_check(self, ty: Term, ctx: Ctx | None = None) -> None:
         from .debruijn import Ctx
 
         self._type_check(ty.whnf(), ctx or Ctx())
@@ -128,7 +120,7 @@ class Term:
     def _type_check(self, ty: Term, ctx: Ctx) -> None:
         raise TypeError(f"Unexpected term in type_check:\n  term = {self!r}")
 
-    def expect_universe(self, ctx: "Ctx | None" = None) -> int:
+    def expect_universe(self, ctx: Ctx | None = None) -> int:
         ty = self.infer_type(ctx).whnf()
         if not isinstance(ty, Univ):
             raise TypeError(
@@ -136,7 +128,7 @@ class Term:
             )
         return ty.level
 
-    def type_equal(self, other: Term, ctx: "Ctx | None" = None) -> bool:
+    def type_equal(self, other: Term, ctx: Ctx | None = None) -> bool:
         from .debruijn import Ctx
 
         ctx = ctx or Ctx()
@@ -379,6 +371,8 @@ class Univ(Term):
             )
 
 
+Reducer = Callable[[Term], Term]
+
 __all__ = [
     "Term",
     "Var",
@@ -386,4 +380,5 @@ __all__ = [
     "Pi",
     "App",
     "Univ",
+    "Reducer",
 ]

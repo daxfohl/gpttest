@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from ..ast import Term
+from ..ast import Term, Reducer
 
 
 def whnf(term: Term) -> Term:
@@ -13,7 +13,7 @@ def whnf(term: Term) -> Term:
     return term.whnf()
 
 
-def reduce_inside_step(term: Term, red: Callable[[Term], Term]) -> Term:
+def reduce_inside_step(term: Term, red: Reducer) -> Term:
     """Wrapper around ``Term.reduce_inside_step`` for backwards compatibility."""
 
     return term.reduce_inside_step(red)
