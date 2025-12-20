@@ -361,7 +361,7 @@ class Univ(Term):
             raise ValueError("Universe level must be non-negative")
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:  # pragma: no cover - trivial
+    def _infer_type(self, ctx: Ctx) -> Term:
         return Univ(self.level + 1)
 
     def _type_check(self, ty: Term, ctx: Ctx) -> None:

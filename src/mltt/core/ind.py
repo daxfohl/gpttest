@@ -193,10 +193,10 @@ class Ind(Term):
     def _infer_type(self, ctx: Ctx) -> Term:
         return infer_ind_type(ctx, self)
 
-    def shift(self, by: int, cutoff: int = 0) -> Term:  # type: ignore[override]
+    def shift(self, by: int, cutoff: int = 0) -> Term:
         return self
 
-    def subst(self, sub: Term, j: int = 0) -> Term:  # type: ignore[override]
+    def subst(self, sub: Term, j: int = 0) -> Term:
         return self
 
     def _type_check(self, ty: Term, ctx: Ctx) -> None:
@@ -247,10 +247,10 @@ class Ctor(Term):
     def _infer_type(self, ctx: Ctx) -> Term:
         return infer_ctor_type(self)
 
-    def shift(self, by: int, cutoff: int = 0) -> Term:  # type: ignore[override]
+    def shift(self, by: int, cutoff: int = 0) -> Term:
         return self
 
-    def subst(self, sub: Term, j: int = 0) -> Term:  # type: ignore[override]
+    def subst(self, sub: Term, j: int = 0) -> Term:
         return self
 
     def _type_check(self, ty: Term, ctx: Ctx) -> None:
