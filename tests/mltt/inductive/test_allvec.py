@@ -1,12 +1,15 @@
 from mltt.core.ast import Univ, Var, Pi, App, Term
 from mltt.core.debruijn import mk_lams, Ctx, mk_pis, mk_app
 from mltt.core.typing import infer_type
+from mltt.inductive import vec, allvec
 from mltt.inductive.allvec import AllVecType, AllVecElim, AllNil, AllCons
-from mltt.inductive.nat import NatType, Zero
+from mltt.inductive.nat import NatType, Zero, Succ
 from mltt.inductive.vec import VecType, Nil
 
 
-def test_elim_allvec_allcons_requires_param_shift_under_fields_for_result_indices() -> None:
+def test_elim_allvec_allcons_requires_param_shift_under_fields_for_result_indices() -> (
+    None
+):
     """
     This is an *actual eliminator* test that detects the bug in the 2nd approach
     to instantiating ctor.result_indices.
@@ -26,26 +29,25 @@ def test_elim_allvec_allcons_requires_param_shift_under_fields_for_result_indice
     Z_ty = Univ(0)
 
     closed = mk_lams(
-        Z_ty,                      # Z : Type0            (in body: Z = Var(3))
-        Pi(Var(0), Univ(0)),       # F : Z -> Type0       (in body: F = Var(2))
-        Var(1),                    # z : Z                (in body: z = Var(1))
-        App(Var(1), Var(0)),       # px0 : F z            (in body: px0 = Var(0))
+        Z_ty,  # Z : Type0            (in body: Z = Var(3))
+        Pi(Var(0), Univ(0)),  # F : Z -> Type0       (in body: F = Var(2))
+        Var(1),  # z : Z                (in body: z = Var(1))
+        App(Var(1), Var(0)),  # px0 : F z            (in body: px0 = Var(0))
         body=mk_allvec_elim_body(),  # we’ll define this below using the Γ vars
     )
 
     ty = infer_type(closed)
     expected = mk_pis(
-        Univ(0),              # Z : Type0
+        Univ(0),  # Z : Type0
         Pi(Var(0), Univ(0)),  # F : Z -> Type0   (Z is Var(0) here)
-        Var(1),               # z : Z            (Z is Var(1) here)
+        Var(1),  # z : Z            (Z is Var(1) here)
         App(Var(1), Var(0)),  # px0 : F z        (F is Var(1), z is Var(0) here)
         return_ty=NatType(),
     )
     assert ty.type_equal(expected, Ctx())
 
 
-
-def mk_allvec_elim_body() -> Term:
+def mk_allvec_elim_body(*, recursive: bool = False) -> Term:
     """
     Build the eliminator application under Γ = (Z,F,z,px0).
 
@@ -70,8 +72,8 @@ def mk_allvec_elim_body() -> Term:
     #   scrutinee = AllCons A P 0 z0 (Nil A) px0 (AllNil A P)
     # ------------------------------------------------------------
     n0 = Zero()
-    xs0 = Nil(A)          # Vec.Nil A : Vec A 0
-    ih0 = AllNil(A, P)    # AllNil A P : AllVec A P 0 (Nil A)
+    xs0 = Nil(A)  # Vec.Nil A : Vec A 0
+    ih0 = AllNil(A, P)  # AllNil A P : AllVec A P 0 (Nil A)
 
     scrutinee = AllCons(A, P, n0, z0, xs0, px0, ih0)
 
@@ -79,14 +81,11 @@ def mk_allvec_elim_body() -> Term:
     # Motive (constant Nat):
     #   motive : Π n:Nat. Π xs:Vec A n. Π all:AllVec A P n xs. Type0
     # ------------------------------------------------------------
-    A1 = A.shift(1)  # under binder n
-    A2 = A.shift(2)  # under binders n,xs
-    P2 = P.shift(2)
-
     motive = mk_lams(
-        NatType(),                         # n : Nat          (n = Var(0))
-        VecType(A1, Var(0)),               # xs : Vec A n      (xs = Var(0), n = Var(1) after xs binder, but here n is still Var(0) in this arg_ty position)
-        AllVecType(A2, P2, Var(1), Var(0)),# all : AllVec A P n xs
+        NatType(),  # n : Nat          (n = Var(0))
+        VecType(A.shift(1), Var(0)),
+        # xs : Vec A n      (xs = Var(0), n = Var(1) after xs binder, but here n is still Var(0) in this arg_ty position)
+        AllVecType(A.shift(2), P.shift(2), Var(1), Var(0)),  # all : AllVec A P n xs
         body=NatType(),
     )
 
@@ -101,43 +100,150 @@ def mk_allvec_elim_body() -> Term:
     # ------------------------------------------------------------
     all_nil = Zero()
 
-    # In all_cons, we build binder types using A/P shifted as binders are introduced.
-
-    # After binding n: shift Γ by 1
-    A1 = A.shift(1)
-    P1 = P.shift(1)
-
-    # After binding n,x: shift Γ by 2
-    A2 = A.shift(2)
-    P2 = P.shift(2)
-
-    # After binding n,x,xs: shift Γ by 3
-    A3 = A.shift(3)
-    P3 = P.shift(3)
-
-    # After binding n,x,xs,px: shift Γ by 4
-    A4 = A.shift(4)
-    P4 = P.shift(4)
-
-    # After binding n,x,xs,px,ih: shift Γ by 5
-    # We’ll also need motive under those binders.
-    # At that point, the local Vars are:
-    #   ih   = Var(0)
-    #   px   = Var(1)
-    #   xs   = Var(2)
-    #   x    = Var(3)
-    #   n    = Var(4)
     ih_ih_ty = mk_app(motive.shift(5), Var(4), Var(2), Var(0))  # motive n xs ih
 
     all_cons = mk_lams(
-        NatType(),                     # n : Nat
-        A1,                            # x : A
-        VecType(A2, Var(1)),           # xs : Vec A n   (n is Var(1) after x binder)
-        App(P3, Var(1)),               # px : P x       (x is Var(1) after xs binder)
-        AllVecType(A4, P4, Var(3), Var(1)),  # ih : AllVec A P n xs  (n=Var(3), xs=Var(1) after px binder)
-        ih_ih_ty,                      # ih_ih : motive n xs ih
-        body=Zero(),
+        NatType(),  # n : Nat
+        A.shift(1),  # x : A
+        VecType(A.shift(2), Var(1)),  # xs : Vec A n   (n is Var(1) after x binder)
+        App(P.shift(3), Var(1)),  # px : P x       (x is Var(1) after xs binder)
+        AllVecType(
+            A.shift(4), P.shift(4), Var(3), Var(1)
+        ),  # ih : AllVec A P n xs  (n=Var(3), xs=Var(1) after px binder)
+        ih_ih_ty,  # ih_ih : motive n xs ih
+        body=Succ(Var(0)) if recursive else Zero(),  # Var(0) is ih_ih (the last binder)
     )
 
     return AllVecElim(motive, all_nil, all_cons, scrutinee)
 
+
+def test_allvec_elim_body_iota_nil() -> None:
+    """
+    Under concrete A,P,n,xs,pf for pf=AllNil, the eliminator should iota-reduce
+    to the nil case (here assumed Zero()).
+    """
+    # Build the Γ-closed version of mk_allvec_elim_body
+    closed = mk_lams(
+        Univ(0),  # A
+        Pi(Var(0), Univ(0)),  # P
+        NatType(),  # n
+        vec.VecType(Var(2), Var(0)),  # xs
+        allvec.AllVecType(Var(3), Var(2), Var(1), Var(0)),  # pf
+        body=mk_allvec_elim_body(),
+    )
+
+    A = NatType()
+    P = mk_lams(NatType(), body=Univ(0))
+    pf = allvec.AllNil(A, P)
+    xs = vec.Nil(A)
+
+    term = mk_app(closed, A, P, Zero(), xs, pf)
+    assert term.normalize() == Zero()
+
+
+def test_allvec_elim_body_iota_cons_uses_ih() -> None:
+    """
+    Build pf1 = AllCons ... with IH = AllNil ... and check the eliminator
+    uses the IH in the cons branch (so result becomes Succ Zero if body is Succ ih).
+    """
+    closed = mk_lams(
+        Univ(0),
+        Pi(Var(0), Univ(0)),
+        NatType(),
+        vec.VecType(Var(2), Var(0)),
+        allvec.AllVecType(Var(3), Var(2), Var(1), Var(0)),
+        body=mk_allvec_elim_body(recursive=True),
+    )
+
+    A = NatType()
+    P = mk_lams(NatType(), body=Univ(0))
+
+    pf0 = allvec.AllNil(A, P)
+    xs0 = vec.Nil(A)
+
+    x = Zero()
+    px = mk_app(P, x)
+
+    pf1 = allvec.AllCons(A, P, Zero(), x, xs0, px, pf0)
+    xs1 = vec.Cons(A, Zero(), x, xs0)
+
+    term = mk_app(closed, A, P, Succ(Zero()), xs1, pf1).normalize()
+    assert term == Succ(Zero())
+
+
+def mk_allvec_elim_closed_over_ZFzpx0() -> Term:
+    """
+    Close mk_allvec_elim_body over Γ = (Z,F,z,px0) so it becomes a closed term:
+
+      Π Z : Type.
+      Π F : Π z:Z. Type.
+      Π z : Z.
+      Π px0 : F z.
+      Nat
+    """
+    return mk_lams(
+        Univ(0),  # Z : Type0
+        Pi(Var(0), Univ(0)),  # F : Π z:Z. Type0   (Z is Var(0) here)
+        Var(1),  # z : Z              (Z is Var(1) here)
+        App(Var(1), Var(0)),  # px0 : F z          (F is Var(1), z is Var(0))
+        body=mk_allvec_elim_body(),
+    )
+
+
+def test_allvec_elim_body_typechecks() -> None:
+    closed = mk_allvec_elim_closed_over_ZFzpx0()
+
+    expected_ty = mk_pis(
+        Univ(0),  # Z
+        Pi(Var(0), Univ(0)),  # F : Z -> Type
+        Var(1),  # z : Z
+        App(Var(1), Var(0)),  # px0 : F z
+        return_ty=NatType(),
+    )
+    closed.type_check(expected_ty)
+
+
+def test_allvec_elim_body_iota_cons_is_zero() -> None:
+    closed = mk_allvec_elim_closed_over_ZFzpx0()
+
+    Z = NatType()
+    F = mk_lams(Z, body=NatType())  # F : Z -> Type0, returns Nat
+    z0 = Zero()
+    px0 = Zero()  # px0 : F z0 = Nat, OK
+
+    term = mk_app(closed, Z, F, z0, px0).normalize()
+    assert term == Zero()
+
+
+def test_allvec_elim_body_param_vars_shift_correctly() -> None:
+    closed = mk_allvec_elim_closed_over_ZFzpx0()
+
+    term = mk_lams(
+        Univ(0),  # Z
+        Pi(Var(0), Univ(0)),  # F : Z -> Type
+        body=mk_app(
+            closed,
+            Var(1),  # Z
+            Var(0),  # F
+            Zero(),  # z : Z  (will be Nat if we instantiate Z later; for typecheck we keep it symbolic below)
+            Zero(),  # px0 : F z
+        ),
+    )
+
+    # This is only well-typed if Z and F are such that z:px0 choices make sense.
+    # So for a pure "shift sanity" test, close over z and px0 too:
+
+
+def test_allvec_elim_body_infers_nat() -> None:
+    closed = mk_allvec_elim_closed_over_ZFzpx0()
+    ty = closed.infer_type()
+    assert ty.type_equal(
+        mk_pis(
+            Univ(0),
+            Pi(Var(0), Univ(0)),
+            Var(1),
+            App(Var(1), Var(0)),
+            return_ty=NatType(),
+        ),
+        Ctx(),
+    )
