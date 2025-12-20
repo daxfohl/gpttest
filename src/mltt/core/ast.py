@@ -16,7 +16,7 @@ class Term:
 
     # --- Structural utilities -------------------------------------------------
     def _map_value(
-        self, value: Any, mapper: Callable[["Term"], "Term"]
+        self, value: Any, mapper: Callable[[Term], Term]
     ) -> tuple[Any, bool]:
         if isinstance(value, Term):
             mapped = mapper(value)
@@ -34,7 +34,7 @@ class Term:
             return (tuple(mapped_items), True) if changed else (value, False)
         return value, False
 
-    def _replace_terms(self, mapper: Callable[["Term"], "Term"]) -> "Term":
+    def _replace_terms(self, mapper: Callable[["Term"], "Term"]) -> Term:
         if not is_dataclass(self):
             return self
 
@@ -65,7 +65,7 @@ class Term:
             return (tuple(items), True) if changed else (value, False)
         return value, False
 
-    def _reduce_dataclass_children(self, reducer: Reducer) -> "Term":
+    def _reduce_dataclass_children(self, reducer: Reducer) -> Term:
         if not is_dataclass(self):
             return self
         for field_info in fields(self):
@@ -76,33 +76,33 @@ class Term:
         return self
 
     # --- De Bruijn operations -------------------------------------------------
-    def shift(self, by: int, cutoff: int = 0) -> "Term":
+    def shift(self, by: int, cutoff: int = 0) -> Term:
         """Shift free variables in the term."""
         return self._replace_terms(lambda child: child.shift(by, cutoff))
 
-    def subst(self, sub: "Term", j: int = 0) -> "Term":
+    def subst(self, sub: Term, j: int = 0) -> Term:
         """Substitute ``sub`` for ``Var(j)`` inside the term."""
         return self._replace_terms(lambda child: child.subst(sub, j))
 
     # --- Reduction ------------------------------------------------------------
-    def whnf(self) -> "Term":
+    def whnf(self) -> Term:
         """Weak head normal form."""
         return self
 
-    def reduce_inside_step(self, reducer: Reducer) -> "Term":
+    def reduce_inside_step(self, reducer: Reducer) -> Term:
         reduced = reducer(self)
         if reduced != self:
             return reduced
         return self._reduce_children(reducer)
 
-    def _reduce_children(self, reducer: Reducer) -> "Term":
+    def _reduce_children(self, reducer: Reducer) -> Term:
         return self
 
-    def normalize_step(self) -> "Term":
+    def normalize_step(self) -> Term:
         """Perform a single beta/iota reduction step anywhere in the term."""
         return self.reduce_inside_step(lambda term: term.whnf())
 
-    def normalize(self) -> "Term":
+    def normalize(self) -> Term:
         """Fully normalize the term."""
         term: Term = self
         while True:
@@ -112,20 +112,20 @@ class Term:
             term = next_term
 
     # --- Typing ---------------------------------------------------------------
-    def infer_type(self, ctx: "Ctx | None" = None) -> "Term":
+    def infer_type(self, ctx: "Ctx | None" = None) -> Term:
         from .debruijn import Ctx
 
         return self._infer_type(ctx or Ctx())
 
-    def _infer_type(self, ctx: Ctx) -> "Term":
+    def _infer_type(self, ctx: Ctx) -> Term:
         raise TypeError(f"Unexpected term in infer_type:\n  term = {self!r}")
 
-    def type_check(self, ty: "Term", ctx: "Ctx | None" = None) -> None:
+    def type_check(self, ty: Term, ctx: "Ctx | None" = None) -> None:
         from .debruijn import Ctx
 
-        self._type_check(ty, ctx or Ctx())
+        self._type_check(ty.whnf(), ctx or Ctx())
 
-    def _type_check(self, ty: "Term", ctx: Ctx) -> None:
+    def _type_check(self, ty: Term, ctx: Ctx) -> None:
         raise TypeError(f"Unexpected term in type_check:\n  term = {self!r}")
 
     def expect_universe(self, ctx: "Ctx | None" = None) -> int:
@@ -136,7 +136,7 @@ class Term:
             )
         return ty.level
 
-    def type_equal(self, other: "Term", ctx: "Ctx | None" = None) -> bool:
+    def type_equal(self, other: Term, ctx: "Ctx | None" = None) -> bool:
         from .debruijn import Ctx
 
         ctx = ctx or Ctx()
@@ -146,11 +146,11 @@ class Term:
             return True
         return self_whnf._type_equal_with(other_whnf, ctx)
 
-    def _type_equal_with(self, other: "Term", ctx: Ctx) -> bool:
+    def _type_equal_with(self, other: Term, ctx: Ctx) -> bool:
         return False
 
     def _check_against_inferred(
-        self, expected_ty: "Term", ctx: Ctx, *, label: str
+        self, expected_ty: Term, ctx: Ctx, *, label: str
     ) -> None:
         inferred_ty = self.infer_type(ctx)
         if not expected_ty.type_equal(inferred_ty, ctx):
