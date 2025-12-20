@@ -586,7 +586,7 @@ def test_sigma_pair_argtype_a_instantiates_param_A_only() -> None:
     """
     A0 = NatType()
     B0 = Lam(NatType(), Univ(0))  # arbitrary family; not used for 'a'
-    schema_a_ty = PairCtor.arg_types[0]  # Var(1)
+    schema_a_ty = PairCtor.field_schemas[0]  # Var(1)
     out = discharge_binders(schema_a_ty, (A0, B0), depth_above=0)
     assert out == A0
 
@@ -612,7 +612,7 @@ def test_sigma_pair_argtype_b_instantiates_params_but_keeps_field_a_in_scope() -
     """
     A0 = NatType()
     B0 = Lam(NatType(), BoolType())  # λ _:Nat. Bool
-    schema_b_ty = PairCtor.arg_types[1]  # App(Var(1), Var(0))
+    schema_b_ty = PairCtor.field_schemas[1]  # App(Var(1), Var(0))
     out = discharge_binders(schema_b_ty, (A0, B0), depth_above=1)
     assert out == App(B0, Var(0))
 
@@ -674,7 +674,7 @@ def test_vec_cons_tail_type_instantiates_param_A_but_keeps_n_and_head() -> None:
         VecType(A0, Var(1))   but note: after discharge, Var(1) still refers to n.
     """
     A0 = NatType()
-    schema_tail_ty = ConsCtor.arg_types[2]  # Vec A n  under (A,n,head)
+    schema_tail_ty = ConsCtor.field_schemas[2]  # Vec A n  under (A,n,head)
     out = discharge_binders(schema_tail_ty, (A0,), depth_above=2)
     assert out == VecType(A0, Var(1))
 
@@ -734,7 +734,7 @@ def test_allvec_allcons_ih_type_instantiates_params_keeps_prior_fields() -> None
     """
     A0 = NatType()
     P0 = Lam(NatType(), Univ(0))  # arbitrary family over A0
-    schema_ih = AllConsCtor.arg_types[4]
+    schema_ih = AllConsCtor.field_schemas[4]
     out = discharge_binders(schema_ih, (A0, P0), depth_above=4)
 
     assert out == AllVecType(A0, P0, Var(3), Var(1))

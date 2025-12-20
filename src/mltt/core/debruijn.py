@@ -216,7 +216,7 @@ def decompose_pi(term: Term) -> tuple[Term, tuple[Term, ...]]:
 
 
 def discharge_binders(
-    schema: Term, actuals: tuple[Term, ...], *, depth_above: int
+    schema: Term, actuals: tuple[Term, ...], *, depth_above: int = 0
 ) -> Term:
     """
     Substitute ``actuals`` for the outer binder block of ``schema``.

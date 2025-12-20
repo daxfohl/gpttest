@@ -20,21 +20,21 @@ Sorted = Ind(
 SortedNilCtor = Ctor(
     name="sorted_nil",
     inductive=Sorted,
-    arg_types=(),
+    field_schemas=(),
     result_indices=(App(NilCtor, Var(1)),),
 )
 
 SortedOneCtor = Ctor(
     name="sorted_one",
     inductive=Sorted,
-    arg_types=(Var(1),),  # x : A
+    field_schemas=(Var(1),),  # x : A
     result_indices=(mk_app(ConsCtor, Var(2), Var(0), App(NilCtor, Var(2))),),  # [x]
 )
 
 SortedConsCtor = Ctor(
     name="sorted_cons",
     inductive=Sorted,
-    arg_types=(
+    field_schemas=(
         mk_app(List, Var(1)),  # xs : List A
         Var(2),  # x : A
         Var(3),  # y : A

@@ -15,7 +15,7 @@ IdType = Ind(
 ReflCtor = Ctor(
     name="Refl",
     inductive=IdType,
-    arg_types=(),
+    field_schemas=(),
     result_indices=(Var(0),),
 )
 object.__setattr__(IdType, "constructors", (ReflCtor,))

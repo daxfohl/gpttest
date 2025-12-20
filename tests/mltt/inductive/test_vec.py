@@ -211,7 +211,7 @@ def test_recursive_detection_whnfs_field_head() -> None:
     lazy_ctor = Ctor(
         name="Thunk",
         inductive=lazy,
-        arg_types=(mk_app(mk_lams(Univ(0), body=Var(0)), lazy),),
+        field_schemas=(mk_app(mk_lams(Univ(0), body=Var(0)), lazy),),
     )
     object.__setattr__(lazy, "constructors", (lazy_ctor,))
 

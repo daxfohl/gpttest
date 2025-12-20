@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 
 from .ast import Term, Var, Pi, Univ, App, Reducer
-from .debruijn import Ctx, mk_app, mk_pis, decompose_app
+from .debruijn import Ctx, mk_app, mk_pis, decompose_app, discharge_binders
 
 
 def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
@@ -39,53 +39,15 @@ def infer_ctor_type(ctor: Ctor) -> Term:
         )
     # Parameters bind outermost, then constructor arguments.
     #   [params][args] from outermost to innermost.
-    offset = len(ctor.arg_types)
+    offset = len(ctor.field_schemas)
     param_vars = [
         Var(i) for i in reversed(range(offset, offset + len(ind.param_types)))
     ]
     return mk_pis(
         *ind.param_types,
-        *ctor.arg_types,
+        *ctor.field_schemas,
         return_ty=mk_app(ctor.inductive, *param_vars, *ctor.result_indices),
     )
-
-
-def _instantiate_ctor_arg_types(
-    ctor_arg_types: tuple[Term, ...],
-    params_actual: tuple[Term, ...],
-) -> tuple[Term, ...]:
-    schemas: list[Term] = []
-    p = len(params_actual)
-    for i, schema in enumerate(ctor_arg_types):
-        t = schema
-        # eliminate param binders outermost → innermost at their indexed depth
-        for s, param in enumerate(params_actual):
-            index = i + p - s - 1
-            t = t.subst(param.shift(index), index)
-        schemas.append(t)
-    return tuple(schemas)
-
-
-def _instantiate_ctor_result_indices_under_fields(
-    result_indices: tuple[Term, ...],
-    params_actual_shifted: tuple[Term, ...],  # already shifted by m at callsite
-    m: int,  # number of ctor fields in scope
-) -> tuple[Term, ...]:
-    """
-    result_indices schemas are written in context (params)(fields).
-    We are currently in context Γ,(fields) (params already in Γ but shifted by m).
-    Discharge params binders only; keep field vars (0..m-1) intact.
-    """
-    p = len(params_actual_shifted)
-    out: list[Term] = []
-    for schema in result_indices:
-        t = schema
-        # eliminate param binders outermost → innermost so inner indices stay stable
-        for s, param in enumerate(params_actual_shifted):
-            index = m + p - s - 1
-            t = t.subst(param.shift(p - s - 1), index)
-        out.append(t)
-    return tuple(out)
 
 
 def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
@@ -154,8 +116,11 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
         # variables.
 
         # 3.1 Instantiate ctor field types with the actual parameters.
-        inst_arg_types = _instantiate_ctor_arg_types(ctor.arg_types, params_actual)
-        m = len(inst_arg_types)
+        ctor_field_types = tuple(
+            discharge_binders(schema, params_actual, depth_above=i).whnf()
+            for i, schema in enumerate(ctor.field_schemas)
+        )
+        m = len(ctor_field_types)
 
         # 3.2 Work in context Γ,fields: shift Γ-level params and motive by m.
         params_in_fields_ctx = tuple(p.shift(m) for p in params_actual)
@@ -166,45 +131,31 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
         field_vars = tuple(Var(j) for j in reversed(range(m)))
         scrut_like = mk_app(ctor, *params_in_fields_ctx, *field_vars)
 
-        # 3.3 Instantiate ctor result indices under fields (params only).
-        result_indices_inst = _instantiate_ctor_result_indices_under_fields(
-            ctor.result_indices, params_in_fields_ctx, m
+        # 3.3 Instantiate ctor result indices under fields.
+        result_indices = tuple(
+            discharge_binders(schema, params_in_fields_ctx, depth_above=m + i)
+            for i, schema in enumerate(ctor.result_indices)
         )
 
         # 3.4 Build IH types for recursive fields.
         # Each IH is in context Γ,fields,ihs_so_far, so shift by m + ri.
-        recursive_field_positions = [
-            j
-            for j, field_ty in enumerate(inst_arg_types)
-            if decompose_app(field_ty)[0] is ind
-        ]
-        r = len(recursive_field_positions)
+        rps = [j for j, t in enumerate(ctor_field_types) if decompose_app(t)[0] is ind]
+        r = len(rps)
         ih_types: list[Term] = []
-        for ri, field_index in enumerate(recursive_field_positions):
-            field_ty = inst_arg_types[field_index]
-            _, field_args = decompose_app(field_ty)
-            params_field = field_args[:p]
-            indices_field = field_args[p : p + q]
-            assert params_field == params_actual
-
-            # field_index is outermost → innermost. Translate to de Bruijn index.
-            field_var_index = m - 1 - field_index
-            ih_type = mk_app(
-                motive.shift(m + ri),
-                *(i.shift(field_var_index + ri) for i in indices_field),
-                Var(field_var_index + ri),
-            )
+        for ri, j in enumerate(rps):
+            rec_field_ty = ctor_field_types[j]
+            _, rec_field_args = decompose_app(rec_field_ty.shift(m).whnf())
+            rec_params = rec_field_args[:p]
+            rec_indices = rec_field_args[p : p + q]
+            assert rec_params == tuple(p.shift(m + j) for p in params_actual)
+            ih_type = mk_app(motive_in_fields_ctx, *rec_indices, Var(j)).shift(ri)
             ih_types.append(ih_type)
 
-        # 3.5 Branch codomain in Γ,fields; then shift for inserted IH binders.
-        codomain_in_fields_ctx = mk_app(
-            motive_in_fields_ctx, *result_indices_inst, scrut_like
-        )
-        codomain = codomain_in_fields_ctx.shift(r)
+        # 3.5 Branch codomain in Γ,fields,IHs.
+        codomain = mk_app(motive_in_fields_ctx, *result_indices, scrut_like).shift(r)
 
         # 3.6 Expected branch type: Π fields. Π ihs. codomain.
-        telescope = (*inst_arg_types, *ih_types)
-        branch_ty = mk_pis(*telescope, return_ty=codomain)
+        branch_ty = mk_pis(*ctor_field_types, *ih_types, return_ty=codomain)
         case.type_check(branch_ty, ctx)
 
     u = motive_applied_ty.return_ty.expect_universe(ctx)  # cod should be Univ(u)
@@ -241,8 +192,6 @@ class Ind(Term):
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: "Ctx") -> Term:
-        from .ind import infer_ind_type
-
         return infer_ind_type(ctx, self)
 
     def shift(self, by: int, cutoff: int = 0) -> Term:  # type: ignore[override]
@@ -264,12 +213,12 @@ class Ctor(Term):
 
     name: str
     inductive: Ind = field(repr=False)
-    arg_types: tuple[Term, ...] = field(repr=False, default=())
+    field_schemas: tuple[Term, ...] = field(repr=False, default=())
     result_indices: tuple[Term, ...] = field(repr=False, default=())
 
     @cached_property
     def all_binders(self) -> tuple[Term, ...]:
-        return self.arg_types + self.result_indices
+        return self.field_schemas + self.result_indices
 
     def index_in_inductive(self) -> int:
         for idx, ctor in enumerate(self.inductive.constructors):
@@ -286,7 +235,7 @@ class Ctor(Term):
         ctor_args = args[len(ind.param_types) :]
 
         ihs: list[Term] = []
-        for arg_term, arg_ty in zip(ctor_args, self.arg_types, strict=True):
+        for arg_term, arg_ty in zip(ctor_args, self.field_schemas, strict=True):
             head, _ = decompose_app(arg_ty)
             if head is self.inductive:
                 ihs.append(
@@ -303,8 +252,6 @@ class Ctor(Term):
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: "Ctx") -> Term:
-        from .ind import infer_ctor_type
-
         return infer_ctor_type(self)
 
     def shift(self, by: int, cutoff: int = 0) -> Term:  # type: ignore[override]
@@ -335,7 +282,7 @@ class Elim(Term):
         scrutinee_whnf = self.scrutinee.whnf()
         head, args = decompose_app(scrutinee_whnf)
         if isinstance(head, Ctor) and head.inductive is self.inductive:
-            expected_args = len(self.inductive.param_types) + len(head.arg_types)
+            expected_args = len(self.inductive.param_types) + len(head.field_schemas)
             if len(args) != expected_args:
                 raise ValueError()
             return head.iota_reduce(self.cases, args, self.motive).whnf()
@@ -346,8 +293,6 @@ class Elim(Term):
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: "Ctx") -> Term:
-        from .ind import infer_elim_type
-
         return infer_elim_type(self, ctx)
 
     def _type_check(self, ty: Term, ctx: "Ctx") -> None:

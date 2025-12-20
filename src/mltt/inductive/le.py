@@ -13,13 +13,13 @@ Le = Ind(name="Le", index_types=(NatType(), NatType()), level=0)
 LeReflCtor = Ctor(
     name="le_refl",
     inductive=Le,
-    arg_types=(NatType(),),  # n : Nat
+    field_schemas=(NatType(),),  # n : Nat
     result_indices=(Var(0), Var(0)),  # Le n n
 )
 LeStepCtor = Ctor(
     name="le_step",
     inductive=Le,
-    arg_types=(
+    field_schemas=(
         NatType(),  # n : Nat
         NatType(),  # m : Nat
         mk_app(Le, Var(1), Var(0)),  # Le n m

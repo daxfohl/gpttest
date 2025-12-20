@@ -1,14 +1,17 @@
 import mltt.inductive.vec as vec
 from mltt.core.ast import Univ, Var
-from mltt.core.debruijn import mk_app, mk_pis, mk_lams
-from mltt.core.ind import Ctor, Elim, Ind, _instantiate_ctor_arg_types
+from mltt.core.debruijn import mk_app, mk_pis, mk_lams, discharge_binders
+from mltt.core.ind import Ctor, Elim, Ind
 from mltt.inductive.nat import NatType, Succ, Zero
 
 
 def test_instantiate_ctor_arg_types_shifts_params_by_fields() -> None:
     params = (Var(0),)  # pretend A is at depth 0 in Γ
 
-    inst = _instantiate_ctor_arg_types(vec.ConsCtor.arg_types, params)
+    inst = tuple(
+        discharge_binders(schema, params, depth_above=i)
+        for i, schema in enumerate(vec.ConsCtor.field_schemas)
+    )
     # n : Nat
     assert inst[0] == vec.NatType()
     # head : A at depth 1 (under previous field n)
@@ -40,11 +43,11 @@ def test_instantiate_ctor_arg_types_shifts_params_by_fields() -> None:
 
 def test_iota_reduce_detects_whnf_recursive_fields() -> None:
     wrap = Ind(name="Wrap", param_types=(), index_types=(), level=0)
-    base_ctor = Ctor(name="Base", inductive=wrap, arg_types=(), result_indices=())
+    base_ctor = Ctor(name="Base", inductive=wrap, field_schemas=(), result_indices=())
     wrap_ctor = Ctor(
         name="Wrap",
         inductive=wrap,
-        arg_types=(mk_app(mk_lams(Univ(0), body=Var(0)), wrap),),
+        field_schemas=(mk_app(mk_lams(Univ(0), body=Var(0)), wrap),),
         result_indices=(),
     )
     object.__setattr__(wrap, "constructors", (base_ctor, wrap_ctor))
@@ -68,11 +71,11 @@ def test_iota_reduce_detects_whnf_recursive_fields() -> None:
 
 def test_iota_reduce_shares_instantiation_with_typing() -> None:
     wrap = Ind(name="WrapRec", param_types=(), index_types=(), level=0)
-    z_ctor = Ctor(name="Z", inductive=wrap, arg_types=(), result_indices=())
+    z_ctor = Ctor(name="Z", inductive=wrap, field_schemas=(), result_indices=())
     s_ctor = Ctor(
         name="S",
         inductive=wrap,
-        arg_types=(mk_app(mk_lams(Univ(0), body=Var(0)), wrap),),
+        field_schemas=(mk_app(mk_lams(Univ(0), body=Var(0)), wrap),),
         result_indices=(),
     )
     object.__setattr__(wrap, "constructors", (z_ctor, s_ctor))

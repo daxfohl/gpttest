@@ -17,7 +17,7 @@ Sigma = Ind(
 PairCtor = Ctor(
     name="Pair",
     inductive=Sigma,
-    arg_types=(
+    field_schemas=(
         Var(1),  # a : A
         App(Var(1), Var(0)),  # b : B a
     ),

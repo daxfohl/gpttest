@@ -12,13 +12,13 @@ Vec = Ind(name="Vec", param_types=(Univ(0),), index_types=(NatType(),), level=0)
 NilCtor = Ctor(
     name="Nil",
     inductive=Vec,
-    arg_types=(),
+    field_schemas=(),
     result_indices=(Zero(),),
 )
 ConsCtor = Ctor(
     name="Cons",
     inductive=Vec,
-    arg_types=(
+    field_schemas=(
         NatType(),  # n : Nat
         Var(1),  # head : A
         mk_app(Vec, Var(2), Var(1)),  # tail : Vec A n

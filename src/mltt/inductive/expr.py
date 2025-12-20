@@ -13,7 +13,7 @@ Expr = Ind(name="Expr", param_types=(Univ(0),), index_types=(Var(0),), level=0)
 ConstCtor = Ctor(
     name="const",
     inductive=Expr,
-    arg_types=(
+    field_schemas=(
         Var(0),  # τ : Ty
         Var(0),  # value : τ
     ),
@@ -23,7 +23,7 @@ ConstCtor = Ctor(
 PairCtor = Ctor(
     name="pair",
     inductive=Expr,
-    arg_types=(
+    field_schemas=(
         Var(0),  # A : Ty
         Var(1),  # B : Ty
         mk_app(Expr, Var(2), Var(1)),  # Expr Ty A

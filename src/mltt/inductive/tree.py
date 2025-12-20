@@ -17,12 +17,12 @@ Tree = Ind(
 LeafCtor = Ctor(
     name="Leaf",
     inductive=Tree,
-    arg_types=(Var(1),),  # payload : A
+    field_schemas=(Var(1),),  # payload : A
 )
 NodeCtor = Ctor(
     name="Node",
     inductive=Tree,
-    arg_types=(
+    field_schemas=(
         Var(0),  # label : B
         mk_app(Tree, Var(2), Var(1)),  # left : Tree A B
         mk_app(Tree, Var(3), Var(2)),  # right : Tree A B

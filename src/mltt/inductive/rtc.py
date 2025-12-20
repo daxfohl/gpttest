@@ -22,7 +22,7 @@ RTC = Ind(
 RTCReflCtor = Ctor(
     name="rtc_refl",
     inductive=RTC,
-    arg_types=(Var(1),),  # x : A
+    field_schemas=(Var(1),),  # x : A
     result_indices=(
         Var(0),  # x
         Var(0),  # x
@@ -32,7 +32,7 @@ RTCReflCtor = Ctor(
 RTCStepCtor = Ctor(
     name="rtc_step",
     inductive=RTC,
-    arg_types=(
+    field_schemas=(
         Var(1),  # x : A
         Var(2),  # z : A
         Var(3),  # y : A

@@ -16,7 +16,7 @@ NilCtor = Ctor(name="Nil", inductive=List)
 ConsCtor = Ctor(
     name="Cons",
     inductive=List,
-    arg_types=(
+    field_schemas=(
         Var(0),
         App(List, Var(1)),
     ),

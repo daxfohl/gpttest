@@ -15,13 +15,13 @@ Fin = Ind(name="Fin", index_types=(NatType(),), level=0)
 FZCtor = Ctor(
     name="FZ",
     inductive=Fin,
-    arg_types=(NatType(),),  # n : Nat
+    field_schemas=(NatType(),),  # n : Nat
     result_indices=(Succ(Var(0)),),
 )
 FSCtor = Ctor(
     name="FS",
     inductive=Fin,
-    arg_types=(
+    field_schemas=(
         NatType(),  # n : Nat
         App(Fin, Var(0)),  # Fin n
     ),

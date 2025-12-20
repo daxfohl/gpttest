@@ -20,14 +20,14 @@ All = Ind(
 AllNilCtor = Ctor(
     name="all_nil",
     inductive=All,
-    arg_types=(),
+    field_schemas=(),
     result_indices=(App(NilCtor, Var(1)),),
 )
 
 AllConsCtor = Ctor(
     name="all_cons",
     inductive=All,
-    arg_types=(
+    field_schemas=(
         mk_app(List, Var(1)),  # xs : List A
         Var(2),  # x : A
         mk_app(Var(2), Var(0)),  # px : P x

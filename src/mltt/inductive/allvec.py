@@ -18,7 +18,7 @@ AllVec = Ind(
 AllNilCtor = Ctor(
     name="AllNil",
     inductive=AllVec,
-    arg_types=(),
+    field_schemas=(),
     result_indices=(
         Zero(),  # n = 0
         Nil(Var(1)),  # xs = Nil A   (A = Var(1) in (params)(fields))
@@ -28,7 +28,7 @@ AllNilCtor = Ctor(
 AllConsCtor = Ctor(
     name="AllCons",
     inductive=AllVec,
-    arg_types=(
+    field_schemas=(
         NatType(),  # n : Nat
         Var(2),  # x : A (context: (A,P,n))
         VecType(Var(3), Var(1)),  # xs : Vec A n (context: (A,P,n,x))

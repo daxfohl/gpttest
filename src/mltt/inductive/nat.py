@@ -9,7 +9,7 @@ from ..core.ind import Elim, Ctor, Ind
 
 Nat = Ind(name="Nat", level=0)
 ZeroCtor = Ctor(name="Zero", inductive=Nat)
-SuccCtor = Ctor(name="Succ", inductive=Nat, arg_types=(Nat,))
+SuccCtor = Ctor(name="Succ", inductive=Nat, field_schemas=(Nat,))
 object.__setattr__(Nat, "constructors", (ZeroCtor, SuccCtor))
 
 
