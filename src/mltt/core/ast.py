@@ -26,7 +26,7 @@ class Term:
         return tuple(
             f
             for f in cls.__dataclass_fields__.values()
-            if not f.metadata.get("uncheckable")
+            if not f.metadata.get("unchecked")
         )
 
     def _map_field(self, field_info: Field, mapper: Callable[[Term, Any], Term]) -> Any:
@@ -77,8 +77,7 @@ class Term:
             return reduced
         for f in self._reducible_fields():
             new_value = self._map_field(f, lambda t, _: t._reduce_inside_step(reducer))
-            value = getattr(self, f.name)
-            if new_value != value:
+            if new_value != getattr(self, f.name):
                 # noinspection PyArgumentList
                 return replace(self, **{f.name: new_value})
         return self
