@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence, overload
+from typing import Sequence, overload, Iterator
 
 from .ast import Term, App, Lam, Pi, Var
 
@@ -11,7 +11,7 @@ from .ast import Term, App, Lam, Pi, Var
 @dataclass(frozen=True)
 class ArgList(Sequence[Term]):
 
-    entries: tuple[Term, ...] = ()
+    terms: tuple[Term, ...] = ()
 
     @staticmethod
     def of(*terms: Term) -> ArgList:
@@ -31,32 +31,28 @@ class ArgList(Sequence[Term]):
     def __getitem__(self, s: slice, /) -> ArgList: ...
     def __getitem__(self, key: int | slice) -> Term | ArgList:
         if isinstance(key, slice):
-            return ArgList(self.entries[key])
-        return self.entries[key]
+            return ArgList(self.terms[key])
+        return self.terms[key]
 
     def __len__(self) -> int:
-        return len(self.entries)
-
-    def __add__(self, other: ArgList) -> ArgList:
-        assert isinstance(other, ArgList)
-        return ArgList(self.entries + other.entries)
+        return len(self.terms)
 
     def instantiate(self, actuals: ArgList, depth_above: int = 0) -> ArgList:
         return ArgList(
             tuple(
-                discharge_binders(t, actuals.entries, depth_above=depth_above).whnf()
-                for t in self.entries
+                discharge_binders(t, actuals.terms, depth_above=depth_above).whnf()
+                for t in self.terms
             )
         )
 
     def shift(self, i: int) -> ArgList:
-        return ArgList(tuple(e.shift(i) for e in self.entries))
+        return ArgList(tuple(e.shift(i) for e in self.terms))
 
 
 @dataclass(frozen=True)
-class Telescope(Sequence[Term]):
+class Telescope:
 
-    entries: tuple[Term, ...] = ()
+    binders: tuple[Term, ...] = ()
 
     @staticmethod
     def of(*terms: Term) -> Telescope:
@@ -66,29 +62,24 @@ class Telescope(Sequence[Term]):
     def empty() -> Telescope:
         return Telescope()
 
-    @overload
-    def __getitem__(self, i: int, /) -> Term: ...
-    @overload
-    def __getitem__(self, s: slice, /) -> Telescope: ...
-    def __getitem__(self, key: int | slice) -> Term | Telescope:
-        if isinstance(key, slice):
-            return Telescope(self.entries[key])
-        return self.entries[key]
+    def __getitem__(self, key: int) -> Term:
+        return self.binders[key]
 
     def __len__(self) -> int:
-        return len(self.entries)
+        return len(self.binders)
+
+    def __iter__(self) -> Iterator[Term]:
+        return iter(self.binders)
 
     def __add__(self, other: Telescope) -> Telescope:
         assert isinstance(other, Telescope)
-        return Telescope(self.entries + other.entries)
+        return Telescope(self.binders + other.binders)
 
     def instantiate(self, actuals: ArgList, depth_above: int = 0) -> Telescope:
         return Telescope.of(
             *(
-                discharge_binders(
-                    t, actuals.entries, depth_above=depth_above + i
-                ).whnf()
-                for i, t in enumerate(self.entries)
+                discharge_binders(t, actuals.terms, depth_above + i).whnf()
+                for i, t in enumerate(self.binders)
             )
         )
 
@@ -107,7 +98,7 @@ class CtxEntry:
 
 
 @dataclass(frozen=True)
-class Ctx(Sequence[CtxEntry]):
+class Ctx:
     """
     Typing context for de Bruijn-indexed terms.
 
@@ -144,11 +135,10 @@ class Ctx(Sequence[CtxEntry]):
     def __len__(self) -> int:
         return len(self.entries)
 
-    @overload
-    def __getitem__(self, i: int, /) -> CtxEntry: ...
-    @overload
-    def __getitem__(self, s: slice, /) -> Sequence[CtxEntry]: ...
-    def __getitem__(self, idx: int | slice) -> CtxEntry | Sequence[CtxEntry]:
+    def __iter__(self) -> Iterator[CtxEntry]:
+        return iter(self.entries)
+
+    def __getitem__(self, idx: int) -> CtxEntry:
         return self.entries[idx]
 
     def insert(self, *tys: Term) -> Ctx:
