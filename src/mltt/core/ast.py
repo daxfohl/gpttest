@@ -10,43 +10,6 @@ if TYPE_CHECKING:
     from .debruijn import Ctx
 
 
-# --- Structural utilities -----------------------------------------------------
-def _map_value(value: Any, mapper: Reducer) -> tuple[Any, bool]:
-    if isinstance(value, Term):
-        mapped = mapper(value)
-        return mapped, mapped != value
-    if isinstance(value, tuple):
-        changed = False
-        mapped_items = []
-        for item in value:
-            if isinstance(item, Term):
-                mapped_item = mapper(item)
-                changed = changed or mapped_item != item
-                mapped_items.append(mapped_item)
-            else:
-                mapped_items.append(item)
-        return (tuple(mapped_items), True) if changed else (value, False)
-    return value, False
-
-
-def _reduce_value(value: Any, reducer: Reducer) -> tuple[Any, bool]:
-    if isinstance(value, Term):
-        reduced = value.reduce_inside_step(reducer)
-        return reduced, reduced != value
-    if isinstance(value, tuple):
-        changed = False
-        items: list[Any] = []
-        for item in value:
-            if isinstance(item, Term):
-                reduced = item.reduce_inside_step(reducer)
-                changed = changed or reduced != item
-                items.append(reduced)
-            else:
-                items.append(item)
-        return (tuple(items), True) if changed else (value, False)
-    return value, False
-
-
 @dataclass(frozen=True)
 class Term:
     """Base class for all MLTT terms."""
@@ -66,47 +29,56 @@ class Term:
             if not f.metadata.get("uncheckable")
         )
 
-    def _replace_terms(self, mapper: Reducer) -> Term:
-        updates: dict[str, Any] = {}
-        for field_info in self._reducible_fields():
-            value = getattr(self, field_info.name)
-            mapped, changed = _map_value(value, mapper)
-            if changed:
-                updates[field_info.name] = mapped
+    def _map_field(self, field_info: Field, mapper: Callable[[Term, Any], Term]) -> Any:
+        value = getattr(self, field_info.name)
+        if isinstance(value, Term):
+            return mapper(value, field_info.metadata)
+        if isinstance(value, tuple):
+            mapped_items = []
+            for item in value:
+                if isinstance(item, Term):
+                    mapped_item = mapper(item, field_info.metadata)
+                    mapped_items.append(mapped_item)
+                else:
+                    mapped_items.append(item)
+            return tuple(mapped_items)
+        return value
+
+    def _replace_terms(self, mapper: Callable[[Term, Any], Term]) -> Term:
+        updates = {f.name: self._map_field(f, mapper) for f in self._reducible_fields()}
         # noinspection PyArgumentList
         return replace(self, **updates) if updates else self
 
     def shift(self, by: int, cutoff: int = 0) -> Term:
         """Shift free variables in the term."""
-        return self._replace_terms(lambda child: child.shift(by, cutoff))
+        return self._replace_terms(lambda t, m: t.shift(by, cutoff + m.get("binds", 0)))
 
     def subst(self, sub: Term, j: int = 0) -> Term:
         """Substitute ``sub`` for ``Var(j)`` inside the term."""
-        return self._replace_terms(lambda child: child.subst(sub, j))
+        return self._replace_terms(
+            lambda t, m: t.subst(sub.shift(m.get("binds", 0)), j + m.get("binds", 0))
+        )
 
     # --- Reduction ------------------------------------------------------------
     def whnf(self) -> Term:
         """Weak head normal form."""
         return self
 
-    def reduce_inside_step(self, reducer: Reducer) -> Term:
+    def _reduce_inside_step(self, reducer: Reducer) -> Term:
         reduced = reducer(self)
         if reduced != self:
             return reduced
-        return self._reduce_children(reducer)
-
-    def _reduce_children(self, reducer: Reducer) -> Term:
-        for field_info in self._reducible_fields():
-            value = getattr(self, field_info.name)
-            new_value, changed = _reduce_value(value, reducer)
-            if changed:
+        for f in self._reducible_fields():
+            new_value = self._map_field(f, lambda t, _: t._reduce_inside_step(reducer))
+            value = getattr(self, f.name)
+            if new_value != value:
                 # noinspection PyArgumentList
-                return replace(self, **{field_info.name: new_value})
+                return replace(self, **{f.name: new_value})
         return self
 
     def normalize_step(self) -> Term:
         """Perform a single beta/iota reduction step anywhere in the term."""
-        return self.reduce_inside_step(methodcaller("whnf"))
+        return self._reduce_inside_step(methodcaller("whnf"))
 
     def normalize(self) -> Term:
         """Fully normalize the term."""
@@ -225,17 +197,7 @@ class Lam(Term):
     """Dependent lambda term with an argument type and body."""
 
     arg_ty: Term
-    body: Term = field(metadata={"under_binder": True})
-
-    # De Bruijn ---------------------------------------------------------------
-    def shift(self, by: int, cutoff: int = 0) -> Term:
-        return Lam(self.arg_ty.shift(by, cutoff), self.body.shift(by, cutoff + 1))
-
-    def subst(self, sub: Term, j: int = 0) -> Term:
-        return Lam(
-            self.arg_ty.subst(sub, j),
-            self.body.subst(sub.shift(1), j + 1),
-        )
+    body: Term = field(metadata={"binds": 1})
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: Ctx) -> Term:
@@ -264,17 +226,7 @@ class Pi(Term):
     """Dependent function type (Pi-type)."""
 
     arg_ty: Term
-    return_ty: Term = field(metadata={"under_binder": True})
-
-    # De Bruijn ---------------------------------------------------------------
-    def shift(self, by: int, cutoff: int = 0) -> Term:
-        return Pi(self.arg_ty.shift(by, cutoff), self.return_ty.shift(by, cutoff + 1))
-
-    def subst(self, sub: Term, j: int = 0) -> Term:
-        return Pi(
-            self.arg_ty.subst(sub, j),
-            self.return_ty.subst(sub.shift(1), j + 1),
-        )
+    return_ty: Term = field(metadata={"binds": 1})
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: Ctx) -> Term:
