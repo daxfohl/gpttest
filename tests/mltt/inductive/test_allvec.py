@@ -1,5 +1,5 @@
 from mltt.core.ast import Univ, Var, Pi, App, Term
-from mltt.core.debruijn import mk_lams, Ctx, mk_pis, mk_app
+from mltt.core.debruijn import mk_lams, mk_pis, mk_app
 from mltt.inductive import vec, allvec
 from mltt.inductive.allvec import AllVecType, AllVecElim, AllNil, AllCons
 from mltt.inductive.nat import NatType, Zero, Succ

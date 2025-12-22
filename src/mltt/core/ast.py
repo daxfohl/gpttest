@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields, replace, Field, field
 from operator import methodcaller
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Self
+from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 if TYPE_CHECKING:
     from .debruijn import Ctx
@@ -60,7 +60,11 @@ class Term:
 
     @classmethod
     def _checkable_fields(cls) -> tuple[Field, ...]:
-        return tuple(f for f in cls.__dataclass_fields__.values() if not f.metadata.get("uncheckable"))
+        return tuple(
+            f
+            for f in cls.__dataclass_fields__.values()
+            if not f.metadata.get("uncheckable")
+        )
 
     def _replace_terms(self, mapper: Reducer) -> Term:
         updates: dict[str, Any] = {}

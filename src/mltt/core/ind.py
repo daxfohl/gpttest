@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import ClassVar, Self
+from typing import ClassVar
 
-from .ast import Term, Var, Pi, Univ, App, Reducer
+from .ast import Term, Var, Pi, Univ, App
 from .debruijn import Ctx, mk_app, mk_pis, decompose_app, discharge_binders
 
 
@@ -181,9 +181,15 @@ class Ind(Term):
     """A generalized inductive type with constructors."""
 
     name: str
-    param_types: tuple[Term, ...] = field(repr=False, default=(), metadata={"unchecked": True})
-    index_types: tuple[Term, ...] = field(repr=False, default=(), metadata={"unchecked": True})
-    constructors: tuple["Ctor", ...] = field(repr=False, default=(), metadata={"unchecked": True})
+    param_types: tuple[Term, ...] = field(
+        repr=False, default=(), metadata={"unchecked": True}
+    )
+    index_types: tuple[Term, ...] = field(
+        repr=False, default=(), metadata={"unchecked": True}
+    )
+    constructors: tuple["Ctor", ...] = field(
+        repr=False, default=(), metadata={"unchecked": True}
+    )
     level: int = 0
     is_terminal: ClassVar[bool] = True
 
@@ -202,8 +208,12 @@ class Ctor(Term):
 
     name: str
     inductive: Ind = field(repr=False, metadata={"unchecked": True})
-    field_schemas: tuple[Term, ...] = field(repr=False, default=(), metadata={"unchecked": True})
-    result_indices: tuple[Term, ...] = field(repr=False, default=(), metadata={"unchecked": True})
+    field_schemas: tuple[Term, ...] = field(
+        repr=False, default=(), metadata={"unchecked": True}
+    )
+    result_indices: tuple[Term, ...] = field(
+        repr=False, default=(), metadata={"unchecked": True}
+    )
     is_terminal: ClassVar[bool] = True
 
     @cached_property
