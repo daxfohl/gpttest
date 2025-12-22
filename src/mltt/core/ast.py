@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Self
 if TYPE_CHECKING:
     from .debruijn import Ctx
 
+
 # --- Structural utilities -----------------------------------------------------
 def _map_value(value: Any, mapper: Reducer) -> tuple[Any, bool]:
     if isinstance(value, Term):
@@ -26,6 +27,7 @@ def _map_value(value: Any, mapper: Reducer) -> tuple[Any, bool]:
                 mapped_items.append(item)
         return (tuple(mapped_items), True) if changed else (value, False)
     return value, False
+
 
 def _reduce_value(value: Any, reducer: Reducer) -> tuple[Any, bool]:
     if isinstance(value, Term):
@@ -351,10 +353,11 @@ class Univ(Term):
     def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
         if not isinstance(expected_ty, Univ):
             raise TypeError(
-                "Universe type mismatch:\n" f"  term = {self}\n" f"  expected = {expected_ty}"
+                "Universe type mismatch:\n"
+                f"  term = {self}\n"
+                f"  expected = {expected_ty}"
             )
         # TODO: Check Universe Levels once Ind supports cumulativity
-
 
 
 Reducer = Callable[[Term], Term]
