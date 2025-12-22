@@ -64,7 +64,7 @@ class Term:
         """Weak head normal form."""
         return self
 
-    def _reduce_inside_step(self, reducer: Reducer) -> Term:
+    def _reduce_inside_step(self, reducer: Callable[[Term], Term]) -> Term:
         reduced = reducer(self)
         if reduced != self:
             return reduced
@@ -306,9 +306,6 @@ class Univ(Term):
             )
         # TODO: Check Universe Levels once Ind supports cumulativity
 
-
-Reducer = Callable[[Term], Term]
-
 __all__ = [
     "Term",
     "Var",
@@ -316,5 +313,4 @@ __all__ = [
     "Pi",
     "App",
     "Univ",
-    "Reducer",
 ]
