@@ -99,6 +99,12 @@ class CtxEntry:
 
     ty: Term
 
+    @staticmethod
+    def of(entry: CtxEntry | Term) -> CtxEntry:
+        """Coerce an entry or term into a ``CtxEntry``."""
+
+        return entry if isinstance(entry, CtxEntry) else CtxEntry(entry)
+
 
 @dataclass(frozen=True)
 class Ctx(Sequence[CtxEntry]):
@@ -160,18 +166,12 @@ class Ctx(Sequence[CtxEntry]):
         """
         # prepend(t0, ..., tk) == prepend(t0).prepend(t1)...prepend(tk)
         # so insert from innermost to outermost (reverse order).
-        return Ctx.as_ctx(*reversed(tys), *self.entries)
+        return Ctx.of(*reversed(tys), *self.entries)
 
     @staticmethod
-    def as_ctx(*ctx: CtxEntry | Term) -> Ctx:
+    def of(*ctx: CtxEntry | Term) -> Ctx:
         """Coerce a sequence of entries or terms into a ``Ctx`` of ``CtxEntry``."""
-        return Ctx(tuple(Ctx.as_ctx_entry(entry) for entry in ctx))
-
-    @staticmethod
-    def as_ctx_entry(entry: CtxEntry | Term) -> CtxEntry:
-        """Coerce an entry or term into a ``CtxEntry``."""
-
-        return entry if isinstance(entry, CtxEntry) else CtxEntry(entry)
+        return Ctx(tuple(CtxEntry.of(entry) for entry in ctx))
 
     def __str__(self) -> str:
         if len(self.entries) < 2:

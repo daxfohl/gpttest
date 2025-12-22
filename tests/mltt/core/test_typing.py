@@ -10,7 +10,7 @@ def test_infer_var() -> None:
     with pytest.raises(TypeError, match="Unbound variable"):
         assert Var(0).infer_type()
     t = NatType()
-    assert Var(0).infer_type(Ctx.as_ctx(t)) == t
+    assert Var(0).infer_type(Ctx.of(t)) == t
 
 
 def test_infer_lam() -> None:
@@ -38,7 +38,7 @@ def test_infer_lam() -> None:
 
 def test_infer_lam_ctx() -> None:
     def infer(t: Term) -> Term:
-        return t.infer_type(Ctx.as_ctx(Univ(100)))
+        return t.infer_type(Ctx.of(Univ(100)))
 
     assert infer(Lam(NatType(), Var(0))) == Pi(NatType(), NatType())
     assert infer(Lam(NatType(), Zero())) == Pi(NatType(), NatType())
