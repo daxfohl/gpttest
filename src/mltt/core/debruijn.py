@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Generic, TypeVar, overload, Self, Any
-from typing import Iterable, cast, Callable
-
-from mypyc.ir.ops import Sequence
+from typing import Generic, TypeVar, overload, Self, Sequence, Iterable, Callable
 
 from .ast import Term, App, Lam, Pi, Var
 
@@ -37,35 +34,21 @@ class SeqBase(Sequence[T], Generic[T]):
 
     def __getitem__(self, idx: int | slice) -> T | Self:
         if isinstance(idx, slice):
-            return self._wrap(cast(tuple[T, ...], self._data[idx]))
+            return self.of(*self._data[idx])
         return self._data[idx]
-
-    def __iter__(self) -> Iterator[T]:
-        return iter(self._data)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({list(self._data)!r})"
 
     def __add__(self, other: Iterable[T]) -> Self:
-        return self._wrap(tuple(self) + tuple(other))
-
-    def __eq__(self, other: Any) -> bool:
-        return isinstance(other, type(self)) and self._data == other._data
-
-    # ---- key extensibility point ----
-    def _wrap(self, data: tuple[T, ...]) -> Self:
-        # create same runtime type (subclass-friendly)
-        return type(self)(data)  # type: ignore[misc]
+        return self.of(*self, *other)
 
     # ---- a couple generic helpers you might want everywhere ----
-    def to_list(self) -> list[T]:
-        return list(self._data)
-
     def map(self, f: Callable[[T], T]) -> Self:
-        return self._wrap(tuple(f(x) for x in self._data))
+        return self.of(*(f(x) for x in self._data))
 
     def mapi(self, f: Callable[[int, T], T]) -> Self:
-        return self._wrap(tuple(f(i, x) for i, x in enumerate(self._data)))
+        return self.of(*(f(i, x) for i, x in enumerate(self._data)))
 
 
 class ArgList(SeqBase[Term]):
