@@ -181,9 +181,9 @@ class Ind(Term):
     """A generalized inductive type with constructors."""
 
     name: str
-    param_types: tuple[Term, ...] = field(repr=False, default=())
-    index_types: tuple[Term, ...] = field(repr=False, default=())
-    constructors: tuple["Ctor", ...] = field(repr=False, default=())
+    param_types: tuple[Term, ...] = field(repr=False, default=(), metadata={"unchecked": True})
+    index_types: tuple[Term, ...] = field(repr=False, default=(), metadata={"unchecked": True})
+    constructors: tuple["Ctor", ...] = field(repr=False, default=(), metadata={"unchecked": True})
     level: int = 0
     is_terminal: ClassVar[bool] = True
 
@@ -195,18 +195,15 @@ class Ind(Term):
     def _infer_type(self, ctx: Ctx) -> Term:
         return infer_ind_type(ctx, self)
 
-    def _type_equal_with(self, other: Self, ctx: Ctx) -> bool:
-        return other is self
-
 
 @dataclass(frozen=True, kw_only=True)
 class Ctor(Term):
     """A constructor for an inductive type."""
 
     name: str
-    inductive: Ind = field(repr=False)
-    field_schemas: tuple[Term, ...] = field(repr=False, default=())
-    result_indices: tuple[Term, ...] = field(repr=False, default=())
+    inductive: Ind = field(repr=False, metadata={"unchecked": True})
+    field_schemas: tuple[Term, ...] = field(repr=False, default=(), metadata={"unchecked": True})
+    result_indices: tuple[Term, ...] = field(repr=False, default=(), metadata={"unchecked": True})
     is_terminal: ClassVar[bool] = True
 
     @cached_property
@@ -241,9 +238,6 @@ class Ctor(Term):
     def _infer_type(self, ctx: Ctx) -> Term:
         return infer_ctor_type(self)
 
-    def _type_equal_with(self, other: Self, ctx: Ctx) -> bool:
-        return other is self
-
 
 @dataclass(frozen=True)
 class Elim(Term):
@@ -269,20 +263,6 @@ class Elim(Term):
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: Ctx) -> Term:
         return infer_elim_type(self, ctx)
-
-    def _type_equal_with(self, other: Self, ctx: Ctx) -> bool:
-        if other.inductive is not self.inductive:
-            return False
-        if len(self.cases) != len(other.cases):
-            return False
-        return (
-            self.motive.type_equal(other.motive, ctx)
-            and all(
-                case1.type_equal(case2, ctx)
-                for case1, case2 in zip(self.cases, other.cases, strict=True)
-            )
-            and self.scrutinee.type_equal(other.scrutinee, ctx)
-        )
 
 
 __all__ = [

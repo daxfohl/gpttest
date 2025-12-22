@@ -43,7 +43,7 @@ def test_elim_allvec_allcons_requires_param_shift_under_fields_for_result_indice
         App(Var(1), Var(0)),  # px0 : F z        (F is Var(1), z is Var(0) here)
         return_ty=NatType(),
     )
-    assert ty.type_equal(expected, Ctx())
+    assert ty.type_equal(expected)
 
 
 def mk_allvec_elim_body(*, recursive: bool = False, nil: bool = False) -> Term:

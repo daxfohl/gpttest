@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, fields, replace, Field
+from dataclasses import dataclass, fields, replace, Field, field
 from operator import methodcaller
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Self
 
@@ -54,8 +54,13 @@ class Term:
     is_terminal: ClassVar[bool] = False
 
     # --- De Bruijn operations -------------------------------------------------
-    def _reducible_fields(self) -> tuple[Field, ...]:
-        return () if self.is_terminal else fields(self)
+    @classmethod
+    def _reducible_fields(cls) -> tuple[Field, ...]:
+        return () if cls.is_terminal else fields(cls)
+
+    @classmethod
+    def _checkable_fields(cls) -> tuple[Field, ...]:
+        return tuple(f for f in cls.__dataclass_fields__.values() if not f.metadata.get("uncheckable"))
 
     def _replace_terms(self, mapper: Reducer) -> Term:
         updates: dict[str, Any] = {}
@@ -133,26 +138,28 @@ class Term:
             )
         return ty.level
 
-    def type_equal(self, other: Term, ctx: Ctx | None = None) -> bool:
-        from .debruijn import Ctx
-
-        ctx = ctx or Ctx()
+    def type_equal(self, other: Term) -> bool:
         self_whnf = self.whnf()
         other_whnf = other.whnf()
         if self_whnf == other_whnf:
             return True
         if type(self_whnf) != type(other_whnf):
             return False
-        return self_whnf._type_equal_with(other_whnf, ctx)
-
-    def _type_equal_with(self, other: Self, ctx: Ctx) -> bool:
-        return False
+        for f in type(self_whnf)._checkable_fields():
+            s = getattr(self_whnf, f.name)
+            o = getattr(other_whnf, f.name)
+            if isinstance(s, Term) and isinstance(o, Term):
+                if not s.type_equal(o):
+                    return False
+            elif s != o:
+                return False
+        return True
 
     def _check_against_inferred(
         self, expected_ty: Term, ctx: Ctx, *, label: str
     ) -> None:
         inferred_ty = self.infer_type(ctx)
-        if not expected_ty.type_equal(inferred_ty, ctx):
+        if not expected_ty.type_equal(inferred_ty):
             raise TypeError(
                 f"{label} type mismatch:\n"
                 f"  term = {self}\n"
@@ -200,7 +207,7 @@ class Var(Term):
         if self.k >= len(ctx):
             raise TypeError(f"Unbound variable {self.k}")
         found_ty = ctx[self.k].ty.shift(self.k + 1)
-        if not found_ty.type_equal(expected_ty, ctx):
+        if not found_ty.type_equal(expected_ty):
             raise TypeError(
                 "Variable type mismatch:\n"
                 f"  term = {self}\n"
@@ -214,7 +221,7 @@ class Lam(Term):
     """Dependent lambda term with an argument type and body."""
 
     arg_ty: Term
-    body: Term
+    body: Term = field(metadata={"under_binder": True})
 
     # De Bruijn ---------------------------------------------------------------
     def shift(self, by: int, cutoff: int = 0) -> Term:
@@ -238,20 +245,14 @@ class Lam(Term):
                 f"  term = {self}\n"
                 f"  expected = {expected_ty}"
             )
-        if not self.arg_ty.type_equal(expected_ty.arg_ty, ctx):
+        if not self.arg_ty.type_equal(expected_ty.arg_ty):
             raise TypeError(
                 "Lambda domain mismatch:\n"
                 f"  term = {self}\n"
                 f"  expected domain = {expected_ty.arg_ty}\n"
                 f"  found domain = {self.arg_ty}"
             )
-        ctx1 = ctx.insert(self.arg_ty)
-        self.body.type_check(expected_ty.return_ty, ctx1)
-
-    def _type_equal_with(self, other: Self, ctx: Ctx) -> bool:
-        return self.arg_ty.type_equal(other.arg_ty, ctx) and self.body.type_equal(
-            other.body, ctx.insert(self.arg_ty)
-        )
+        self.body.type_check(expected_ty.return_ty, ctx.insert(self.arg_ty))
 
 
 @dataclass(frozen=True)
@@ -259,7 +260,7 @@ class Pi(Term):
     """Dependent function type (Pi-type)."""
 
     arg_ty: Term
-    return_ty: Term
+    return_ty: Term = field(metadata={"under_binder": True})
 
     # De Bruijn ---------------------------------------------------------------
     def shift(self, by: int, cutoff: int = 0) -> Term:
@@ -276,11 +277,6 @@ class Pi(Term):
         arg_level = self.arg_ty.expect_universe(ctx)
         body_level = self.return_ty.expect_universe(ctx.insert(self.arg_ty))
         return Univ(max(arg_level, body_level))
-
-    def _type_equal_with(self, other: Self, ctx: Ctx) -> bool:
-        return self.arg_ty.type_equal(other.arg_ty, ctx) and self.return_ty.type_equal(
-            other.return_ty, ctx.insert(self.arg_ty)
-        )
 
 
 @dataclass(frozen=True)
@@ -321,18 +317,13 @@ class App(Term):
             )
         self.arg.type_check(f_ty.arg_ty, ctx)
         inferred_ty = f_ty.return_ty.subst(self.arg)
-        if not expected_ty.type_equal(inferred_ty, ctx):
+        if not expected_ty.type_equal(inferred_ty):
             raise TypeError(
                 "Application result type mismatch:\n"
                 f"  term = {self}\n"
                 f"  expected = {expected_ty}\n"
                 f"  inferred = {inferred_ty}"
             )
-
-    def _type_equal_with(self, other: Self, ctx: Ctx) -> bool:
-        return self.func.type_equal(other.func, ctx) and self.arg.type_equal(
-            other.arg, ctx
-        )
 
 
 @dataclass(frozen=True)

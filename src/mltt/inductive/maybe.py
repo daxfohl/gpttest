@@ -24,7 +24,7 @@ def Just(elem_ty: Term, value: Term) -> Term:
     return mk_app(JustCtor, elem_ty, value)
 
 
-def MaybeRec(P: Term, nothing_case: Term, just_case: Term, scrutinee: Term) -> Elim:
+def MaybeElim(P: Term, nothing_case: Term, just_case: Term, scrutinee: Term) -> Elim:
     """Eliminate Maybe by providing branches for ``Nothing`` and ``Just``."""
 
     return Elim(
@@ -42,5 +42,5 @@ __all__ = [
     "JustCtor",
     "Nothing",
     "Just",
-    "MaybeRec",
+    "MaybeElim",
 ]

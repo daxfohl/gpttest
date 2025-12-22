@@ -6,7 +6,7 @@ from mltt.inductive.maybe import (
     Just,
     JustCtor,
     Maybe,
-    MaybeRec,
+    MaybeElim,
     MaybeType,
     Nothing,
     NothingCtor,
@@ -32,8 +32,8 @@ def test_maybe_rec_eliminates() -> None:
     nothing_case = Zero()
     just_case = Lam(elem_ty, Succ(Var(0)))
 
-    term_just = MaybeRec(motive, nothing_case, just_case, just_zero)
-    term_nothing = MaybeRec(motive, nothing_case, just_case, Nothing(elem_ty))
+    term_just = MaybeElim(motive, nothing_case, just_case, just_zero)
+    term_nothing = MaybeElim(motive, nothing_case, just_case, Nothing(elem_ty))
 
     assert term_just.normalize() == Succ(Zero())
     assert term_nothing.normalize() == Zero()
