@@ -66,9 +66,6 @@ ipython_config.py
 # uv
 .uv/
 
-# pytype
-.pytype/
-
 # Cython debug symbols
 test/build/
 cython_debug/
