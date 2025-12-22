@@ -8,24 +8,24 @@ from ..core.ast import (
     Term,
     Var,
 )
-from ..core.debruijn import mk_app, mk_lams
+from ..core.debruijn import mk_app, mk_lams, Telescope, ArgList
 from ..core.ind import Elim, Ctor, Ind
 
-Fin = Ind(name="Fin", index_types=(NatType(),), level=0)
+Fin = Ind(name="Fin", index_types=Telescope.of(NatType()), level=0)
 FZCtor = Ctor(
     name="FZ",
     inductive=Fin,
-    field_schemas=(NatType(),),  # n : Nat
-    result_indices=(Succ(Var(0)),),
+    field_schemas=Telescope.of(NatType()),  # n : Nat
+    result_indices=ArgList.of(Succ(Var(0))),
 )
 FSCtor = Ctor(
     name="FS",
     inductive=Fin,
-    field_schemas=(
+    field_schemas=Telescope.of(
         NatType(),  # n : Nat
         App(Fin, Var(0)),  # Fin n
     ),
-    result_indices=(Succ(Var(1)),),
+    result_indices=ArgList.of(Succ(Var(1))),
 )
 object.__setattr__(Fin, "constructors", (FZCtor, FSCtor))
 

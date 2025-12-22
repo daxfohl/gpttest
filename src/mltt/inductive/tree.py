@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from ..core.ast import Term, Univ, Var
-from ..core.debruijn import mk_app
+from ..core.debruijn import mk_app, Telescope
 from ..core.ind import Elim, Ctor, Ind
 
 Tree = Ind(
     name="Tree",
-    param_types=(
+    param_types=Telescope.of(
         Univ(0),  # A : Type
         Univ(0),  # B : Type
     ),
@@ -17,12 +17,12 @@ Tree = Ind(
 LeafCtor = Ctor(
     name="Leaf",
     inductive=Tree,
-    field_schemas=(Var(1),),  # payload : A
+    field_schemas=Telescope.of(Var(1)),  # payload : A
 )
 NodeCtor = Ctor(
     name="Node",
     inductive=Tree,
-    field_schemas=(
+    field_schemas=Telescope.of(
         Var(0),  # label : B
         mk_app(Tree, Var(2), Var(1)),  # left : Tree A B
         mk_app(Tree, Var(3), Var(2)),  # right : Tree A B

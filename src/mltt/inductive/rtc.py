@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 from ..core.ast import Pi, Term, Univ, Var
-from ..core.debruijn import mk_app
+from ..core.debruijn import mk_app, Telescope, ArgList
 from ..core.ind import Elim, Ctor, Ind
 
 RTC = Ind(
     name="RTC",
-    param_types=(
+    param_types=Telescope.of(
         Univ(0),  # A
         Pi(Var(0), Pi(Var(1), Univ(0))),  # R : A -> A -> Type
     ),
-    index_types=(
+    index_types=Telescope.of(
         Var(1),  # x : A
         Var(2),  # z : A
     ),
@@ -22,8 +22,8 @@ RTC = Ind(
 RTCReflCtor = Ctor(
     name="rtc_refl",
     inductive=RTC,
-    field_schemas=(Var(1),),  # x : A
-    result_indices=(
+    field_schemas=Telescope.of(Var(1)),  # x : A
+    result_indices=ArgList.of(
         Var(0),  # x
         Var(0),  # x
     ),
@@ -32,14 +32,14 @@ RTCReflCtor = Ctor(
 RTCStepCtor = Ctor(
     name="rtc_step",
     inductive=RTC,
-    field_schemas=(
+    field_schemas=Telescope.of(
         Var(1),  # x : A
         Var(2),  # z : A
         Var(3),  # y : A
         mk_app(Var(3), Var(2), Var(0)),  # R x y
         mk_app(RTC, Var(5), Var(4), Var(1), Var(2)),  # RTC A R y z
     ),
-    result_indices=(
+    result_indices=ArgList.of(
         Var(4),  # x
         Var(3),  # z
     ),

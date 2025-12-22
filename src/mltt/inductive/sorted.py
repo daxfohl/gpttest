@@ -4,37 +4,38 @@ from __future__ import annotations
 
 from .list import ConsCtor, List, NilCtor
 from ..core.ast import App, Pi, Term, Univ, Var
-from ..core.debruijn import mk_app
+from ..core.debruijn import mk_app, Telescope, ArgList
 from ..core.ind import Elim, Ctor, Ind
 
 Sorted = Ind(
     name="Sorted",
-    param_types=(
+    param_types=Telescope.of(
         Univ(0),  # A : Type
         Pi(Var(0), Pi(Var(1), Univ(0))),  # R : A -> A -> Type
     ),
-    index_types=(App(List, Var(1)),),  # xs : List A
+    index_types=Telescope.of(App(List, Var(1))),  # xs : List A
     level=0,
 )
 
 SortedNilCtor = Ctor(
     name="sorted_nil",
     inductive=Sorted,
-    field_schemas=(),
-    result_indices=(App(NilCtor, Var(1)),),
+    result_indices=ArgList.of(App(NilCtor, Var(1))),
 )
 
 SortedOneCtor = Ctor(
     name="sorted_one",
     inductive=Sorted,
-    field_schemas=(Var(1),),  # x : A
-    result_indices=(mk_app(ConsCtor, Var(2), Var(0), App(NilCtor, Var(2))),),  # [x]
+    field_schemas=Telescope.of(Var(1)),  # x : A
+    result_indices=ArgList.of(
+        mk_app(ConsCtor, Var(2), Var(0), App(NilCtor, Var(2)))
+    ),  # [x]
 )
 
 SortedConsCtor = Ctor(
     name="sorted_cons",
     inductive=Sorted,
-    field_schemas=(
+    field_schemas=Telescope.of(
         mk_app(List, Var(1)),  # xs : List A
         Var(2),  # x : A
         Var(3),  # y : A
@@ -46,7 +47,7 @@ SortedConsCtor = Ctor(
             mk_app(ConsCtor, Var(5), Var(1), Var(3)),
         ),
     ),
-    result_indices=(
+    result_indices=ArgList.of(
         mk_app(  # x :: y :: xs
             ConsCtor,
             Var(6),

@@ -5,25 +5,29 @@ from __future__ import annotations
 from .fin import FinType, FZ, FS
 from .nat import NatType, Succ, Zero
 from ..core.ast import Term, Univ, Var
-from ..core.debruijn import mk_app, mk_lams
+from ..core.debruijn import mk_app, mk_lams, Telescope, ArgList
 from ..core.ind import Elim, Ctor, Ind
 
-Vec = Ind(name="Vec", param_types=(Univ(0),), index_types=(NatType(),), level=0)
+Vec = Ind(
+    name="Vec",
+    param_types=Telescope.of(Univ(0)),
+    index_types=Telescope.of(NatType()),
+    level=0,
+)
 NilCtor = Ctor(
     name="Nil",
     inductive=Vec,
-    field_schemas=(),
-    result_indices=(Zero(),),
+    result_indices=ArgList.of(Zero()),
 )
 ConsCtor = Ctor(
     name="Cons",
     inductive=Vec,
-    field_schemas=(
+    field_schemas=Telescope.of(
         NatType(),  # n : Nat
         Var(1),  # head : A
         mk_app(Vec, Var(2), Var(1)),  # tail : Vec A n
     ),
-    result_indices=(Succ(Var(2)),),  # result index = Succ n
+    result_indices=ArgList.of(Succ(Var(2))),  # result index = Succ n
 )
 object.__setattr__(Vec, "constructors", (NilCtor, ConsCtor))
 

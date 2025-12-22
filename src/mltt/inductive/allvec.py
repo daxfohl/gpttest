@@ -5,21 +5,22 @@ from __future__ import annotations
 from .nat import NatType, Succ, Zero
 from .vec import Cons, Nil, VecType
 from ..core.ast import App, Pi, Term, Univ, Var
-from ..core.debruijn import mk_app
+from ..core.debruijn import mk_app, Telescope, ArgList
 from ..core.ind import Ctor, Elim, Ind
 
 AllVec = Ind(
     name="AllVec",
-    param_types=(Univ(0), Pi(Var(0), Univ(0))),  # A : Type, P : A -> Type
-    index_types=(NatType(), VecType(Var(2), Var(0))),  # n : Nat, xs : Vec A n
+    param_types=Telescope.of(Univ(0), Pi(Var(0), Univ(0))),  # A : Type, P : A -> Type
+    index_types=Telescope.of(
+        NatType(), VecType(Var(2), Var(0))
+    ),  # n : Nat, xs : Vec A n
     level=0,
 )
 
 AllNilCtor = Ctor(
     name="AllNil",
     inductive=AllVec,
-    field_schemas=(),
-    result_indices=(
+    result_indices=ArgList.of(
         Zero(),  # n = 0
         Nil(Var(1)),  # xs = Nil A   (A = Var(1) in (params)(fields))
     ),
@@ -28,14 +29,14 @@ AllNilCtor = Ctor(
 AllConsCtor = Ctor(
     name="AllCons",
     inductive=AllVec,
-    field_schemas=(
+    field_schemas=Telescope.of(
         NatType(),  # n : Nat
         Var(2),  # x : A (context: (A,P,n))
         VecType(Var(3), Var(1)),  # xs : Vec A n (context: (A,P,n,x))
         App(Var(3), Var(1)),  # px : P x (context: (A,P,n,x,xs))
         mk_app(AllVec, Var(5), Var(4), Var(3), Var(1)),  # ih : AllVec A P n xs
     ),
-    result_indices=(
+    result_indices=ArgList.of(
         Succ(Var(4)),  # S n
         Cons(Var(6), Var(4), Var(3), Var(2)),  # Cons A n x xs
     ),

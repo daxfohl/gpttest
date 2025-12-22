@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from ..core.ast import App, Lam, Pi, Term, Univ, Var
-from ..core.debruijn import mk_app, mk_pis, mk_lams
+from ..core.debruijn import mk_app, mk_pis, mk_lams, Telescope
 from ..core.ind import Elim, Ctor, Ind
 
 Sigma = Ind(
     name="Sigma",
-    param_types=(
+    param_types=Telescope.of(
         Univ(0),  # A : Type
         Pi(Var(0), Univ(0)),  # B : A -> Type
     ),
@@ -17,7 +17,7 @@ Sigma = Ind(
 PairCtor = Ctor(
     name="Pair",
     inductive=Sigma,
-    field_schemas=(
+    field_schemas=Telescope.of(
         Var(1),  # a : A
         App(Var(1), Var(0)),  # b : B a
     ),

@@ -4,36 +4,35 @@ from __future__ import annotations
 
 from .list import ConsCtor, List, NilCtor
 from ..core.ast import App, Pi, Term, Univ, Var
-from ..core.debruijn import mk_app
+from ..core.debruijn import mk_app, Telescope, ArgList
 from ..core.ind import Elim, Ctor, Ind
 
 All = Ind(
     name="All",
-    param_types=(
+    param_types=Telescope.of(
         Univ(0),  # A : Type
         Pi(Var(0), Univ(0)),  # P : A -> Type
     ),
-    index_types=(App(List, Var(1)),),  # xs : List A
+    index_types=Telescope.of(App(List, Var(1))),  # xs : List A
     level=0,
 )
 
 AllNilCtor = Ctor(
     name="all_nil",
     inductive=All,
-    field_schemas=(),
-    result_indices=(App(NilCtor, Var(1)),),
+    result_indices=ArgList.of(App(NilCtor, Var(1))),
 )
 
 AllConsCtor = Ctor(
     name="all_cons",
     inductive=All,
-    field_schemas=(
+    field_schemas=Telescope.of(
         mk_app(List, Var(1)),  # xs : List A
         Var(2),  # x : A
         mk_app(Var(2), Var(0)),  # px : P x
         mk_app(All, Var(4), Var(3), Var(2)),  # ih : All A P xs
     ),
-    result_indices=(mk_app(ConsCtor, Var(5), Var(2), Var(3)),),  # x :: xs
+    result_indices=ArgList.of(mk_app(ConsCtor, Var(5), Var(2), Var(3))),  # x :: xs
 )
 
 object.__setattr__(All, "constructors", (AllNilCtor, AllConsCtor))

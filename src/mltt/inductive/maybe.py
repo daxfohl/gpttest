@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from ..core.ast import App, Term, Univ, Var
-from ..core.debruijn import mk_app
+from ..core.debruijn import mk_app, Telescope
 from ..core.ind import Elim, Ctor, Ind
 
-Maybe = Ind(name="Maybe", param_types=(Univ(0),), level=0)
+Maybe = Ind(name="Maybe", param_types=Telescope.of(Univ(0)), level=0)
 NothingCtor = Ctor(name="Nothing", inductive=Maybe)
-JustCtor = Ctor(name="Just", inductive=Maybe, field_schemas=(Var(0),))
+JustCtor = Ctor(name="Just", inductive=Maybe, field_schemas=Telescope.of(Var(0)))
 object.__setattr__(Maybe, "constructors", (NothingCtor, JustCtor))
 
 

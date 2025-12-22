@@ -7,7 +7,7 @@ from functools import cached_property
 from typing import ClassVar
 
 from .ast import Term, Var, Pi, Univ, App
-from .debruijn import Ctx, mk_app, mk_pis, decompose_app, discharge_binders
+from .debruijn import Ctx, mk_app, mk_pis, decompose_app, Telescope, ArgList
 
 
 def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
@@ -17,10 +17,17 @@ def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
     finishing with the universe level.
     """
 
-    for b in ind.all_binders:
-        b.expect_universe(ctx)
+    binders = ind.param_types + ind.index_types
+    for b in binders:
+        level = b.expect_universe(ctx)
+        # if ind.level < level:
+        #     raise TypeError(
+        #         f"Inductive {ind.name} declared at Type({ind.level}) "
+        #         f"but has binder {b} of type Type({level})."
+        #     )
         ctx = ctx.insert(b)
-    return mk_pis(*ind.all_binders, return_ty=Univ(ind.level))
+
+    return mk_pis(binders, return_ty=Univ(ind.level))
 
 
 def infer_ctor_type(ctor: Ctor) -> Term:
@@ -41,13 +48,11 @@ def infer_ctor_type(ctor: Ctor) -> Term:
     # Parameters bind outermost, then constructor arguments.
     #   [params][args] from outermost to innermost.
     offset = len(ctor.field_schemas)
-    param_vars = [
-        Var(i) for i in reversed(range(offset, offset + len(ind.param_types)))
-    ]
+    param_vars = ArgList.vars(len(ind.param_types), offset)
     return mk_pis(
-        *ind.param_types,
-        *ctor.field_schemas,
-        return_ty=mk_app(ctor.inductive, *param_vars, *ctor.result_indices),
+        ind.param_types,
+        ctor.field_schemas,
+        return_ty=mk_app(ctor.inductive, param_vars, ctor.result_indices),
     )
 
 
@@ -73,7 +78,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
     q = len(ind.index_types)
     params_actual = scrut_ty_bindings[:p]
     indices_actual = scrut_ty_bindings[p:]
-    motive_applied = mk_app(motive, *indices_actual)
+    motive_applied = mk_app(motive, indices_actual)
 
     # 2.2 Infer the type of this partially applied motive
     motive_applied_ty = motive_applied.infer_type(ctx).whnf()
@@ -117,45 +122,40 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
         # variables.
 
         # 3.1 Instantiate ctor field types with the actual parameters.
-        ctor_field_types = tuple(
-            discharge_binders(schema, params_actual, depth_above=i).whnf()
-            for i, schema in enumerate(ctor.field_schemas)
-        )
+        ctor_field_types = ctor.field_schemas.instantiate(params_actual)
         m = len(ctor_field_types)
 
         # 3.2 Work in context Γ,fields: shift Γ-level params and motive by m.
-        params_in_fields_ctx = tuple(p.shift(m) for p in params_actual)
+        params_in_fields_ctx = params_actual.shift(m)
         motive_in_fields_ctx = motive.shift(m)
 
         # Build a scrutinee-shaped term: C params field_vars.
         # field_vars are Var(m-1) .. Var(0) in the Γ,fields context.
-        field_vars = tuple(Var(j) for j in reversed(range(m)))
-        scrut_like = mk_app(ctor, *params_in_fields_ctx, *field_vars)
+        field_vars = ArgList.vars(m)
+        scrut_like = mk_app(ctor, params_in_fields_ctx, field_vars)
 
         # 3.3 Instantiate ctor result indices under fields.
-        result_indices = tuple(
-            discharge_binders(schema, params_actual, depth_above=m + i)
-            for i, schema in enumerate(ctor.result_indices)
-        )
+        result_indices = ctor.result_indices.instantiate(params_actual, m)
 
         # 3.4 Build IH types for recursive fields.
         # Each IH is in context Γ,fields,ihs_so_far, so shift by m + ri.
         r = len(ctor.rps)
-        ih_types: list[Term] = []
+        ihs: list[Term] = []
         for ri, j in enumerate(ctor.rps):
             h, rec_field_args = decompose_app(ctor_field_types[j].shift(m - j))
             assert h is ind
             rec_params = rec_field_args[:p]
             rec_indices = rec_field_args[p : p + q]
             assert rec_params == params_in_fields_ctx
-            ih_type = mk_app(motive_in_fields_ctx, *rec_indices, field_vars[j])
-            ih_types.append(ih_type.shift(ri))
+            ih_type = mk_app(motive_in_fields_ctx, rec_indices, field_vars[j])
+            ihs.append(ih_type.shift(ri))
+        ih_types = Telescope.of(*ihs)
 
         # 3.5 Branch codomain in Γ,fields,IHs.
-        codomain = mk_app(motive_in_fields_ctx, *result_indices, scrut_like).shift(r)
+        codomain = mk_app(motive_in_fields_ctx, result_indices, scrut_like).shift(r)
 
         # 3.6 Expected branch type: Π fields. Π ihs. codomain.
-        branch_ty = mk_pis(*ctor_field_types, *ih_types, return_ty=codomain)
+        branch_ty = mk_pis(ctor_field_types, ih_types, return_ty=codomain)
         case.type_check(branch_ty, ctx)
 
     u = motive_applied_ty.return_ty.expect_universe(ctx)  # cod should be Univ(u)
@@ -181,21 +181,17 @@ class Ind(Term):
     """A generalized inductive type with constructors."""
 
     name: str
-    param_types: tuple[Term, ...] = field(
-        repr=False, default=(), metadata={"unchecked": True}
+    param_types: Telescope = field(
+        repr=False, default=Telescope.empty(), metadata={"unchecked": True}
     )
-    index_types: tuple[Term, ...] = field(
-        repr=False, default=(), metadata={"unchecked": True}
+    index_types: Telescope = field(
+        repr=False, default=Telescope.empty(), metadata={"unchecked": True}
     )
-    constructors: tuple["Ctor", ...] = field(
+    constructors: tuple[Ctor, ...] = field(
         repr=False, default=(), metadata={"unchecked": True}
     )
     level: int = 0
     is_terminal: ClassVar[bool] = True
-
-    @cached_property
-    def all_binders(self) -> tuple[Term, ...]:
-        return self.param_types + self.index_types
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: Ctx) -> Term:
@@ -208,11 +204,11 @@ class Ctor(Term):
 
     name: str
     inductive: Ind = field(repr=False, metadata={"unchecked": True})
-    field_schemas: tuple[Term, ...] = field(
-        repr=False, default=(), metadata={"unchecked": True}
+    field_schemas: Telescope = field(
+        repr=False, default=Telescope.empty(), metadata={"unchecked": True}
     )
-    result_indices: tuple[Term, ...] = field(
-        repr=False, default=(), metadata={"unchecked": True}
+    result_indices: ArgList = field(
+        repr=False, default=ArgList.empty(), metadata={"unchecked": True}
     )
     is_terminal: ClassVar[bool] = True
 
@@ -231,18 +227,16 @@ class Ctor(Term):
             if decompose_app(s.whnf())[0] is self.inductive
         )
 
-    def iota_reduce(
-        self, cases: tuple[Term, ...], args: tuple[Term, ...], motive: Term
-    ) -> Term:
+    def iota_reduce(self, cases: tuple[Term, ...], args: ArgList, motive: Term) -> Term:
         """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
 
         ind = self.inductive
         p = len(ind.param_types)
         m = len(self.field_schemas)
         ctor_args = args[p : p + m]
-        ihs = [Elim(ind, motive, cases, ctor_args[rp]) for rp in self.rps]
+        ihs = ArgList.of(*(Elim(ind, motive, cases, ctor_args[i]) for i in self.rps))
         case = cases[self.index_in_inductive]
-        return mk_app(case, *ctor_args, *ihs)
+        return mk_app(case, ctor_args, ihs)
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: Ctx) -> Term:

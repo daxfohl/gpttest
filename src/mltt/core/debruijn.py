@@ -3,9 +3,94 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterator
+from typing import Sequence, overload
 
-from .ast import Term, App, Pi, Lam
+from .ast import Term, App, Lam, Pi, Var
+
+
+@dataclass(frozen=True)
+class ArgList(Sequence[Term]):
+
+    entries: tuple[Term, ...] = ()
+
+    @staticmethod
+    def of(*terms: Term) -> ArgList:
+        return ArgList(tuple(terms))
+
+    @staticmethod
+    def vars(count: int, offset: int = 0) -> ArgList:
+        return ArgList(tuple(Var(i) for i in reversed(range(offset, offset + count))))
+
+    @staticmethod
+    def empty() -> ArgList:
+        return ArgList()
+
+    @overload
+    def __getitem__(self, i: int, /) -> Term: ...
+    @overload
+    def __getitem__(self, s: slice, /) -> ArgList: ...
+    def __getitem__(self, key: int | slice) -> Term | ArgList:
+        if isinstance(key, slice):
+            return ArgList(self.entries[key])
+        return self.entries[key]
+
+    def __len__(self) -> int:
+        return len(self.entries)
+
+    def __add__(self, other: ArgList) -> ArgList:
+        assert isinstance(other, ArgList)
+        return ArgList(self.entries + other.entries)
+
+    def instantiate(self, actuals: ArgList, depth_above: int = 0) -> ArgList:
+        return ArgList(
+            tuple(
+                discharge_binders(t, actuals.entries, depth_above=depth_above).whnf()
+                for t in self.entries
+            )
+        )
+
+    def shift(self, i: int) -> ArgList:
+        return ArgList(tuple(e.shift(i) for e in self.entries))
+
+
+@dataclass(frozen=True)
+class Telescope(Sequence[Term]):
+
+    entries: tuple[Term, ...] = ()
+
+    @staticmethod
+    def of(*terms: Term) -> Telescope:
+        return Telescope(tuple(terms))
+
+    @staticmethod
+    def empty() -> Telescope:
+        return Telescope()
+
+    @overload
+    def __getitem__(self, i: int, /) -> Term: ...
+    @overload
+    def __getitem__(self, s: slice, /) -> Telescope: ...
+    def __getitem__(self, key: int | slice) -> Term | Telescope:
+        if isinstance(key, slice):
+            return Telescope(self.entries[key])
+        return self.entries[key]
+
+    def __len__(self) -> int:
+        return len(self.entries)
+
+    def __add__(self, other: Telescope) -> Telescope:
+        assert isinstance(other, Telescope)
+        return Telescope(self.entries + other.entries)
+
+    def instantiate(self, actuals: ArgList, depth_above: int = 0) -> Telescope:
+        return Telescope.of(
+            *(
+                discharge_binders(
+                    t, actuals.entries, depth_above=depth_above + i
+                ).whnf()
+                for i, t in enumerate(self.entries)
+            )
+        )
 
 
 @dataclass(frozen=True)
@@ -16,7 +101,7 @@ class CtxEntry:
 
 
 @dataclass(frozen=True)
-class Ctx:
+class Ctx(Sequence[CtxEntry]):
     """
     Typing context for de Bruijn-indexed terms.
 
@@ -50,13 +135,14 @@ class Ctx:
 
     entries: tuple[CtxEntry, ...] = ()
 
-    def __iter__(self) -> Iterator[CtxEntry]:
-        return iter(self.entries)
-
     def __len__(self) -> int:
         return len(self.entries)
 
-    def __getitem__(self, idx: int) -> CtxEntry:
+    @overload
+    def __getitem__(self, i: int, /) -> CtxEntry: ...
+    @overload
+    def __getitem__(self, s: slice, /) -> Sequence[CtxEntry]: ...
+    def __getitem__(self, idx: int | slice) -> CtxEntry | Sequence[CtxEntry]:
         return self.entries[idx]
 
     def insert(self, *tys: Term) -> Ctx:
@@ -87,17 +173,16 @@ class Ctx:
 
         return entry if isinstance(entry, CtxEntry) else CtxEntry(entry)
 
-    @property
-    def types(self) -> tuple[Term, ...]:
-        return tuple(e.ty for e in self.entries)
-
     def __str__(self) -> str:
         if len(self.entries) < 2:
             return f"Ctx{self.entries}"
         return f"Ctx(\n{"".join([f"  #{i}: {e.ty}\n" for i, e in enumerate(self)])})"
 
+    def as_telescope(self) -> Telescope:
+        return Telescope.of(*(e.ty for e in reversed(self.entries)))
 
-def mk_app(term: Term, *args: Term) -> Term:
+
+def mk_app(fn: Term, *args: Term | ArgList) -> Term:
     """Apply ``args`` to ``term`` left-associatively.
 
     Constructors and inductive type heads are stored unapplied; callers often
@@ -106,20 +191,23 @@ def mk_app(term: Term, *args: Term) -> Term:
     application pattern.
 
     Args:
-        term: Function being applied.
+        fn: Function being applied.
         *args: Arguments to apply, ordered left-to-right.
 
     Returns:
         The left-associated application ``(((term arg0) arg1) ...)``.
     """
-    #  e.g. term = \x->(\y->z). args = [x, y]
-    result: Term = term
+    #  e.g. fn = \x->(\y->z). args = [x, y]
+    result: Term = fn
     for arg in args:
-        result = App(result, arg)
+        if isinstance(arg, ArgList):
+            result = mk_app(result, *arg)
+        else:
+            result = App(result, arg)
     return result
 
 
-def mk_lams(*param_tys: Term, body: Term) -> Term:
+def mk_lams(*param_tys: Term | Telescope, body: Term) -> Term:
     """Build a right-nested lambda chain over ``param_tys`` ending in ``body``.
 
     Each element of ``param_tys`` becomes one binder, with the first argument
@@ -137,11 +225,14 @@ def mk_lams(*param_tys: Term, body: Term) -> Term:
     """
     fn: Term = body
     for param_ty in reversed(param_tys):
-        fn = Lam(param_ty, fn)
+        if isinstance(param_ty, Telescope):
+            fn = mk_lams(*param_ty, body=fn)
+        else:
+            fn = Lam(param_ty, fn)
     return fn
 
 
-def mk_pis(*param_tys: Term, return_ty: Term) -> Term:
+def mk_pis(*param_tys: Term | Telescope, return_ty: Term) -> Term:
     """Build a right-nested Pi chain over ``param_tys`` ending in ``return_ty``.
 
     Like ``nested_lam``, the outermost quantifier corresponds to the first
@@ -159,11 +250,14 @@ def mk_pis(*param_tys: Term, return_ty: Term) -> Term:
     """
     pi: Term = return_ty
     for param_ty in reversed(param_tys):
-        pi = Pi(param_ty, pi)
+        if isinstance(param_ty, Telescope):
+            pi = mk_pis(*param_ty, return_ty=pi)
+        else:
+            pi = Pi(param_ty, pi)
     return pi
 
 
-def decompose_app(term: Term) -> tuple[Term, tuple[Term, ...]]:
+def decompose_app(term: Term) -> tuple[Term, ArgList]:
     """Split an application into its head and argument tuple.
 
     This is the inverse of ``apply_term`` and is used by eliminator matching.
@@ -184,27 +278,11 @@ def decompose_app(term: Term) -> tuple[Term, tuple[Term, ...]]:
     while isinstance(term, App):
         args.append(term.arg)
         term = term.func
-    return term, tuple(reversed(args))
-
-
-def decompose_lam(term: Term) -> tuple[Term, tuple[Term, ...]]:
-    args: list[Term] = []
-    while isinstance(term, Lam):
-        args.append(term.arg_ty)
-        term = term.body
-    return term, tuple(args)
-
-
-def decompose_pi(term: Term) -> tuple[Term, tuple[Term, ...]]:
-    args: list[Term] = []
-    while isinstance(term, Pi):
-        args.append(term.arg_ty)
-        term = term.return_ty
-    return term, tuple(args)
+    return term, ArgList.of(*reversed(args))
 
 
 def discharge_binders(
-    schema: Term, actuals: tuple[Term, ...], *, depth_above: int = 0
+    schema: Term, actuals: tuple[Term, ...], depth_above: int = 0
 ) -> Term:
     """
     Substitute ``actuals`` for the outer binder block of ``schema``.
@@ -227,11 +305,11 @@ def discharge_binders(
 __all__ = [
     "Ctx",
     "CtxEntry",
+    "ArgList",
+    "Telescope",
     "mk_app",
     "mk_pis",
     "mk_lams",
     "decompose_app",
-    "decompose_lam",
-    "decompose_pi",
     "discharge_binders",
 ]

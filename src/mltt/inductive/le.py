@@ -6,25 +6,25 @@ from .eq import Id, Refl
 from .nat import NatType, Succ
 from .rtc import RTCRefl, RTCStep, RTCType
 from ..core.ast import Term, Var
-from ..core.debruijn import mk_app, mk_lams
+from ..core.debruijn import mk_app, mk_lams, Telescope, ArgList
 from ..core.ind import Elim, Ctor, Ind
 
-Le = Ind(name="Le", index_types=(NatType(), NatType()), level=0)
+Le = Ind(name="Le", index_types=Telescope.of(NatType(), NatType()), level=0)
 LeReflCtor = Ctor(
     name="le_refl",
     inductive=Le,
-    field_schemas=(NatType(),),  # n : Nat
-    result_indices=(Var(0), Var(0)),  # Le n n
+    field_schemas=Telescope.of(NatType()),  # n : Nat
+    result_indices=ArgList.of(Var(0), Var(0)),  # Le n n
 )
 LeStepCtor = Ctor(
     name="le_step",
     inductive=Le,
-    field_schemas=(
+    field_schemas=Telescope.of(
         NatType(),  # n : Nat
         NatType(),  # m : Nat
         mk_app(Le, Var(1), Var(0)),  # Le n m
     ),
-    result_indices=(
+    result_indices=ArgList.of(
         Var(2),  # n
         Succ(Var(1)),  # Succ m
     ),

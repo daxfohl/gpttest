@@ -2,7 +2,7 @@ import pytest
 
 import mltt.inductive.vec as vec
 from mltt.core.ast import Term, Univ, Var
-from mltt.core.debruijn import mk_app, mk_pis, mk_lams
+from mltt.core.debruijn import mk_app, mk_pis, mk_lams, Telescope
 from mltt.core.ind import Elim, Ctor, Ind
 from mltt.inductive import list as lst
 from mltt.inductive.fin import FinType, FZ, FS
@@ -207,11 +207,11 @@ def test_vec_len_recursor_reduces_with_open_param() -> None:
 
 
 def test_recursive_detection_whnfs_field_head() -> None:
-    lazy = Ind(name="Lazy", param_types=(), level=0)
+    lazy = Ind(name="Lazy", level=0)
     lazy_ctor = Ctor(
         name="Thunk",
         inductive=lazy,
-        field_schemas=(mk_app(mk_lams(Univ(0), body=Var(0)), lazy),),
+        field_schemas=Telescope.of(mk_app(mk_lams(Univ(0), body=Var(0)), lazy)),
     )
     object.__setattr__(lazy, "constructors", (lazy_ctor,))
 

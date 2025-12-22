@@ -3,20 +3,19 @@
 from __future__ import annotations
 
 from ..core.ast import App, Lam, Term, Univ, Var
-from ..core.debruijn import mk_app, mk_lams
+from ..core.debruijn import mk_app, mk_lams, Telescope, ArgList
 from ..core.ind import Elim, Ctor, Ind
 
 IdType = Ind(
     name="Id",
-    param_types=(Univ(0), Var(0)),
-    index_types=(Var(1),),
+    param_types=Telescope.of(Univ(0), Var(0)),
+    index_types=Telescope.of(Var(1)),
     level=0,
 )
 ReflCtor = Ctor(
     name="Refl",
     inductive=IdType,
-    field_schemas=(),
-    result_indices=(Var(0),),
+    result_indices=ArgList.of(Var(0)),
 )
 object.__setattr__(IdType, "constructors", (ReflCtor,))
 

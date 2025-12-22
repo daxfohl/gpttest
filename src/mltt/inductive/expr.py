@@ -4,32 +4,37 @@ from __future__ import annotations
 
 from .sigma import Sigma
 from ..core.ast import Lam, Term, Univ, Var
-from ..core.debruijn import mk_app
+from ..core.debruijn import mk_app, Telescope, ArgList
 from ..core.ind import Elim, Ctor, Ind
 
 # Expr (Ty : Type) (τ : Ty) : Type
-Expr = Ind(name="Expr", param_types=(Univ(0),), index_types=(Var(0),), level=0)
+Expr = Ind(
+    name="Expr",
+    param_types=Telescope.of(Univ(0)),
+    index_types=Telescope.of(Var(0)),
+    level=0,
+)
 
 ConstCtor = Ctor(
     name="const",
     inductive=Expr,
-    field_schemas=(
+    field_schemas=Telescope.of(
         Var(0),  # τ : Ty
         Var(0),  # value : τ
     ),
-    result_indices=(Var(1),),  # τ
+    result_indices=ArgList.of(Var(1)),  # τ
 )
 
 PairCtor = Ctor(
     name="pair",
     inductive=Expr,
-    field_schemas=(
+    field_schemas=Telescope.of(
         Var(0),  # A : Ty
         Var(1),  # B : Ty
         mk_app(Expr, Var(2), Var(1)),  # Expr Ty A
         mk_app(Expr, Var(3), Var(1)),  # Expr Ty B
     ),
-    result_indices=(
+    result_indices=ArgList.of(
         mk_app(  # A × B as a Sigma with constant second component.
             Sigma,
             Var(3),  # A

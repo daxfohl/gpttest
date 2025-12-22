@@ -8,15 +8,15 @@ from ..core.ast import (
     Univ,
     Var,
 )
-from ..core.debruijn import mk_app
+from ..core.debruijn import mk_app, Telescope
 from ..core.ind import Elim, Ctor, Ind
 
-List = Ind(name="List", param_types=(Univ(0),), level=0)
+List = Ind(name="List", param_types=Telescope.of(Univ(0)), level=0)
 NilCtor = Ctor(name="Nil", inductive=List)
 ConsCtor = Ctor(
     name="Cons",
     inductive=List,
-    field_schemas=(
+    field_schemas=Telescope.of(
         Var(0),
         App(List, Var(1)),
     ),
