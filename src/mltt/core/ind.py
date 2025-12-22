@@ -253,15 +253,14 @@ class Elim(Term):
     scrutinee: Term
 
     # Reduction ----------------------------------------------------------------
-    def whnf(self) -> Term:
-
+    def whnf_step(self) -> Term:
         scrutinee_whnf = self.scrutinee.whnf()
         head, args = decompose_app(scrutinee_whnf)
         if isinstance(head, Ctor) and head.inductive is self.inductive:
             expected_args = len(self.inductive.param_types) + len(head.field_schemas)
             if len(args) != expected_args:
                 raise ValueError()
-            return head.iota_reduce(self.cases, args, self.motive).whnf()
+            return head.iota_reduce(self.cases, args, self.motive)
         return Elim(self.inductive, self.motive, self.cases, scrutinee_whnf)
 
     # Typing -------------------------------------------------------------------

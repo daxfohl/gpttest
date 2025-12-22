@@ -60,8 +60,15 @@ class Term:
         )
 
     # --- Reduction ------------------------------------------------------------
+    def whnf_step(self) -> Term:
+        """Weak head normal form."""
+        return self
+
     def whnf(self) -> Term:
         """Weak head normal form."""
+        reduced = self.whnf_step()
+        if reduced != self:
+            return reduced.whnf()
         return self
 
     def _reduce_inside_step(self, reducer: Callable[[Term], Term]) -> Term:
@@ -78,16 +85,14 @@ class Term:
 
     def normalize_step(self) -> Term:
         """Perform a single beta/iota reduction step anywhere in the term."""
-        return self._reduce_inside_step(methodcaller("whnf"))
+        return self._reduce_inside_step(methodcaller("whnf_step"))
 
     def normalize(self) -> Term:
         """Fully normalize the term."""
-        term: Term = self
-        while True:
-            next_term = term.normalize_step()
-            if next_term == term:
-                return term
-            term = next_term
+        reduced = self.normalize_step()
+        if reduced != self:
+            return reduced.normalize()
+        return self
 
     # --- Typing ---------------------------------------------------------------
     def infer_type(self, ctx: Ctx | None = None) -> Term:
@@ -243,10 +248,10 @@ class App(Term):
     arg: Term
 
     # Reduction ----------------------------------------------------------------
-    def whnf(self) -> Term:
+    def whnf_step(self) -> Term:
         f_whnf = self.func.whnf()
         if isinstance(f_whnf, Lam):
-            return f_whnf.body.subst(self.arg).whnf()
+            return f_whnf.body.subst(self.arg)
         return App(f_whnf, self.arg)
 
     # Typing -------------------------------------------------------------------
@@ -305,6 +310,7 @@ class Univ(Term):
                 f"  expected = {expected_ty}"
             )
         # TODO: Check Universe Levels once Ind supports cumulativity
+
 
 __all__ = [
     "Term",
