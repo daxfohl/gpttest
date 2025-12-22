@@ -3,6 +3,5 @@ __all__ = [
     "debruijn",
     "ind",
     "pretty",
-    "reduce",
     "typing",
 ]

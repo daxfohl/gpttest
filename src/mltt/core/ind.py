@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import cached_property
+from typing import ClassVar, Self
 
 from .ast import Term, Var, Pi, Univ, App, Reducer
 from .debruijn import Ctx, mk_app, mk_pis, decompose_app, discharge_binders
@@ -184,6 +185,7 @@ class Ind(Term):
     index_types: tuple[Term, ...] = field(repr=False, default=())
     constructors: tuple["Ctor", ...] = field(repr=False, default=())
     level: int = 0
+    is_terminal: ClassVar[bool] = True
 
     @cached_property
     def all_binders(self) -> tuple[Term, ...]:
@@ -199,11 +201,8 @@ class Ind(Term):
     def subst(self, sub: Term, j: int = 0) -> Term:
         return self
 
-    def _type_check(self, ty: Term, ctx: Ctx) -> None:
-        self._check_against_inferred(ty.whnf(), ctx, label="Inductive type")
-
-    def _type_equal_with(self, other: Term, ctx: Ctx) -> bool:
-        return isinstance(other, Ind) and other is self
+    def _type_equal_with(self, other: Self, ctx: Ctx) -> bool:
+        return other is self
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -214,6 +213,7 @@ class Ctor(Term):
     inductive: Ind = field(repr=False)
     field_schemas: tuple[Term, ...] = field(repr=False, default=())
     result_indices: tuple[Term, ...] = field(repr=False, default=())
+    is_terminal: ClassVar[bool] = True
 
     @cached_property
     def index_in_inductive(self) -> int:
@@ -253,11 +253,8 @@ class Ctor(Term):
     def subst(self, sub: Term, j: int = 0) -> Term:
         return self
 
-    def _type_check(self, ty: Term, ctx: Ctx) -> None:
-        self._check_against_inferred(ty.whnf(), ctx, label="Constructor")
-
-    def _type_equal_with(self, other: Term, ctx: Ctx) -> bool:
-        return isinstance(other, Ctor) and other is self
+    def _type_equal_with(self, other: Self, ctx: Ctx) -> bool:
+        return other is self
 
 
 @dataclass(frozen=True)
@@ -281,18 +278,12 @@ class Elim(Term):
             return head.iota_reduce(self.cases, args, self.motive).whnf()
         return Elim(self.inductive, self.motive, self.cases, scrutinee_whnf)
 
-    def _reduce_children(self, reducer: Reducer) -> Term:
-        return self._reduce_dataclass_children(reducer)
-
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: Ctx) -> Term:
         return infer_elim_type(self, ctx)
 
-    def _type_check(self, ty: Term, ctx: Ctx) -> None:
-        self._check_against_inferred(ty.whnf(), ctx, label="Eliminator")
-
-    def _type_equal_with(self, other: Term, ctx: Ctx) -> bool:
-        if not isinstance(other, Elim) or other.inductive is not self.inductive:
+    def _type_equal_with(self, other: Self, ctx: Ctx) -> bool:
+        if other.inductive is not self.inductive:
             return False
         if len(self.cases) != len(other.cases):
             return False

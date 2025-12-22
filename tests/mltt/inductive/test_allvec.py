@@ -1,6 +1,5 @@
 from mltt.core.ast import Univ, Var, Pi, App, Term
 from mltt.core.debruijn import mk_lams, Ctx, mk_pis, mk_app
-from mltt.core.typing import infer_type
 from mltt.inductive import vec, allvec
 from mltt.inductive.allvec import AllVecType, AllVecElim, AllNil, AllCons
 from mltt.inductive.nat import NatType, Zero, Succ
@@ -36,7 +35,7 @@ def test_elim_allvec_allcons_requires_param_shift_under_fields_for_result_indice
         body=mk_allvec_elim_body(),  # we’ll define this below using the Γ vars
     )
 
-    ty = infer_type(closed)
+    ty = closed.infer_type()
     expected = mk_pis(
         Univ(0),  # Z : Type0
         Pi(Var(0), Univ(0)),  # F : Z -> Type0   (Z is Var(0) here)
