@@ -2,85 +2,88 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Sequence, overload, Iterator
+from typing import Generic, TypeVar, overload, Self, Any
+from typing import Iterable, cast, Callable
+
+from mypyc.ir.ops import Sequence
 
 from .ast import Term, App, Lam, Pi, Var
 
+T = TypeVar("T")
+
 
 @dataclass(frozen=True)
-class ArgList(Sequence[Term]):
+class SeqBase(Sequence[T], Generic[T]):
+    _data: tuple[T, ...] = ()
 
-    terms: tuple[Term, ...] = ()
+    @classmethod
+    def of(cls: type[Self], *items: T) -> Self:
+        return cls(items)
 
-    @staticmethod
-    def of(*terms: Term) -> ArgList:
-        return ArgList(tuple(terms))
+    @classmethod
+    def empty(cls: type[Self]) -> Self:
+        return cls.of()
 
+    # ---- Sequence contract ----
+    def __len__(self) -> int:
+        return len(self._data)
+
+    @overload
+    def __getitem__(self, i: int) -> T: ...
+    @overload
+    def __getitem__(self, s: slice) -> Self: ...
+
+    def __getitem__(self, idx: int | slice) -> T | Self:
+        if isinstance(idx, slice):
+            return self._wrap(cast(tuple[T, ...], self._data[idx]))
+        return self._data[idx]
+
+    def __iter__(self) -> Iterator[T]:
+        return iter(self._data)
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({list(self._data)!r})"
+
+    def __add__(self, other: Iterable[T]) -> Self:
+        return self._wrap(tuple(self) + tuple(other))
+
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, type(self)) and self._data == other._data
+
+    # ---- key extensibility point ----
+    def _wrap(self, data: tuple[T, ...]) -> Self:
+        # create same runtime type (subclass-friendly)
+        return type(self)(data)  # type: ignore[misc]
+
+    # ---- a couple generic helpers you might want everywhere ----
+    def to_list(self) -> list[T]:
+        return list(self._data)
+
+    def map(self, f: Callable[[T], T]) -> Self:
+        return self._wrap(tuple(f(x) for x in self._data))
+
+    def mapi(self, f: Callable[[int, T], T]) -> Self:
+        return self._wrap(tuple(f(i, x) for i, x in enumerate(self._data)))
+
+
+class ArgList(SeqBase[Term]):
     @staticmethod
     def vars(count: int, offset: int = 0) -> ArgList:
         return ArgList(tuple(Var(i) for i in reversed(range(offset, offset + count))))
 
-    @staticmethod
-    def empty() -> ArgList:
-        return ArgList()
+    def instantiate(self, actuals: ArgList, depth_above: int = 0) -> Self:
+        return self.map(lambda t: discharge_binders(t, actuals, depth_above).whnf())
 
-    @overload
-    def __getitem__(self, i: int, /) -> Term: ...
-    @overload
-    def __getitem__(self, s: slice, /) -> ArgList: ...
-    def __getitem__(self, key: int | slice) -> Term | ArgList:
-        if isinstance(key, slice):
-            return ArgList(self.terms[key])
-        return self.terms[key]
-
-    def __len__(self) -> int:
-        return len(self.terms)
-
-    def instantiate(self, actuals: ArgList, depth_above: int = 0) -> ArgList:
-        return ArgList(
-            tuple(
-                discharge_binders(t, actuals.terms, depth_above=depth_above).whnf()
-                for t in self.terms
-            )
-        )
-
-    def shift(self, i: int) -> ArgList:
-        return ArgList(tuple(e.shift(i) for e in self.terms))
+    def shift(self, i: int) -> Self:
+        return self.map(lambda e: e.shift(i))
 
 
-@dataclass(frozen=True)
-class Telescope:
-
-    binders: tuple[Term, ...] = ()
-
-    @staticmethod
-    def of(*terms: Term) -> Telescope:
-        return Telescope(tuple(terms))
-
-    @staticmethod
-    def empty() -> Telescope:
-        return Telescope()
-
-    def __getitem__(self, key: int) -> Term:
-        return self.binders[key]
-
-    def __len__(self) -> int:
-        return len(self.binders)
-
-    def __iter__(self) -> Iterator[Term]:
-        return iter(self.binders)
-
-    def __add__(self, other: Telescope) -> Telescope:
-        assert isinstance(other, Telescope)
-        return Telescope(self.binders + other.binders)
-
-    def instantiate(self, actuals: ArgList, depth_above: int = 0) -> Telescope:
-        return Telescope.of(
-            *(
-                discharge_binders(t, actuals.terms, depth_above + i).whnf()
-                for i, t in enumerate(self.binders)
-            )
+class Telescope(SeqBase[Term]):
+    def instantiate(self, actuals: ArgList, depth_above: int = 0) -> Self:
+        return self.mapi(
+            lambda i, t: discharge_binders(t, actuals, depth_above + i).whnf()
         )
 
 
@@ -141,7 +144,7 @@ class Ctx:
     def __getitem__(self, idx: int) -> CtxEntry:
         return self.entries[idx]
 
-    def insert(self, *tys: Term) -> Ctx:
+    def push(self, *tys: Term) -> Ctx:
         """Prepend binders to the context.
 
         Args:
@@ -154,7 +157,7 @@ class Ctx:
             The newest binder is at index 0. Stored entry types are not rewritten
             on extension; lookup shifts by index instead.
         """
-        # prepend(t0, ..., tk) == prepend(t0).prepend(t1)...prepend(tk)
+        # push(t0, ..., tk) == push(t0).push(t1)...push(tk)
         # so insert from innermost to outermost (reverse order).
         return Ctx.of(*reversed(tys), *self.entries)
 
@@ -271,9 +274,7 @@ def decompose_app(term: Term) -> tuple[Term, ArgList]:
     return term, ArgList.of(*reversed(args))
 
 
-def discharge_binders(
-    schema: Term, actuals: tuple[Term, ...], depth_above: int = 0
-) -> Term:
+def discharge_binders(schema: Term, actuals: ArgList, depth_above: int = 0) -> Term:
     """
     Substitute ``actuals`` for the outer binder block of ``schema``.
 

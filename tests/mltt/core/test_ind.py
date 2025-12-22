@@ -1,12 +1,19 @@
 import mltt.inductive.vec as vec
 from mltt.core.ast import Univ, Var
-from mltt.core.debruijn import mk_app, mk_pis, mk_lams, discharge_binders, Telescope
+from mltt.core.debruijn import (
+    mk_app,
+    mk_pis,
+    mk_lams,
+    discharge_binders,
+    Telescope,
+    ArgList,
+)
 from mltt.core.ind import Ctor, Elim, Ind
 from mltt.inductive.nat import NatType, Succ, Zero
 
 
 def test_instantiate_ctor_arg_types_shifts_params_by_fields() -> None:
-    params = (Var(0),)  # pretend A is at depth 0 in Γ
+    params = ArgList.of(Var(0))  # pretend A is at depth 0 in Γ
 
     inst = tuple(
         discharge_binders(schema, params, depth_above=i)

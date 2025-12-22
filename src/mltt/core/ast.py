@@ -239,7 +239,7 @@ class Lam(Term):
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: Ctx) -> Term:
-        body_ty = self.body.infer_type(ctx.insert(self.arg_ty))
+        body_ty = self.body.infer_type(ctx.push(self.arg_ty))
         return Pi(self.arg_ty, body_ty)
 
     def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
@@ -256,7 +256,7 @@ class Lam(Term):
                 f"  expected domain = {expected_ty.arg_ty}\n"
                 f"  found domain = {self.arg_ty}"
             )
-        self.body.type_check(expected_ty.return_ty, ctx.insert(self.arg_ty))
+        self.body.type_check(expected_ty.return_ty, ctx.push(self.arg_ty))
 
 
 @dataclass(frozen=True)
@@ -279,7 +279,7 @@ class Pi(Term):
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: Ctx) -> Term:
         arg_level = self.arg_ty.expect_universe(ctx)
-        body_level = self.return_ty.expect_universe(ctx.insert(self.arg_ty))
+        body_level = self.return_ty.expect_universe(ctx.push(self.arg_ty))
         return Univ(max(arg_level, body_level))
 
 

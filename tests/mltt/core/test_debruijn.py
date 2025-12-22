@@ -1,5 +1,5 @@
 from mltt.core.ast import App, Lam, Pi, Term, Univ, Var
-from mltt.core.debruijn import mk_pis, mk_lams, discharge_binders
+from mltt.core.debruijn import mk_pis, mk_lams, discharge_binders, ArgList
 from mltt.core.ind import Elim
 from mltt.inductive.allvec import AllConsCtor, AllVecType
 from mltt.inductive.bool import BoolType
@@ -413,7 +413,7 @@ def test_discharge_sigma_like_field_type_with_depth_above() -> None:
         (Shifting a closed term is no-op.)
     """
     schema = App(Var(1), Var(0))  # B a
-    actuals = (Univ(0), Univ(0))
+    actuals = ArgList.of(Univ(0), Univ(0))
     out = discharge_binders(schema, actuals, depth_above=1)
 
     assert out == App(Univ(0), Var(0))
@@ -444,7 +444,7 @@ def test_discharge_affects_gamma_vars_by_decrementing_above_eliminated_block() -
         App(Var(1), Var(0))   (Z moved closer because A,B were eliminated)
     """
     schema = App(Var(3), Var(0))  # Z a
-    actuals = (Univ(0), Univ(0))  # closed actuals; irrelevant
+    actuals = ArgList.of(Univ(0), Univ(0))  # closed actuals; irrelevant
     out = discharge_binders(schema, actuals, depth_above=1)
 
     assert out == App(Var(1), Var(0))
@@ -487,7 +487,7 @@ def test_actuals_from_gamma_do_not_get_mutually_decremented_they_get_shifted_on_
           naturally reindexed the *inserted occurrence* as part of the term.
     """
     schema = App(Var(2), Var(1))  # A B  (index-mechanics test)
-    actuals = (Var(0), Univ(0))  # A_actual=Z from Γ, B_actual=Type0
+    actuals = ArgList.of(Var(0), Univ(0))  # A_actual=Z from Γ, B_actual=Type0
     out = discharge_binders(schema, actuals, depth_above=1)
 
     assert out == App(Var(1), Univ(0))
@@ -522,7 +522,7 @@ def test_discharge_when_schema_ignores_some_actuals() -> None:
         App(Var(1), Var(0))
     """
     schema = App(Var(1), Var(0))  # B a
-    actuals = (Var(0), Var(0))  # both actuals refer to Γ's Z
+    actuals = ArgList.of(Var(0), Var(0))  # both actuals refer to Γ's Z
     out = discharge_binders(schema, actuals, depth_above=1)
 
     assert out == App(Var(1), Var(0))
@@ -559,7 +559,7 @@ def test_discharge_under_lam_preserves_inner_binder_cutoff_and_reindexes_outer_r
         Lam(Type0, App(Var(2), Var(0)))
     """
     schema = Lam(Univ(0), App(Var(4), Var(0)))
-    actuals = (Univ(0), Univ(0))
+    actuals = ArgList.of(Univ(0), Univ(0))
     out = discharge_binders(schema, actuals, depth_above=1)
     assert out == Lam(Univ(0), App(Var(2), Var(0)))
 
@@ -587,7 +587,7 @@ def test_sigma_pair_argtype_a_instantiates_param_A_only() -> None:
     A0 = NatType()
     B0 = Lam(NatType(), Univ(0))  # arbitrary family; not used for 'a'
     schema_a_ty = PairCtor.field_schemas[0]  # Var(1)
-    out = discharge_binders(schema_a_ty, (A0, B0), depth_above=0)
+    out = discharge_binders(schema_a_ty, ArgList.of(A0, B0), depth_above=0)
     assert out == A0
 
 
@@ -613,7 +613,7 @@ def test_sigma_pair_argtype_b_instantiates_params_but_keeps_field_a_in_scope() -
     A0 = NatType()
     B0 = Lam(NatType(), BoolType())  # λ _:Nat. Bool
     schema_b_ty = PairCtor.field_schemas[1]  # App(Var(1), Var(0))
-    out = discharge_binders(schema_b_ty, (A0, B0), depth_above=1)
+    out = discharge_binders(schema_b_ty, ArgList.of(A0, B0), depth_above=1)
     assert out == App(B0, Var(0))
 
 
@@ -642,7 +642,7 @@ def test_sigma_pair_b_schema_can_reference_gamma_above_params_and_is_reindexed()
 
     A0 = NatType()
     B0 = Lam(NatType(), BoolType())
-    out = discharge_binders(schema, (A0, B0), depth_above=1)
+    out = discharge_binders(schema, ArgList.of(A0, B0), depth_above=1)
 
     assert out == App(Var(1), App(B0, Var(0)))
 
@@ -675,7 +675,7 @@ def test_vec_cons_tail_type_instantiates_param_A_but_keeps_n_and_head() -> None:
     """
     A0 = NatType()
     schema_tail_ty = ConsCtor.field_schemas[2]  # Vec A n  under (A,n,head)
-    out = discharge_binders(schema_tail_ty, (A0,), depth_above=2)
+    out = discharge_binders(schema_tail_ty, ArgList.of(A0), depth_above=2)
     assert out == VecType(A0, Var(1))
 
 
@@ -698,7 +698,7 @@ def test_vec_cons_result_index_instantiates_param_A_keeps_fields_n_head_tail() -
     """
     A0 = NatType()
     schema_idx = ConsCtor.result_indices[0]  # Succ(Var(2))
-    out = discharge_binders(schema_idx, (A0,), depth_above=3)
+    out = discharge_binders(schema_idx, ArgList.of(A0), depth_above=3)
     assert out == Succ(Var(2))
 
 
@@ -735,7 +735,7 @@ def test_allvec_allcons_ih_type_instantiates_params_keeps_prior_fields() -> None
     A0 = NatType()
     P0 = Lam(NatType(), Univ(0))  # arbitrary family over A0
     schema_ih = AllConsCtor.field_schemas[4]
-    out = discharge_binders(schema_ih, (A0, P0), depth_above=4)
+    out = discharge_binders(schema_ih, ArgList.of(A0, P0), depth_above=4)
 
     assert out == AllVecType(A0, P0, Var(3), Var(1))
 
@@ -768,8 +768,8 @@ def test_allvec_allcons_result_indices_instantiates_params_keeps_all_fields() ->
     P0 = Lam(NatType(), Univ(0))
     idx0, idx1 = AllConsCtor.result_indices
 
-    out0 = discharge_binders(idx0, (A0, P0), depth_above=5)
-    out1 = discharge_binders(idx1, (A0, P0), depth_above=5)
+    out0 = discharge_binders(idx0, ArgList.of(A0, P0), depth_above=5)
+    out1 = discharge_binders(idx1, ArgList.of(A0, P0), depth_above=5)
 
     assert out0 == Succ(Var(4))
     assert out1 == Cons(A0, Var(4), Var(3), Var(2))
@@ -795,7 +795,7 @@ def test_id_refl_result_index_instantiates_params_to_actual_x() -> None:
     A0 = NatType()
     x0 = Zero()
     schema = ReflCtor.result_indices[0]  # Var(0)
-    out = discharge_binders(schema, (A0, x0), depth_above=0)
+    out = discharge_binders(schema, ArgList.of(A0, x0), depth_above=0)
     assert out == x0
 
 
@@ -819,5 +819,5 @@ def test_fin_fz_result_index_depends_on_field_n_not_on_params() -> None:
     Expected: Succ(Var(0))
     """
     schema = FZCtor.result_indices[0]
-    out = discharge_binders(schema, (), depth_above=1)
+    out = discharge_binders(schema, ArgList.empty(), depth_above=1)
     assert out == Succ(Var(0))

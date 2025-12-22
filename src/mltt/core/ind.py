@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import ClassVar
 
-from .ast import Term, Var, Pi, Univ, App
+from .ast import Term, Pi, Univ, App
 from .debruijn import Ctx, mk_app, mk_pis, decompose_app, Telescope, ArgList
 
 
@@ -25,7 +25,7 @@ def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
         #         f"Inductive {ind.name} declared at Type({ind.level}) "
         #         f"but has binder {b} of type Type({level})."
         #     )
-        ctx = ctx.insert(b)
+        ctx = ctx.push(b)
 
     return mk_pis(binders, return_ty=Univ(ind.level))
 
@@ -146,7 +146,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
             assert h is ind
             rec_params = rec_field_args[:p]
             rec_indices = rec_field_args[p : p + q]
-            assert rec_params == params_in_fields_ctx
+            assert rec_params == params_in_fields_ctx, f"{rec_params} != {rec_params}"
             ih_type = mk_app(motive_in_fields_ctx, rec_indices, field_vars[j])
             ihs.append(ih_type.shift(ri))
         ih_types = Telescope.of(*ihs)
