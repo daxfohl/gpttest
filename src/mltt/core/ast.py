@@ -52,9 +52,12 @@ class Term:
     is_terminal: ClassVar[bool] = False
 
     # --- De Bruijn operations -------------------------------------------------
+    def _reducible_fields(self) -> tuple[Field, ...]:
+        return () if self.is_terminal else fields(self)
+
     def _replace_terms(self, mapper: Reducer) -> Term:
         updates: dict[str, Any] = {}
-        for field_info in fields(self):
+        for field_info in self._reducible_fields():
             value = getattr(self, field_info.name)
             mapped, changed = _map_value(value, mapper)
             if changed:
@@ -80,9 +83,6 @@ class Term:
         if reduced != self:
             return reduced
         return self._reduce_children(reducer)
-
-    def _reducible_fields(self) -> tuple[Field, ...]:
-        return () if self.is_terminal else fields(self)
 
     def _reduce_children(self, reducer: Reducer) -> Term:
         for field_info in self._reducible_fields():
@@ -353,6 +353,8 @@ class Univ(Term):
             raise TypeError(
                 "Universe type mismatch:\n" f"  term = {self}\n" f"  expected = {expected_ty}"
             )
+        # TODO: Check Universe Levels once Ind supports cumulativity
+
 
 
 Reducer = Callable[[Term], Term]

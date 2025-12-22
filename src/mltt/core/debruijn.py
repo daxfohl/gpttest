@@ -97,18 +97,6 @@ class Ctx:
         return f"Ctx(\n{"".join([f"  #{i}: {e.ty}\n" for i, e in enumerate(self)])})"
 
 
-def shift(term: Term, by: int, cutoff: int = 0) -> Term:
-    """Shift free variables in ``term`` by ``by`` starting at ``cutoff``."""
-
-    return term.shift(by, cutoff=cutoff)
-
-
-def subst(term: Term, sub: Term, j: int = 0) -> Term:
-    """Substitute ``sub`` for ``Var(j)`` inside ``term``."""
-
-    return term.subst(sub, j)
-
-
 def mk_app(term: Term, *args: Term) -> Term:
     """Apply ``args`` to ``term`` left-associatively.
 
@@ -239,8 +227,6 @@ def discharge_binders(
 __all__ = [
     "Ctx",
     "CtxEntry",
-    "shift",
-    "subst",
     "mk_app",
     "mk_pis",
     "mk_lams",
