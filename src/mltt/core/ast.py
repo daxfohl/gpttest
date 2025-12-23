@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, fields, replace, Field, field
+from dataclasses import dataclass, field, fields, replace, Field
+from functools import cache
 from operator import methodcaller
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 if TYPE_CHECKING:
     from .debruijn import Ctx
+
+
+def _map_term_values(value: Any, f: Callable[[Term], Term]) -> Any:
+    if isinstance(value, Term):
+        return f(value)
+    if isinstance(value, tuple):
+        return tuple(_map_term_values(v, f) for v in value)
+    return value
 
 
 @dataclass(frozen=True)
@@ -16,34 +25,19 @@ class Term:
 
     is_terminal: ClassVar[bool] = False
 
-    # --- De Bruijn operations -------------------------------------------------
     @classmethod
+    @cache
     def _reducible_fields(cls) -> tuple[Field, ...]:
         return () if cls.is_terminal else fields(cls)
 
     @classmethod
+    @cache
     def _checkable_fields(cls) -> tuple[Field, ...]:
-        # noinspection PyUnresolvedReferences
-        return tuple(
-            f
-            for f in cls.__dataclass_fields__.values()
-            if not f.metadata.get("unchecked")
-        )
+        return tuple(f for f in fields(cls) if not f.metadata.get("unchecked"))
 
     def _map_field(self, field_info: Field, mapper: Callable[[Term, Any], Term]) -> Any:
         value = getattr(self, field_info.name)
-        if isinstance(value, Term):
-            return mapper(value, field_info.metadata)
-        if isinstance(value, tuple):
-            mapped_items = []
-            for item in value:
-                if isinstance(item, Term):
-                    mapped_item = mapper(item, field_info.metadata)
-                    mapped_items.append(mapped_item)
-                else:
-                    mapped_items.append(item)
-            return tuple(mapped_items)
-        return value
+        return _map_term_values(value, lambda t: mapper(t, field_info.metadata))
 
     def _replace_terms(self, mapper: Callable[[Term, Any], Term]) -> Term:
         updates = {f.name: self._map_field(f, mapper) for f in self._reducible_fields()}
@@ -76,11 +70,12 @@ class Term:
         reduced = reducer(self)
         if reduced != self:
             return reduced
-        for f in self._reducible_fields():
-            new_value = self._map_field(f, lambda t, _: t._reduce_inside_step(reducer))
-            if new_value != getattr(self, f.name):
+        for f in type(self)._reducible_fields():
+            curr = getattr(self, f.name)
+            new = _map_term_values(curr, lambda t: t._reduce_inside_step(reducer))
+            if new != curr:
                 # noinspection PyArgumentList
-                return replace(self, **{f.name: new_value})
+                return replace(self, **{f.name: new})
         return self
 
     def normalize_step(self) -> Term:
@@ -124,7 +119,7 @@ class Term:
         other_whnf = other.whnf()
         if self_whnf == other_whnf:
             return True
-        if type(self_whnf) != type(other_whnf):
+        if type(self_whnf) is not type(other_whnf):
             return False
         for f in type(self_whnf)._checkable_fields():
             s = getattr(self_whnf, f.name)
