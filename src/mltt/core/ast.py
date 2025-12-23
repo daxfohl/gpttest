@@ -19,6 +19,16 @@ def _map_term_values(value: Any, f: Callable[[Term], Term]) -> Any:
     return value
 
 
+@dataclass(frozen=True, kw_only=True)
+class TermFieldMeta:
+    binder_count: int = 0
+    unchecked: bool = False
+
+
+def meta(f: Field) -> TermFieldMeta:
+    return f.metadata.get("") or TermFieldMeta()
+
+
 @dataclass(frozen=True)
 class Term:
     """Base class for all MLTT terms."""
@@ -33,25 +43,25 @@ class Term:
     @classmethod
     @cache
     def _checkable_fields(cls) -> tuple[Field, ...]:
-        return tuple(f for f in fields(cls) if not f.metadata.get("unchecked"))
+        return tuple(f for f in fields(cls) if not meta(f).unchecked)
 
-    def _map_field(self, field_info: Field, mapper: Callable[[Term, Any], Term]) -> Any:
-        value = getattr(self, field_info.name)
-        return _map_term_values(value, lambda t: mapper(t, field_info.metadata))
+    def _map_field(self, f: Field, mapper: Callable[[Term, TermFieldMeta], Term]) -> Any:
+        value = getattr(self, f.name)
+        return _map_term_values(value, lambda t: mapper(t, meta(f)))
 
-    def _replace_terms(self, mapper: Callable[[Term, Any], Term]) -> Term:
+    def _replace_terms(self, mapper: Callable[[Term, TermFieldMeta], Term]) -> Term:
         updates = {f.name: self._map_field(f, mapper) for f in self._reducible_fields()}
         # noinspection PyArgumentList
         return replace(self, **updates) if updates else self
 
     def shift(self, by: int, cutoff: int = 0) -> Term:
         """Shift free variables in the term."""
-        return self._replace_terms(lambda t, m: t.shift(by, cutoff + m.get("binds", 0)))
+        return self._replace_terms(lambda t, m: t.shift(by, cutoff + m.binder_count))
 
     def subst(self, sub: Term, j: int = 0) -> Term:
         """Substitute ``sub`` for ``Var(j)`` inside the term."""
         return self._replace_terms(
-            lambda t, m: t.subst(sub.shift(m.get("binds", 0)), j + m.get("binds", 0))
+            lambda t, m: t.subst(sub.shift(m.binder_count), j + m.binder_count)
         )
 
     # --- Reduction ------------------------------------------------------------
@@ -197,7 +207,7 @@ class Lam(Term):
     """Dependent lambda term with an argument type and body."""
 
     arg_ty: Term
-    body: Term = field(metadata={"binds": 1})
+    body: Term = field(metadata={"": TermFieldMeta(binder_count=1)})
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: Ctx) -> Term:
@@ -226,7 +236,7 @@ class Pi(Term):
     """Dependent function type (Pi-type)."""
 
     arg_ty: Term
-    return_ty: Term = field(metadata={"binds": 1})
+    return_ty: Term = field(metadata={"": TermFieldMeta(binder_count=1)})
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: Ctx) -> Term:

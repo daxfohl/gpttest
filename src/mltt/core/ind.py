@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import ClassVar
 
-from .ast import Term, Pi, Univ, App
+from .ast import Term, Pi, Univ, App, TermFieldMeta
 from .debruijn import Ctx, mk_app, mk_pis, decompose_app, Telescope, ArgList
 
 
@@ -182,13 +182,17 @@ class Ind(Term):
 
     name: str
     param_types: Telescope = field(
-        repr=False, default=Telescope.empty(), metadata={"unchecked": True}
+        repr=False,
+        default=Telescope.empty(),
+        metadata={"": TermFieldMeta(unchecked=True)},
     )
     index_types: Telescope = field(
-        repr=False, default=Telescope.empty(), metadata={"unchecked": True}
+        repr=False,
+        default=Telescope.empty(),
+        metadata={"": TermFieldMeta(unchecked=True)},
     )
     constructors: tuple[Ctor, ...] = field(
-        repr=False, default=(), metadata={"unchecked": True}
+        repr=False, default=(), metadata={"": TermFieldMeta(unchecked=True)}
     )
     level: int = 0
     is_terminal: ClassVar[bool] = True
@@ -203,12 +207,16 @@ class Ctor(Term):
     """A constructor for an inductive type."""
 
     name: str
-    inductive: Ind = field(repr=False, metadata={"unchecked": True})
+    inductive: Ind = field(repr=False, metadata={"": TermFieldMeta(unchecked=True)})
     field_schemas: Telescope = field(
-        repr=False, default=Telescope.empty(), metadata={"unchecked": True}
+        repr=False,
+        default=Telescope.empty(),
+        metadata={"": TermFieldMeta(unchecked=True)},
     )
     result_indices: ArgList = field(
-        repr=False, default=ArgList.empty(), metadata={"unchecked": True}
+        repr=False,
+        default=ArgList.empty(),
+        metadata={"": TermFieldMeta(unchecked=True)},
     )
     is_terminal: ClassVar[bool] = True
 
