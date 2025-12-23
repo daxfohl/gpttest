@@ -207,11 +207,8 @@ def test_type_check_application_argument_mismatch() -> None:
 def test_infer_type_idelim() -> None:
     P = mk_lams(NatType(), Id(NatType(), Zero(), Var(0)), body=Univ())
     term = IdElim(
-        A=NatType(),
-        x=Zero(),
         P=P,
         d=NatType(),
-        y=Zero(),
         p=Refl(NatType(), Zero()),
     )
     inferred = term.infer_type()

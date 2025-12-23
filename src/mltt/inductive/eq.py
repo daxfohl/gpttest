@@ -32,11 +32,9 @@ def Refl(ty: Term, t: Term) -> Term:
     return mk_app(ReflCtor, ty, t)
 
 
-def IdElim(A: Term, x: Term, P: Term, d: Term, y: Term, p: Term) -> Elim:
+def IdElim(P: Term, d: Term, p: Term) -> Elim:
     """Identity eliminator (J) expressed via the generalized ``Elim``."""
 
-    # Parameters ``A`` and ``x`` match the prior eliminator signature even
-    # though they are implicitly captured by ``P``/``d``.
     return Elim(inductive=IdType, motive=P, cases=(d,), scrutinee=p)
 
 
@@ -53,7 +51,7 @@ def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
         ),
     )
     d = Refl(App(B, x), App(f, x))
-    return IdElim(A, x, P, d, y, p)
+    return IdElim(P, d, p)
 
 
 def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
@@ -71,7 +69,7 @@ def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
         body=Id(App(B2, Var(1)), App(f2, x2), App(f2, Var(1))),
     )
     d = Refl(App(B, x), App(f, x))
-    return IdElim(A, x, P, d, y, p)
+    return IdElim(P, d, p)
 
 
 def ap(f: Term, A: Term, B0: Term, x: Term, y: Term, p: Term) -> Term:
@@ -94,7 +92,7 @@ def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
         body=Id(A2, Var(1), x2),
     )
     d = Refl(A, x)
-    return IdElim(A, x, P, d, y, p)
+    return IdElim(P, d, p)
 
 
 def trans(A: Term, x: Term, y: Term, z: Term, p: Term, q: Term) -> Term:
@@ -110,7 +108,7 @@ def trans(A: Term, x: Term, y: Term, z: Term, p: Term, q: Term) -> Term:
         Id(A1, y1, Var(0)),
         body=Id(A2, x2, Var(1)),
     )
-    return IdElim(A, y, Q, p, z, q)
+    return IdElim(Q, p, q)
 
 
 __all__ = ["IdType", "Id", "Refl", "IdElim", "cong3", "cong", "ap", "sym", "trans"]

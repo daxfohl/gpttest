@@ -373,11 +373,8 @@ def test_subst_identity_constructs() -> None:
 
 def test_subst_idelim_components() -> None:
     term = IdElim(
-        A=Univ(),
-        x=Var(0),
         P=Var(1),
         d=Var(2),
-        y=Var(3),
         p=Var(4),
     )
     sub = Succ(Var(0))

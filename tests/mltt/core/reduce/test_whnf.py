@@ -23,11 +23,8 @@ def test_whnf_unfolds_natrec_on_successor() -> None:
 
 def test_whnf_simplifies_identity_elimination_on_refl() -> None:
     term = IdElim(
-        A=Var(0),
-        x=Var(1),
         P=Var(2),
         d=Var(3),
-        y=Var(4),
         p=Refl(Var(5), Var(6)),
     )
     assert term.whnf() == Var(3)
