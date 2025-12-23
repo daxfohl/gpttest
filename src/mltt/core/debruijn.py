@@ -61,7 +61,7 @@ class ArgList(SeqBase[Term]):
         return ArgList(tuple(Var(i) for i in reversed(range(offset, offset + count))))
 
     def instantiate(self, actuals: ArgList, depth_above: int = 0) -> Self:
-        return self._map(lambda t: discharge_binders(t, actuals, depth_above).whnf())
+        return self._map(lambda t: t.instantiate(actuals, depth_above).whnf())
 
     def shift(self, i: int) -> Self:
         return self._map(lambda e: e.shift(i))
@@ -80,9 +80,7 @@ class Telescope(SeqBase[Term]):
         return self.of(*self, *other)
 
     def instantiate(self, actuals: ArgList, depth_above: int = 0) -> Self:
-        return self._mapi(
-            lambda i, t: discharge_binders(t, actuals, depth_above + i).whnf()
-        )
+        return self._mapi(lambda i, t: t.instantiate(actuals, depth_above + i).whnf())
 
 
 @dataclass(frozen=True)
@@ -272,25 +270,6 @@ def decompose_app(term: Term) -> tuple[Term, ArgList]:
     return term, ArgList.of(*reversed(args))
 
 
-def discharge_binders(schema: Term, actuals: ArgList, depth_above: int = 0) -> Term:
-    """
-    Substitute ``actuals`` for the outer binder block of ``schema``.
-
-    Schema is assumed written under (actuals)(...) where ``depth_above`` is the number
-    of binders *below* the actuals block that remain in scope at substitution time.
-    For each actual, eliminate at de Bruijn index:
-        index = depth_above + len(actuals) - i - 1
-    using the project’s convention:
-        schema = schema.subst(actual.shift(index), index)
-    """
-    t = schema
-    k = len(actuals)
-    for i, a in enumerate(actuals):
-        index = depth_above + k - i - 1
-        t = t.subst(a.shift(index), index)
-    return t
-
-
 __all__ = [
     "Ctx",
     "CtxEntry",
@@ -300,5 +279,4 @@ __all__ = [
     "mk_pis",
     "mk_lams",
     "decompose_app",
-    "discharge_binders",
 ]

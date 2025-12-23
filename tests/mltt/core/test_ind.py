@@ -4,7 +4,6 @@ from mltt.core.debruijn import (
     mk_app,
     mk_pis,
     mk_lams,
-    discharge_binders,
     Telescope,
     ArgList,
 )
@@ -16,7 +15,7 @@ def test_instantiate_ctor_arg_types_shifts_params_by_fields() -> None:
     params = ArgList.of(Var(0))  # pretend A is at depth 0 in Γ
 
     inst = tuple(
-        discharge_binders(schema, params, depth_above=i)
+        schema.instantiate(params, depth_above=i)
         for i, schema in enumerate(vec.ConsCtor.field_schemas)
     )
     # n : Nat

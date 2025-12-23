@@ -8,7 +8,7 @@ from operator import methodcaller
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 if TYPE_CHECKING:
-    from .debruijn import Ctx
+    from .debruijn import Ctx, ArgList
 
 
 def _map_term_values(value: Any, f: Callable[[Term], Term]) -> Any:
@@ -45,7 +45,9 @@ class Term:
     def _checkable_fields(cls) -> tuple[Field, ...]:
         return tuple(f for f in fields(cls) if not meta(f).unchecked)
 
-    def _map_field(self, f: Field, mapper: Callable[[Term, TermFieldMeta], Term]) -> Any:
+    def _map_field(
+        self, f: Field, mapper: Callable[[Term, TermFieldMeta], Term]
+    ) -> Any:
         value = getattr(self, f.name)
         return _map_term_values(value, lambda t: mapper(t, meta(f)))
 
@@ -63,6 +65,24 @@ class Term:
         return self._replace_terms(
             lambda t, m: t.subst(sub.shift(m.binder_count), j + m.binder_count)
         )
+
+    def instantiate(self, actuals: ArgList, depth_above: int = 0) -> Term:
+        """
+        Substitute ``actuals`` for the outer binder block of ``self``.
+
+        Self is assumed written under (actuals)(...) where ``depth_above`` is the number
+        of binders *below* the actuals block that remain in scope at substitution time.
+        For each actual, eliminate at de Bruijn index:
+            index = depth_above + len(actuals) - i - 1
+        using the project’s convention:
+            schema = schema.subst(actual.shift(index), index)
+        """
+        t = self
+        k = len(actuals)
+        for i, a in enumerate(actuals):
+            index = depth_above + k - i - 1
+            t = t.subst(a.shift(index), index)
+        return t
 
     # --- Reduction ------------------------------------------------------------
     def whnf_step(self) -> Term:
