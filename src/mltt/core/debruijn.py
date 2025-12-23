@@ -19,10 +19,6 @@ class SeqBase(Sequence[T], Generic[T]):
     def of(cls: type[Self], *items: T) -> Self:
         return cls(items)
 
-    @classmethod
-    def empty(cls: type[Self]) -> Self:
-        return cls.of()
-
     # ---- Sequence contract ----
     def __len__(self) -> int:
         return len(self._data)
@@ -40,32 +36,51 @@ class SeqBase(Sequence[T], Generic[T]):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({list(self._data)!r})"
 
-    def __add__(self, other: Iterable[T]) -> Self:
-        return self.of(*self, *other)
-
     # ---- a couple generic helpers you might want everywhere ----
-    def map(self, f: Callable[[T], T]) -> Self:
+    def _map(self, f: Callable[[T], T]) -> Self:
         return self.of(*(f(x) for x in self._data))
 
-    def mapi(self, f: Callable[[int, T], T]) -> Self:
+    def _mapi(self, f: Callable[[int, T], T]) -> Self:
         return self.of(*(f(i, x) for i, x in enumerate(self._data)))
 
 
 class ArgList(SeqBase[Term]):
+    @classmethod
+    def of(cls, *items: Term) -> Self:
+        return cls(items)
+
+    @classmethod
+    def empty(cls) -> Self:
+        return cls.of()
+
+    def __add__(self, other: Iterable[Term]) -> Self:
+        return self.of(*self, *other)
+
     @staticmethod
     def vars(count: int, offset: int = 0) -> ArgList:
         return ArgList(tuple(Var(i) for i in reversed(range(offset, offset + count))))
 
     def instantiate(self, actuals: ArgList, depth_above: int = 0) -> Self:
-        return self.map(lambda t: discharge_binders(t, actuals, depth_above).whnf())
+        return self._map(lambda t: discharge_binders(t, actuals, depth_above).whnf())
 
     def shift(self, i: int) -> Self:
-        return self.map(lambda e: e.shift(i))
+        return self._map(lambda e: e.shift(i))
 
 
 class Telescope(SeqBase[Term]):
+    @classmethod
+    def of(cls, *items: Term) -> Self:
+        return cls(items)
+
+    @classmethod
+    def empty(cls) -> Self:
+        return cls.of()
+
+    def __add__(self, other: Iterable[Term]) -> Self:
+        return self.of(*self, *other)
+
     def instantiate(self, actuals: ArgList, depth_above: int = 0) -> Self:
-        return self.mapi(
+        return self._mapi(
             lambda i, t: discharge_binders(t, actuals, depth_above + i).whnf()
         )
 

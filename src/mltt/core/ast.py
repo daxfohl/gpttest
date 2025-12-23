@@ -23,6 +23,7 @@ class Term:
 
     @classmethod
     def _checkable_fields(cls) -> tuple[Field, ...]:
+        # noinspection PyUnresolvedReferences
         return tuple(
             f
             for f in cls.__dataclass_fields__.values()
