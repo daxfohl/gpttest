@@ -134,7 +134,7 @@ class Term:
         self._type_check(ty.whnf(), ctx or Ctx())
 
     def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
-        self._check_against_inferred(expected_ty, ctx, label=type(self).__name__)
+        self._check_against_inferred(expected_ty, ctx)
 
     def expect_universe(self, ctx: Ctx | None = None) -> int:
         ty = self.infer_type(ctx).whnf()
@@ -161,13 +161,11 @@ class Term:
                 return False
         return True
 
-    def _check_against_inferred(
-        self, expected_ty: Term, ctx: Ctx, *, label: str
-    ) -> None:
+    def _check_against_inferred(self, expected_ty: Term, ctx: Ctx) -> None:
         inferred_ty = self.infer_type(ctx)
         if not expected_ty.type_equal(inferred_ty):
             raise TypeError(
-                f"{label} type mismatch:\n"
+                f"{type(self).__name__} type mismatch:\n"
                 f"  term = {self}\n"
                 f"  expected = {expected_ty}\n"
                 f"  inferred = {inferred_ty}"
