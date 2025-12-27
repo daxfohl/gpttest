@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from functools import cache
 
-from ..core.ast import App, ConstLevel, LevelExpr, LevelLike, LevelVar, Term, Univ, Var
-from ..core.debruijn import decompose_app, mk_app, Telescope
+from ..core.ast import App, ConstLevel, LevelExpr, LevelLike, Term, Univ, Var
+from ..core.debruijn import mk_app, Telescope
 from ..core.ind import Elim, Ctor, Ind
 
 
@@ -26,7 +26,7 @@ def _normalize_level(level: LevelLike) -> LevelExpr:
     return ConstLevel(level)
 
 
-Maybe, NothingCtor, JustCtor = _maybe_family(LevelVar(0))
+Maybe, NothingCtor, JustCtor = _maybe_family(0)
 
 
 def MaybeAt(level: LevelLike) -> Ind:
@@ -41,21 +41,15 @@ def JustCtorAt(level: LevelLike) -> Ctor:
     return _maybe_family(_normalize_level(level))[2]
 
 
-def MaybeType(elem_ty: Term, *, level: LevelLike | None = None) -> Term:
-    if level is None:
-        level = elem_ty.expect_universe()
+def MaybeType(elem_ty: Term, *, level: LevelLike = 0) -> Term:
     return App(MaybeAt(level), elem_ty)
 
 
-def Nothing(elem_ty: Term, *, level: LevelLike | None = None) -> Term:
-    if level is None:
-        level = elem_ty.expect_universe()
+def Nothing(elem_ty: Term, *, level: LevelLike = 0) -> Term:
     return App(NothingCtorAt(level), elem_ty)
 
 
-def Just(elem_ty: Term, value: Term, *, level: LevelLike | None = None) -> Term:
-    if level is None:
-        level = elem_ty.expect_universe()
+def Just(elem_ty: Term, value: Term, *, level: LevelLike = 0) -> Term:
     return mk_app(JustCtorAt(level), elem_ty, value)
 
 
@@ -65,18 +59,11 @@ def MaybeElim(
     just_case: Term,
     scrutinee: Term,
     *,
-    level: LevelLike | None = None,
+    level: LevelLike = 0,
 ) -> Elim:
     """Eliminate Maybe by providing branches for ``Nothing`` and ``Just``."""
 
-    if level is None:
-        scrut_ty = scrutinee.infer_type().whnf()
-        head, _ = decompose_app(scrut_ty)
-        if not isinstance(head, Ind):
-            raise TypeError(f"MaybeElim scrutinee is not a Maybe: {scrut_ty}")
-        inductive = head
-    else:
-        inductive = MaybeAt(level)
+    inductive = MaybeAt(level)
     return Elim(
         inductive=inductive,
         motive=P,

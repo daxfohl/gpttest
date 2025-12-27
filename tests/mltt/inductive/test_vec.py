@@ -114,8 +114,9 @@ def test_infer_type(elem: Term, n: int) -> None:
 @pytest.mark.parametrize("elem", (Univ(0), Univ(55), NatType()))
 def test_infer_type_rejects_type_elements(elem: Term) -> None:
     elem_ty = elem.infer_type()
-    vector = vec.Nil(elem_ty)
-    assert vector.infer_type() == VecType(elem_ty, Zero())
+    level = elem_ty.expect_universe()
+    vector = vec.Nil(elem_ty, level=level)
+    assert vector.infer_type() == VecType(elem_ty, Zero(), level=level)
 
 
 def test_ctor_type() -> None:

@@ -6,18 +6,8 @@ from functools import cache
 
 from .nat import NatType, Succ, Zero
 from .vec import Cons, Nil, VecAt, VecType
-from ..core.ast import (
-    App,
-    ConstLevel,
-    LevelExpr,
-    LevelLike,
-    LevelVar,
-    Pi,
-    Term,
-    Univ,
-    Var,
-)
-from ..core.debruijn import ArgList, Telescope, decompose_app, mk_app
+from ..core.ast import App, ConstLevel, LevelExpr, LevelLike, Pi, Term, Univ, Var
+from ..core.debruijn import ArgList, Telescope, mk_app
 from ..core.ind import Ctor, Elim, Ind
 
 
@@ -67,7 +57,7 @@ def _normalize_level(level: LevelLike) -> LevelExpr:
     return ConstLevel(level)
 
 
-AllVec, AllNilCtor, AllConsCtor = _allvec_family(LevelVar(0))
+AllVec, AllNilCtor, AllConsCtor = _allvec_family(0)
 
 
 def AllVecAt(level: LevelLike) -> Ind:
@@ -82,17 +72,11 @@ def AllConsCtorAt(level: LevelLike) -> Ctor:
     return _allvec_family(_normalize_level(level))[2]
 
 
-def AllVecType(
-    A: Term, P: Term, n: Term, xs: Term, *, level: LevelLike | None = None
-) -> Term:
-    if level is None:
-        level = A.expect_universe()
+def AllVecType(A: Term, P: Term, n: Term, xs: Term, *, level: LevelLike = 0) -> Term:
     return mk_app(AllVecAt(level), A, P, n, xs)
 
 
-def AllNil(A: Term, P: Term, *, level: LevelLike | None = None) -> Term:
-    if level is None:
-        level = A.expect_universe()
+def AllNil(A: Term, P: Term, *, level: LevelLike = 0) -> Term:
     return mk_app(AllNilCtorAt(level), A, P)
 
 
@@ -105,10 +89,8 @@ def AllCons(
     px: Term,
     ih: Term,
     *,
-    level: LevelLike | None = None,
+    level: LevelLike = 0,
 ) -> Term:
-    if level is None:
-        level = A.expect_universe()
     return mk_app(AllConsCtorAt(level), A, P, n, x, xs, px, ih)
 
 
@@ -118,16 +100,9 @@ def AllVecElim(
     all_cons: Term,
     scrutinee: Term,
     *,
-    level: LevelLike | None = None,
+    level: LevelLike = 0,
 ) -> Elim:
-    if level is None:
-        scrut_ty = scrutinee.infer_type().whnf()
-        head, _ = decompose_app(scrut_ty)
-        if not isinstance(head, Ind):
-            raise TypeError(f"AllVecElim scrutinee is not an AllVec: {scrut_ty}")
-        inductive = head
-    else:
-        inductive = AllVecAt(level)
+    inductive = AllVecAt(level)
     return Elim(
         inductive=inductive,
         motive=motive,

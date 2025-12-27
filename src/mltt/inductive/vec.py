@@ -6,8 +6,8 @@ from functools import cache
 
 from .fin import FinType, FZ, FS
 from .nat import NatType, Succ, Zero
-from ..core.ast import ConstLevel, LevelExpr, LevelLike, LevelVar, Term, Univ, Var
-from ..core.debruijn import decompose_app, mk_app, mk_lams, Telescope, ArgList
+from ..core.ast import ConstLevel, LevelExpr, LevelLike, Term, Univ, Var
+from ..core.debruijn import mk_app, mk_lams, Telescope, ArgList
 from ..core.ind import Elim, Ctor, Ind
 
 
@@ -44,7 +44,7 @@ def _normalize_level(level: LevelLike) -> LevelExpr:
     return ConstLevel(level)
 
 
-Vec, NilCtor, ConsCtor = _vec_family(LevelVar(0))
+Vec, NilCtor, ConsCtor = _vec_family(0)
 
 
 def VecAt(level: LevelLike) -> Ind:
@@ -59,39 +59,24 @@ def ConsCtorAt(level: LevelLike) -> Ctor:
     return _vec_family(_normalize_level(level))[2]
 
 
-def VecType(elem_ty: Term, length: Term, *, level: LevelLike | None = None) -> Term:
-    if level is None:
-        level = elem_ty.expect_universe()
+def VecType(elem_ty: Term, length: Term, *, level: LevelLike = 0) -> Term:
     return mk_app(VecAt(level), elem_ty, length)
 
 
-def Nil(elem_ty: Term, *, level: LevelLike | None = None) -> Term:
-    if level is None:
-        level = elem_ty.expect_universe()
+def Nil(elem_ty: Term, *, level: LevelLike = 0) -> Term:
     return mk_app(NilCtorAt(level), elem_ty)
 
 
 def Cons(
-    elem_ty: Term, n: Term, head: Term, tail: Term, *, level: LevelLike | None = None
+    elem_ty: Term, n: Term, head: Term, tail: Term, *, level: LevelLike = 0
 ) -> Term:
-    if level is None:
-        level = elem_ty.expect_universe()
     return mk_app(ConsCtorAt(level), elem_ty, n, head, tail)
 
 
-def VecElim(
-    P: Term, base: Term, step: Term, xs: Term, *, level: LevelLike | None = None
-) -> Elim:
+def VecElim(P: Term, base: Term, step: Term, xs: Term, *, level: LevelLike = 0) -> Elim:
     """Recursor for vectors."""
 
-    if level is None:
-        scrut_ty = xs.infer_type().whnf()
-        head, _ = decompose_app(scrut_ty)
-        if not isinstance(head, Ind):
-            raise TypeError(f"VecElim scrutinee is not a Vec: {scrut_ty}")
-        inductive = head
-    else:
-        inductive = VecAt(level)
+    inductive = VecAt(level)
     return Elim(
         inductive=inductive,
         motive=P,

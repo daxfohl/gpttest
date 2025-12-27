@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from functools import cache
 
-from ..core.ast import App, ConstLevel, LevelExpr, LevelLike, LevelVar, Term, Univ, Var
-from ..core.debruijn import decompose_app, mk_app, Telescope
+from ..core.ast import App, ConstLevel, LevelExpr, LevelLike, Term, Univ, Var
+from ..core.debruijn import mk_app, Telescope
 from ..core.ind import Elim, Ctor, Ind
 
 
@@ -31,7 +31,7 @@ def _normalize_level(level: LevelLike) -> LevelExpr:
     return ConstLevel(level)
 
 
-List, NilCtor, ConsCtor = _list_family(LevelVar(0))
+List, NilCtor, ConsCtor = _list_family(0)
 
 
 def ListAt(level: LevelLike) -> Ind:
@@ -46,37 +46,22 @@ def ConsCtorAt(level: LevelLike) -> Ctor:
     return _list_family(_normalize_level(level))[2]
 
 
-def ListType(elem_ty: Term, *, level: LevelLike | None = None) -> Term:
-    if level is None:
-        level = elem_ty.expect_universe()
+def ListType(elem_ty: Term, *, level: LevelLike = 0) -> Term:
     return App(ListAt(level), elem_ty)
 
 
-def Nil(elem_ty: Term, *, level: LevelLike | None = None) -> Term:
-    if level is None:
-        level = elem_ty.expect_universe()
+def Nil(elem_ty: Term, *, level: LevelLike = 0) -> Term:
     return App(NilCtorAt(level), elem_ty)
 
 
-def Cons(
-    elem_ty: Term, head: Term, tail: Term, *, level: LevelLike | None = None
-) -> Term:
-    if level is None:
-        level = elem_ty.expect_universe()
+def Cons(elem_ty: Term, head: Term, tail: Term, *, level: LevelLike = 0) -> Term:
     return mk_app(ConsCtorAt(level), elem_ty, head, tail)
 
 
 def ListElim(
-    P: Term, base: Term, step: Term, xs: Term, *, level: LevelLike | None = None
+    P: Term, base: Term, step: Term, xs: Term, *, level: LevelLike = 0
 ) -> Elim:
-    if level is None:
-        scrut_ty = xs.infer_type().whnf()
-        head, _ = decompose_app(scrut_ty)
-        if not isinstance(head, Ind):
-            raise TypeError(f"ListElim scrutinee is not a List: {scrut_ty}")
-        inductive = head
-    else:
-        inductive = ListAt(level)
+    inductive = ListAt(level)
     return Elim(
         inductive=inductive,
         motive=P,

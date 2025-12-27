@@ -5,18 +5,8 @@ from __future__ import annotations
 from functools import cache
 
 from .list import ConsCtorAt, ListAt, NilCtorAt
-from ..core.ast import (
-    App,
-    ConstLevel,
-    LevelExpr,
-    LevelLike,
-    LevelVar,
-    Pi,
-    Term,
-    Univ,
-    Var,
-)
-from ..core.debruijn import ArgList, Telescope, decompose_app, mk_app
+from ..core.ast import App, ConstLevel, LevelExpr, LevelLike, Pi, Term, Univ, Var
+from ..core.debruijn import ArgList, Telescope, mk_app
 from ..core.ind import Ctor, Elim, Ind
 
 
@@ -83,7 +73,7 @@ def _normalize_level(level: LevelLike) -> LevelExpr:
     return ConstLevel(level)
 
 
-Sorted, SortedNilCtor, SortedOneCtor, SortedConsCtor = _sorted_family(LevelVar(0))
+Sorted, SortedNilCtor, SortedOneCtor, SortedConsCtor = _sorted_family(0)
 
 
 def SortedAt(level: LevelLike) -> Ind:
@@ -102,21 +92,15 @@ def SortedConsCtorAt(level: LevelLike) -> Ctor:
     return _sorted_family(_normalize_level(level))[3]
 
 
-def SortedType(A: Term, R: Term, xs: Term, *, level: LevelLike | None = None) -> Term:
-    if level is None:
-        level = A.expect_universe()
+def SortedType(A: Term, R: Term, xs: Term, *, level: LevelLike = 0) -> Term:
     return mk_app(SortedAt(level), A, R, xs)
 
 
-def SortedNil(A: Term, R: Term, *, level: LevelLike | None = None) -> Term:
-    if level is None:
-        level = A.expect_universe()
+def SortedNil(A: Term, R: Term, *, level: LevelLike = 0) -> Term:
     return mk_app(SortedNilCtorAt(level), A, R)
 
 
-def SortedOne(A: Term, R: Term, x: Term, *, level: LevelLike | None = None) -> Term:
-    if level is None:
-        level = A.expect_universe()
+def SortedOne(A: Term, R: Term, x: Term, *, level: LevelLike = 0) -> Term:
     return mk_app(SortedOneCtorAt(level), A, R, x)
 
 
@@ -129,10 +113,8 @@ def SortedCons(
     rel: Term,
     ih: Term,
     *,
-    level: LevelLike | None = None,
+    level: LevelLike = 0,
 ) -> Term:
-    if level is None:
-        level = A.expect_universe()
     return mk_app(SortedConsCtorAt(level), A, R, xs, x, y, rel, ih)
 
 
@@ -143,16 +125,9 @@ def SortedRec(
     cons_case: Term,
     proof: Term,
     *,
-    level: LevelLike | None = None,
+    level: LevelLike = 0,
 ) -> Elim:
-    if level is None:
-        scrut_ty = proof.infer_type().whnf()
-        head, _ = decompose_app(scrut_ty)
-        if not isinstance(head, Ind):
-            raise TypeError(f"SortedRec scrutinee is not a Sorted: {scrut_ty}")
-        inductive = head
-    else:
-        inductive = SortedAt(level)
+    inductive = SortedAt(level)
     return Elim(
         inductive=inductive,
         motive=motive,

@@ -54,4 +54,5 @@ def test_infer_type(elem: Term) -> None:
 @pytest.mark.parametrize("elem", (Univ(0), Univ(55), NatType(), MaybeType(NatType())))
 def test_infer_type_rejects_type_elements(elem: Term) -> None:
     elem_ty = elem.infer_type()
-    assert Nothing(elem_ty).infer_type() == MaybeType(elem_ty)
+    level = elem_ty.expect_universe()
+    assert Nothing(elem_ty, level=level).infer_type() == MaybeType(elem_ty, level=level)
