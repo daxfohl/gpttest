@@ -2,57 +2,136 @@
 
 from __future__ import annotations
 
-from .list import ConsCtor, List, NilCtor
-from ..core.ast import App, Pi, Term, Univ, Var
-from ..core.debruijn import mk_app, Telescope, ArgList
-from ..core.ind import Elim, Ctor, Ind
+from functools import cache
 
-All = Ind(
-    name="All",
-    param_types=Telescope.of(
-        Univ(0),  # A : Type
-        Pi(Var(0), Univ(0)),  # P : A -> Type
-    ),
-    index_types=Telescope.of(App(List, Var(1))),  # xs : List A
+from .list import ConsCtorAt, ListAt, NilCtorAt
+from ..core.ast import (
+    App,
+    ConstLevel,
+    LevelExpr,
+    LevelLike,
+    LevelVar,
+    Pi,
+    Term,
+    Univ,
+    Var,
 )
-
-AllNilCtor = Ctor(
-    name="all_nil",
-    inductive=All,
-    result_indices=ArgList.of(App(NilCtor, Var(1))),
-)
-
-AllConsCtor = Ctor(
-    name="all_cons",
-    inductive=All,
-    field_schemas=Telescope.of(
-        mk_app(List, Var(1)),  # xs : List A
-        Var(2),  # x : A
-        mk_app(Var(2), Var(0)),  # px : P x
-        mk_app(All, Var(4), Var(3), Var(2)),  # ih : All A P xs
-    ),
-    result_indices=ArgList.of(mk_app(ConsCtor, Var(5), Var(2), Var(3))),  # x :: xs
-)
-
-object.__setattr__(All, "constructors", (AllNilCtor, AllConsCtor))
+from ..core.debruijn import ArgList, Telescope, decompose_app, mk_app
+from ..core.ind import Ctor, Elim, Ind
 
 
-def AllType(A: Term, P: Term, xs: Term) -> Term:
-    return mk_app(All, A, P, xs)
+@cache
+def _all_family(level: LevelExpr) -> tuple[Ind, Ctor, Ctor]:
+    list_ind = ListAt(level)
+    nil_ctor = NilCtorAt(level)
+    cons_ctor = ConsCtorAt(level)
+    all_ind = Ind(
+        name="All",
+        param_types=Telescope.of(
+            Univ(level),  # A : Type
+            Pi(Var(0), Univ(level)),  # P : A -> Type
+        ),
+        index_types=Telescope.of(App(list_ind, Var(1))),  # xs : List A
+        level=level,
+    )
+    all_nil = Ctor(
+        name="all_nil",
+        inductive=all_ind,
+        result_indices=ArgList.of(App(nil_ctor, Var(1))),
+    )
+    all_cons = Ctor(
+        name="all_cons",
+        inductive=all_ind,
+        field_schemas=Telescope.of(
+            mk_app(list_ind, Var(1)),  # xs : List A
+            Var(2),  # x : A
+            mk_app(Var(2), Var(0)),  # px : P x
+            mk_app(all_ind, Var(4), Var(3), Var(2)),  # ih : All A P xs
+        ),
+        result_indices=ArgList.of(mk_app(cons_ctor, Var(5), Var(2), Var(3))),  # x :: xs
+    )
+    object.__setattr__(all_ind, "constructors", (all_nil, all_cons))
+    return all_ind, all_nil, all_cons
 
 
-def AllNil(A: Term, P: Term) -> Term:
-    return mk_app(AllNilCtor, A, P)
+def _normalize_level(level: LevelLike) -> LevelExpr:
+    if isinstance(level, LevelExpr):
+        return level
+    return ConstLevel(level)
 
 
-def AllCons(A: Term, P: Term, xs: Term, x: Term, px: Term, ih: Term) -> Term:
-    return mk_app(AllConsCtor, A, P, xs, x, px, ih)
+All, AllNilCtor, AllConsCtor = _all_family(LevelVar(0))
 
 
-def AllRec(motive: Term, nil_case: Term, cons_case: Term, proof: Term) -> Elim:
+def AllAt(level: LevelLike) -> Ind:
+    return _all_family(_normalize_level(level))[0]
+
+
+def AllNilCtorAt(level: LevelLike) -> Ctor:
+    return _all_family(_normalize_level(level))[1]
+
+
+def AllConsCtorAt(level: LevelLike) -> Ctor:
+    return _all_family(_normalize_level(level))[2]
+
+
+def AllType(A: Term, P: Term, xs: Term, *, level: LevelLike | None = None) -> Term:
+    if level is None:
+        level = A.expect_universe()
+    return mk_app(AllAt(level), A, P, xs)
+
+
+def AllNil(A: Term, P: Term, *, level: LevelLike | None = None) -> Term:
+    if level is None:
+        level = A.expect_universe()
+    return mk_app(AllNilCtorAt(level), A, P)
+
+
+def AllCons(
+    A: Term,
+    P: Term,
+    xs: Term,
+    x: Term,
+    px: Term,
+    ih: Term,
+    *,
+    level: LevelLike | None = None,
+) -> Term:
+    if level is None:
+        level = A.expect_universe()
+    return mk_app(AllConsCtorAt(level), A, P, xs, x, px, ih)
+
+
+def AllRec(
+    motive: Term,
+    nil_case: Term,
+    cons_case: Term,
+    proof: Term,
+    *,
+    level: LevelLike | None = None,
+) -> Elim:
+    if level is None:
+        scrut_ty = proof.infer_type().whnf()
+        head, _ = decompose_app(scrut_ty)
+        if not isinstance(head, Ind):
+            raise TypeError(f"AllRec scrutinee is not an All: {scrut_ty}")
+        inductive = head
+    else:
+        inductive = AllAt(level)
     return Elim(
-        inductive=All, motive=motive, cases=(nil_case, cons_case), scrutinee=proof
+        inductive=inductive, motive=motive, cases=(nil_case, cons_case), scrutinee=proof
     )
 
 
-__all__ = ["All", "AllType", "AllNil", "AllCons", "AllRec"]
+__all__ = [
+    "All",
+    "AllAt",
+    "AllType",
+    "AllNil",
+    "AllCons",
+    "AllRec",
+    "AllNilCtor",
+    "AllNilCtorAt",
+    "AllConsCtor",
+    "AllConsCtorAt",
+]

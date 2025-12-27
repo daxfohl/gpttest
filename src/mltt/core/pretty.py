@@ -7,6 +7,7 @@ from .ast import (
     ConstLevel,
     Lam,
     LevelExpr,
+    LevelVar,
     MaxOfLevels,
     Pi,
     SuccLevel,
@@ -97,6 +98,8 @@ def pretty(term: Term) -> str:
             case MaxOfLevels(levels):
                 inner = ", ".join(fmt_level(level) for level in levels)
                 return f"max({inner})"
+            case LevelVar(k):
+                return f"u{k}"
         raise TypeError(f"Cannot pretty-print unknown level: {level!r}")
 
     def fmt(t: Term, ctx: list[str]) -> tuple[str, int]:

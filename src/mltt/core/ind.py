@@ -17,34 +17,34 @@ from .ast import (
     max_level,
     normalize_level,
 )
-from .debruijn import Ctx, mk_app, mk_pis, decompose_app, Telescope, ArgList
+from .debruijn import Ctx, UCtx, mk_app, mk_pis, decompose_app, Telescope, ArgList
 
 
-def infer_ind_level(ctx: Ctx, ind: Ind) -> LevelExpr:
+def infer_ind_level(ctx: Ctx, uctx: UCtx, ind: Ind) -> LevelExpr:
     if ind.level is not None:
         return normalize_level(ind.level)
     levels: list[LevelExpr] = []
     binders = ind.param_types + ind.index_types
     for b in binders:
-        levels.append(_binder_universe_level(b, ctx))
+        levels.append(_binder_universe_level(b, ctx, uctx))
         ctx = ctx.push(b)
     return max_level(*levels) if levels else normalize_level(0)
 
 
-def _binder_universe_level(binder: Term, ctx: Ctx) -> LevelExpr:
+def _binder_universe_level(binder: Term, ctx: Ctx, uctx: UCtx) -> LevelExpr:
     binder_whnf = binder.whnf()
     if isinstance(binder_whnf, Univ):
         return normalize_level(binder_whnf.level)
     if isinstance(binder_whnf, Pi):
-        arg_level = _binder_universe_level(binder_whnf.arg_ty, ctx)
+        arg_level = _binder_universe_level(binder_whnf.arg_ty, ctx, uctx)
         body_level = _binder_universe_level(
-            binder_whnf.return_ty, ctx.push(binder_whnf.arg_ty)
+            binder_whnf.return_ty, ctx.push(binder_whnf.arg_ty), uctx
         )
         return max_level(arg_level, body_level)
-    return binder.expect_universe(ctx)
+    return binder.expect_universe(ctx, uctx)
 
 
-def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
+def infer_ind_type(ctx: Ctx, uctx: UCtx, ind: Ind) -> Term:
     """Compute the dependent function type of an inductive.
 
     The resulting Pi-tower has parameters outermost, then indices,
@@ -54,7 +54,7 @@ def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
     binders = ind.param_types + ind.index_types
     binder_levels: list[LevelExpr] = []
     for b in binders:
-        level = _binder_universe_level(b, ctx)
+        level = _binder_universe_level(b, ctx, uctx)
         binder_levels.append(level)
         if ind.level is not None and level_lt(ind.level, level):
             raise TypeError(
@@ -95,13 +95,13 @@ def infer_ctor_type(ctor: Ctor) -> Term:
     )
 
 
-def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
+def infer_elim_type(elim: Elim, ctx: Ctx, uctx: UCtx) -> Term:
     """Infer the type of an ``InductiveElim`` while checking its well-formedness."""
     # 1. Infer type of scrutinee and extract params/indices.
 
     scrut = elim.scrutinee
     ind = elim.inductive
-    scrut_ty = scrut.infer_type(ctx).whnf()
+    scrut_ty = scrut.infer_type(ctx, uctx).whnf()
     scrut_ty_head, scrut_ty_bindings = decompose_app(scrut_ty)
     if scrut_ty_head is not ind:
         raise TypeError(
@@ -120,7 +120,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
     motive_applied = mk_app(motive, indices_actual)
 
     # 2.2 Infer the type of this partially applied motive
-    motive_applied_ty = motive_applied.infer_type(ctx).whnf()
+    motive_applied_ty = motive_applied.infer_type(ctx, uctx).whnf()
     if not isinstance(motive_applied_ty, Pi):
         raise TypeError(
             "InductiveElim motive must take scrutinee after indices:\n"
@@ -195,17 +195,17 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
 
         # 3.6 Expected branch type: Π fields. Π ihs. codomain.
         branch_ty = mk_pis(ctor_field_types, ih_types, return_ty=codomain)
-        case.type_check(branch_ty, ctx)
+        case.type_check(branch_ty, ctx, uctx)
 
-    u = motive_applied_ty.return_ty.expect_universe(ctx)  # cod should be Univ(u)
+    u = motive_applied_ty.return_ty.expect_universe(ctx, uctx)  # cod should be Univ(u)
 
     # target type is P i⃗_actual scrut
     target_ty = App(motive_applied, scrut)
 
     # sanity check target_ty really is a type in Type u (or ≤ u with cumulativity)
-    _ = target_ty.infer_type(ctx).expect_universe(ctx)
+    _ = target_ty.infer_type(ctx, uctx).expect_universe(ctx, uctx)
 
-    ind_level = infer_ind_level(ctx, ind)
+    ind_level = infer_ind_level(ctx, uctx, ind)
     if level_lt(u, ind_level):
         raise TypeError(
             "Eliminator motive returns too small a universe:\n"
@@ -243,8 +243,8 @@ class Ind(Term):
         object.__setattr__(self, "level", normalize_level(self.level))
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
-        return infer_ind_type(ctx, self)
+    def _infer_type(self, ctx: Ctx, uctx: UCtx) -> Term:
+        return infer_ind_type(ctx, uctx, self)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -292,7 +292,7 @@ class Ctor(Term):
         return mk_app(case, ctor_args, ihs)
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
+    def _infer_type(self, ctx: Ctx, uctx: UCtx) -> Term:
         return infer_ctor_type(self)
 
 
@@ -317,8 +317,8 @@ class Elim(Term):
         return Elim(self.inductive, self.motive, self.cases, scrutinee_whnf)
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
-        return infer_elim_type(self, ctx)
+    def _infer_type(self, ctx: Ctx, uctx: UCtx) -> Term:
+        return infer_elim_type(self, ctx, uctx)
 
 
 __all__ = [

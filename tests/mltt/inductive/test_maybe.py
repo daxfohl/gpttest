@@ -4,23 +4,25 @@ from mltt.core.ast import Lam, Pi, Univ, Var, Term
 from mltt.core.debruijn import mk_pis
 from mltt.inductive.maybe import (
     Just,
-    JustCtor,
-    Maybe,
+    JustCtorAt,
+    MaybeAt,
     MaybeElim,
     MaybeType,
     Nothing,
-    NothingCtor,
+    NothingCtorAt,
 )
 from mltt.inductive.nat import NatType, Succ, Zero
 
 
 def test_infer_maybe_type_constructor() -> None:
-    assert Maybe.infer_type() == Pi(Univ(0), Univ(0))
+    assert MaybeAt(0).infer_type() == Pi(Univ(0), Univ(0))
 
 
 def test_ctor_types() -> None:
-    assert NothingCtor.infer_type() == Pi(Univ(0), MaybeType(Var(0)))
-    assert JustCtor.infer_type() == mk_pis(Univ(0), Var(0), return_ty=MaybeType(Var(1)))
+    assert NothingCtorAt(0).infer_type() == Pi(Univ(0), MaybeType(Var(0), level=0))
+    assert JustCtorAt(0).infer_type() == mk_pis(
+        Univ(0), Var(0), return_ty=MaybeType(Var(1), level=0)
+    )
 
 
 def test_maybe_rec_eliminates() -> None:
@@ -52,5 +54,4 @@ def test_infer_type(elem: Term) -> None:
 @pytest.mark.parametrize("elem", (Univ(0), Univ(55), NatType(), MaybeType(NatType())))
 def test_infer_type_rejects_type_elements(elem: Term) -> None:
     elem_ty = elem.infer_type()
-    with pytest.raises(TypeError):
-        _ = Nothing(elem_ty).infer_type()
+    assert Nothing(elem_ty).infer_type() == MaybeType(elem_ty)

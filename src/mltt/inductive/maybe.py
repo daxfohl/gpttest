@@ -2,33 +2,83 @@
 
 from __future__ import annotations
 
-from ..core.ast import App, Term, Univ, Var
-from ..core.debruijn import mk_app, Telescope
+from functools import cache
+
+from ..core.ast import App, ConstLevel, LevelExpr, LevelLike, LevelVar, Term, Univ, Var
+from ..core.debruijn import decompose_app, mk_app, Telescope
 from ..core.ind import Elim, Ctor, Ind
 
-Maybe = Ind(name="Maybe", param_types=Telescope.of(Univ(0)))
-NothingCtor = Ctor(name="Nothing", inductive=Maybe)
-JustCtor = Ctor(name="Just", inductive=Maybe, field_schemas=Telescope.of(Var(0)))
-object.__setattr__(Maybe, "constructors", (NothingCtor, JustCtor))
+
+@cache
+def _maybe_family(level: LevelExpr) -> tuple[Ind, Ctor, Ctor]:
+    maybe_ind = Ind(name="Maybe", param_types=Telescope.of(Univ(level)), level=level)
+    nothing_ctor = Ctor(name="Nothing", inductive=maybe_ind)
+    just_ctor = Ctor(
+        name="Just", inductive=maybe_ind, field_schemas=Telescope.of(Var(0))
+    )
+    object.__setattr__(maybe_ind, "constructors", (nothing_ctor, just_ctor))
+    return maybe_ind, nothing_ctor, just_ctor
 
 
-def MaybeType(elem_ty: Term) -> Term:
-    return App(Maybe, elem_ty)
+def _normalize_level(level: LevelLike) -> LevelExpr:
+    if isinstance(level, LevelExpr):
+        return level
+    return ConstLevel(level)
 
 
-def Nothing(elem_ty: Term) -> Term:
-    return App(NothingCtor, elem_ty)
+Maybe, NothingCtor, JustCtor = _maybe_family(LevelVar(0))
 
 
-def Just(elem_ty: Term, value: Term) -> Term:
-    return mk_app(JustCtor, elem_ty, value)
+def MaybeAt(level: LevelLike) -> Ind:
+    return _maybe_family(_normalize_level(level))[0]
 
 
-def MaybeElim(P: Term, nothing_case: Term, just_case: Term, scrutinee: Term) -> Elim:
+def NothingCtorAt(level: LevelLike) -> Ctor:
+    return _maybe_family(_normalize_level(level))[1]
+
+
+def JustCtorAt(level: LevelLike) -> Ctor:
+    return _maybe_family(_normalize_level(level))[2]
+
+
+def MaybeType(elem_ty: Term, *, level: LevelLike | None = None) -> Term:
+    if level is None:
+        level = elem_ty.expect_universe()
+    return App(MaybeAt(level), elem_ty)
+
+
+def Nothing(elem_ty: Term, *, level: LevelLike | None = None) -> Term:
+    if level is None:
+        level = elem_ty.expect_universe()
+    return App(NothingCtorAt(level), elem_ty)
+
+
+def Just(elem_ty: Term, value: Term, *, level: LevelLike | None = None) -> Term:
+    if level is None:
+        level = elem_ty.expect_universe()
+    return mk_app(JustCtorAt(level), elem_ty, value)
+
+
+def MaybeElim(
+    P: Term,
+    nothing_case: Term,
+    just_case: Term,
+    scrutinee: Term,
+    *,
+    level: LevelLike | None = None,
+) -> Elim:
     """Eliminate Maybe by providing branches for ``Nothing`` and ``Just``."""
 
+    if level is None:
+        scrut_ty = scrutinee.infer_type().whnf()
+        head, _ = decompose_app(scrut_ty)
+        if not isinstance(head, Ind):
+            raise TypeError(f"MaybeElim scrutinee is not a Maybe: {scrut_ty}")
+        inductive = head
+    else:
+        inductive = MaybeAt(level)
     return Elim(
-        inductive=Maybe,
+        inductive=inductive,
         motive=P,
         cases=(nothing_case, just_case),
         scrutinee=scrutinee,
@@ -38,8 +88,11 @@ def MaybeElim(P: Term, nothing_case: Term, just_case: Term, scrutinee: Term) -> 
 __all__ = [
     "Maybe",
     "MaybeType",
+    "MaybeAt",
     "NothingCtor",
+    "NothingCtorAt",
     "JustCtor",
+    "JustCtorAt",
     "Nothing",
     "Just",
     "MaybeElim",

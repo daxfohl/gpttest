@@ -7,11 +7,11 @@ from mltt.core.ind import Elim, Ctor, Ind
 from mltt.inductive import list as lst
 from mltt.inductive.fin import FinType, FZ, FS
 from mltt.inductive.nat import NatType, Succ, Zero, add, numeral
-from mltt.inductive.vec import VecType
+from mltt.inductive.vec import ConsCtorAt, NilCtorAt, VecAt, VecType
 
 
 def test_infer_vec_type() -> None:
-    assert vec.Vec.infer_type() == mk_pis(Univ(0), NatType(), return_ty=Univ(0))
+    assert VecAt(0).infer_type() == mk_pis(Univ(0), NatType(), return_ty=Univ(0))
 
 
 def test_nil_has_zero_length() -> None:
@@ -115,32 +115,31 @@ def test_infer_type(elem: Term, n: int) -> None:
 def test_infer_type_rejects_type_elements(elem: Term) -> None:
     elem_ty = elem.infer_type()
     vector = vec.Nil(elem_ty)
-    with pytest.raises(TypeError):
-        _ = vector.infer_type()
+    assert vector.infer_type() == VecType(elem_ty, Zero())
 
 
 def test_ctor_type() -> None:
-    t = vec.NilCtor.infer_type()
+    t = NilCtorAt(0).infer_type()
     # Pi x : Type. Vec x Zero
-    assert t == mk_pis(Univ(0), return_ty=vec.VecType(Var(0), Zero()))
-    t = vec.ConsCtor.infer_type()
+    assert t == mk_pis(Univ(0), return_ty=vec.VecType(Var(0), Zero(), level=0))
+    t = ConsCtorAt(0).infer_type()
     # Pi x : Type. Pi x1 : Nat. x -> Vec x x1 -> Vec x (Succ x1)
     assert t == mk_pis(
         Univ(0),
         NatType(),
         Var(1),
-        vec.VecType(Var(2), Var(1)),
-        return_ty=vec.VecType(Var(3), Succ(Var(2))),
+        vec.VecType(Var(2), Var(1), level=0),
+        return_ty=vec.VecType(Var(3), Succ(Var(2)), level=0),
     )
 
 
 def test_scrut_type() -> None:
     scrut = vec.Nil(NatType())
     t = scrut.infer_type()
-    assert t == mk_app(vec.Vec, NatType(), Zero())
+    assert t == mk_app(VecAt(0), NatType(), Zero())
     scrut = vec.Cons(NatType(), Zero(), Zero(), scrut)
     t = scrut.infer_type()
-    assert t == mk_app(vec.Vec, NatType(), Succ(Zero()))
+    assert t == mk_app(VecAt(0), NatType(), Succ(Zero()))
 
 
 def _vec_len_recursor() -> Term:
@@ -148,13 +147,13 @@ def _vec_len_recursor() -> Term:
 
     motive = mk_lams(
         NatType(),  # n
-        vec.VecType(Var(3), Var(0)),  # xs : Vec A n; A is Var(3) in Γ,n
+        vec.VecType(Var(3), Var(0), level=0),  # xs : Vec A n; A is Var(3) in Γ,n
         body=NatType(),
     )
     step = mk_lams(
         NatType(),  # n : Nat
         Var(3),  # x : A (Var(3) = A in Γ,n,x)
-        vec.VecType(Var(4), Var(1)),  # xs : Vec A n (Var(1) = n)
+        vec.VecType(Var(4), Var(1), level=0),  # xs : Vec A n (Var(1) = n)
         mk_app(motive.shift(2), Var(2), Var(0)),  # ih : P n xs (shift motive under n,x)
         body=Succ(Var(0)),  # Succ ih
     )
@@ -162,15 +161,15 @@ def _vec_len_recursor() -> Term:
     return mk_lams(
         Univ(0),  # A
         NatType(),  # n
-        vec.VecType(Var(1), Var(0)),  # xs : Vec A n
-        body=vec.VecElim(motive, Zero(), step, Var(0)),
+        vec.VecType(Var(1), Var(0), level=0),  # xs : Vec A n
+        body=vec.VecElim(motive, Zero(), step, Var(0), level=0),
     )
 
 
 def test_vec_len_recursor_handles_field_indices() -> None:
     vec_len = _vec_len_recursor()
     expected_ty = mk_pis(
-        Univ(0), NatType(), vec.VecType(Var(1), Var(0)), return_ty=NatType()
+        Univ(0), NatType(), vec.VecType(Var(1), Var(0), level=0), return_ty=NatType()
     )
     vec_len.type_check(expected_ty)
 
@@ -185,7 +184,7 @@ def test_vec_len_recursor_shifts_open_param() -> None:
     term = mk_lams(Univ(0), body=mk_app(vec_len, Var(0)))
 
     expected_ty = mk_pis(
-        Univ(0), NatType(), vec.VecType(Var(1), Var(0)), return_ty=NatType()
+        Univ(0), NatType(), vec.VecType(Var(1), Var(0), level=0), return_ty=NatType()
     )
     term.type_check(expected_ty)
 
@@ -199,7 +198,7 @@ def test_vec_len_recursor_reduces_with_open_param() -> None:
             vec_len,
             Var(1),
             Succ(Zero()),
-            vec.Cons(Var(1), Zero(), Var(0), vec.Nil(Var(1))),
+            vec.Cons(Var(1), Zero(), Var(0), vec.Nil(Var(1), level=0), level=0),
         ),
     )
 
@@ -250,7 +249,10 @@ def test_nat_and_list_elims_stay_sane() -> None:
 def test_vec_to_fin() -> None:
     to_fin = vec.vec_to_fin_term()
     expected_ty = mk_pis(
-        Univ(0), NatType(), vec.VecType(Var(1), Var(0)), return_ty=FinType(Succ(Var(1)))
+        Univ(0),
+        NatType(),
+        vec.VecType(Var(1), Var(0), level=0),
+        return_ty=FinType(Succ(Var(1))),
     )
     to_fin.type_check(expected_ty)
 

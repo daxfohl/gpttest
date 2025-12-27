@@ -3,12 +3,12 @@ import pytest
 import mltt.inductive.list as listm
 from mltt.core.ast import Lam, Pi, Univ, Var, Term
 from mltt.core.debruijn import mk_app, mk_pis, mk_lams
-from mltt.inductive.list import ConsCtor, NilCtor
+from mltt.inductive.list import ConsCtorAt, ListAt, NilCtorAt
 from mltt.inductive.nat import NatType, Succ, Zero
 
 
 def test_infer_list_type_constructor() -> None:
-    assert listm.List.infer_type() == Pi(Univ(0), Univ(0))
+    assert ListAt(0).infer_type() == Pi(Univ(0), Univ(0))
 
 
 def test_list_nil_and_cons_type_check() -> None:
@@ -54,19 +54,18 @@ def test_infer_type(elem: Term, n: int) -> None:
 def test_infer_type_rejects_type_elements(elem: Term) -> None:
     elem_ty = elem.infer_type()
     term = listm.Nil(elem_ty)
-    with pytest.raises(TypeError):
-        _ = term.infer_type()
+    assert term.infer_type() == listm.ListType(elem_ty)
 
 
 def test_ctor_type() -> None:
-    t = NilCtor.infer_type()
+    t = NilCtorAt(0).infer_type()
     # Pi x : Type. List x
-    assert t == Pi(Univ(0), listm.ListType(Var(0)))
-    t = ConsCtor.infer_type()
+    assert t == Pi(Univ(0), listm.ListType(Var(0), level=0))
+    t = ConsCtorAt(0).infer_type()
     # Pi x : Type. x -> List x -> List x
     assert t == mk_pis(
         Univ(0),
         Var(0),
-        listm.ListType(Var(1)),
-        return_ty=listm.ListType(Var(2)),
+        listm.ListType(Var(1), level=0),
+        return_ty=listm.ListType(Var(2), level=0),
     )

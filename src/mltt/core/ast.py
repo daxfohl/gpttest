@@ -8,7 +8,9 @@ from operator import methodcaller
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 if TYPE_CHECKING:
-    from .debruijn import Ctx, ArgList
+    from collections.abc import Sequence
+
+    from .debruijn import Ctx, ArgList, UCtx
 
 
 @dataclass(frozen=True)
@@ -19,6 +21,30 @@ class LevelExpr:
         return self
 
     def as_int(self) -> int | None:
+        return None
+
+    def shift(self, by: int, cutoff: int = 0) -> LevelExpr:
+        return self
+
+    def subst(self, sub: LevelExpr, j: int = 0) -> LevelExpr:
+        return self
+
+    def instantiate(
+        self, actuals: Sequence[LevelExpr], depth_above: int = 0
+    ) -> LevelExpr:
+        """
+        Substitute ``actuals`` for the outer binder block of ``self``.
+
+        This mirrors ``Term.instantiate`` but operates over level variables.
+        """
+        level = self
+        k = len(actuals)
+        for i, actual in enumerate(actuals):
+            index = depth_above + k - i - 1
+            level = level.subst(actual.shift(index), index)
+        return level
+
+    def check(self, uctx: UCtx) -> None:
         return None
 
 
@@ -51,6 +77,21 @@ class SuccLevel(LevelExpr):
             return SuccLevel(pred)
         return self
 
+    def shift(self, by: int, cutoff: int = 0) -> LevelExpr:
+        pred = self.pred.shift(by, cutoff)
+        if pred is not self.pred:
+            return SuccLevel(pred)
+        return self
+
+    def subst(self, sub: LevelExpr, j: int = 0) -> LevelExpr:
+        pred = self.pred.subst(sub, j)
+        if pred is not self.pred:
+            return SuccLevel(pred)
+        return self
+
+    def check(self, uctx: UCtx) -> None:
+        self.pred.check(uctx)
+
 
 @dataclass(frozen=True)
 class MaxOfLevels(LevelExpr):
@@ -78,6 +119,49 @@ class MaxOfLevels(LevelExpr):
         if len(unique) == 1:
             return unique[0]
         return MaxOfLevels(tuple(unique))
+
+    def shift(self, by: int, cutoff: int = 0) -> LevelExpr:
+        shifted = tuple(level.shift(by, cutoff) for level in self.levels)
+        if shifted != self.levels:
+            return MaxOfLevels(shifted)
+        return self
+
+    def subst(self, sub: LevelExpr, j: int = 0) -> LevelExpr:
+        substituted = tuple(level.subst(sub, j) for level in self.levels)
+        if substituted != self.levels:
+            return MaxOfLevels(substituted)
+        return self
+
+    def check(self, uctx: UCtx) -> None:
+        for level in self.levels:
+            level.check(uctx)
+
+
+@dataclass(frozen=True)
+class LevelVar(LevelExpr):
+    """A de Bruijn universe level variable."""
+
+    k: int
+
+    def __post_init__(self) -> None:
+        if self.k < 0:
+            raise ValueError("Universe variable indices must be non-negative")
+
+    def shift(self, by: int, cutoff: int = 0) -> LevelExpr:
+        if self.k >= cutoff:
+            return LevelVar(self.k + by)
+        return self
+
+    def subst(self, sub: LevelExpr, j: int = 0) -> LevelExpr:
+        if self.k == j:
+            return sub
+        if self.k > j:
+            return LevelVar(self.k - 1)
+        return self
+
+    def check(self, uctx: UCtx) -> None:
+        if self.k >= len(uctx):
+            raise TypeError(f"Unbound universe variable {self.k}")
 
 
 LevelLike = LevelExpr | int
@@ -136,6 +220,32 @@ def _map_term_values(value: Any, f: Callable[[Term], Term]) -> Any:
     return value
 
 
+def _map_level_values(
+    value: Any,
+    term_mapper: Callable[[Term], Term],
+    level_mapper: Callable[[LevelExpr], LevelExpr],
+    *,
+    allow_term_recursion: bool,
+) -> Any:
+    if isinstance(value, LevelExpr):
+        return level_mapper(value)
+    if isinstance(value, Term):
+        if allow_term_recursion:
+            return term_mapper(value)
+        return value
+    if isinstance(value, tuple):
+        return tuple(
+            _map_level_values(
+                v,
+                term_mapper,
+                level_mapper,
+                allow_term_recursion=allow_term_recursion,
+            )
+            for v in value
+        )
+    return value
+
+
 @dataclass(frozen=True, kw_only=True)
 class TermFieldMeta:
     binder_count: int = 0
@@ -173,6 +283,24 @@ class Term:
         # noinspection PyArgumentList
         return replace(self, **updates) if updates else self
 
+    def _replace_levels(self, mapper: Callable[[LevelExpr], LevelExpr]) -> Term:
+        def term_mapper(t: Term) -> Term:
+            return t._replace_levels(mapper)
+
+        updates = {}
+        for f in fields(self):
+            value = getattr(self, f.name)
+            new_value = _map_level_values(
+                value,
+                term_mapper,
+                mapper,
+                allow_term_recursion=not self.is_terminal,
+            )
+            if new_value != value:
+                updates[f.name] = new_value
+        # noinspection PyArgumentList
+        return replace(self, **updates) if updates else self
+
     def shift(self, by: int, cutoff: int = 0) -> Term:
         """Shift free variables in the term."""
         return self._replace_terms(lambda t, m: t.shift(by, cutoff + m.binder_count))
@@ -200,6 +328,29 @@ class Term:
             index = depth_above + k - i - 1
             t = t.subst(a.shift(index), index)
         return t
+
+    def level_shift(self, by: int, cutoff: int = 0) -> Term:
+        """Shift free universe variables in the term."""
+        return self._replace_levels(lambda level: level.shift(by, cutoff))
+
+    def level_subst(self, sub: LevelExpr, j: int = 0) -> Term:
+        """Substitute ``sub`` for ``LevelVar(j)`` inside the term."""
+        return self._replace_levels(lambda level: level.subst(sub, j))
+
+    def level_instantiate(
+        self, actuals: Sequence[LevelExpr], depth_above: int = 0
+    ) -> Term:
+        """
+        Substitute ``actuals`` for the outer universe binder block of ``self``.
+
+        Mirrors ``instantiate`` but operates on universe level variables.
+        """
+        term = self
+        k = len(actuals)
+        for i, actual in enumerate(actuals):
+            index = depth_above + k - i - 1
+            term = term.level_subst(actual.shift(index), index)
+        return term
 
     # --- Reduction ------------------------------------------------------------
     def whnf_step(self) -> Term:
@@ -237,24 +388,28 @@ class Term:
         return self
 
     # --- Typing ---------------------------------------------------------------
-    def infer_type(self, ctx: Ctx | None = None) -> Term:
-        from .debruijn import Ctx
+    def infer_type(self, ctx: Ctx | None = None, uctx: UCtx | None = None) -> Term:
+        from .debruijn import Ctx, UCtx
 
-        return self._infer_type(ctx or Ctx())
+        return self._infer_type(ctx or Ctx(), uctx or UCtx())
 
-    def _infer_type(self, ctx: Ctx) -> Term:
+    def _infer_type(self, ctx: Ctx, uctx: UCtx) -> Term:
         raise TypeError(f"Unexpected term in infer_type:\n  term = {self!r}")
 
-    def type_check(self, ty: Term, ctx: Ctx | None = None) -> None:
-        from .debruijn import Ctx
+    def type_check(
+        self, ty: Term, ctx: Ctx | None = None, uctx: UCtx | None = None
+    ) -> None:
+        from .debruijn import Ctx, UCtx
 
-        self._type_check(ty.whnf(), ctx or Ctx())
+        self._type_check(ty.whnf(), ctx or Ctx(), uctx or UCtx())
 
-    def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
-        self._check_against_inferred(expected_ty, ctx)
+    def _type_check(self, expected_ty: Term, ctx: Ctx, uctx: UCtx) -> None:
+        self._check_against_inferred(expected_ty, ctx, uctx)
 
-    def expect_universe(self, ctx: Ctx | None = None) -> LevelExpr:
-        ty = self.infer_type(ctx).whnf()
+    def expect_universe(
+        self, ctx: Ctx | None = None, uctx: UCtx | None = None
+    ) -> LevelExpr:
+        ty = self.infer_type(ctx, uctx).whnf()
         if not isinstance(ty, Univ):
             raise TypeError(
                 "Expected a universe:\n" f"  term = {self}\n" f"  inferred = {ty}"
@@ -278,8 +433,8 @@ class Term:
                 return False
         return True
 
-    def _check_against_inferred(self, expected_ty: Term, ctx: Ctx) -> None:
-        inferred_ty = self.infer_type(ctx)
+    def _check_against_inferred(self, expected_ty: Term, ctx: Ctx, uctx: UCtx) -> None:
+        inferred_ty = self.infer_type(ctx, uctx)
         if not expected_ty.type_equal(inferred_ty):
             raise TypeError(
                 f"{type(self).__name__} type mismatch:\n"
@@ -319,12 +474,12 @@ class Var(Term):
         return self
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
+    def _infer_type(self, ctx: Ctx, uctx: UCtx) -> Term:
         if self.k < len(ctx):
             return ctx[self.k].ty.shift(self.k + 1)
         raise TypeError(f"Unbound variable {self.k}")
 
-    def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
+    def _type_check(self, expected_ty: Term, ctx: Ctx, uctx: UCtx) -> None:
         if self.k >= len(ctx):
             raise TypeError(f"Unbound variable {self.k}")
         found_ty = ctx[self.k].ty.shift(self.k + 1)
@@ -345,11 +500,11 @@ class Lam(Term):
     body: Term = field(metadata={"": TermFieldMeta(binder_count=1)})
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
-        body_ty = self.body.infer_type(ctx.push(self.arg_ty))
+    def _infer_type(self, ctx: Ctx, uctx: UCtx) -> Term:
+        body_ty = self.body.infer_type(ctx.push(self.arg_ty), uctx)
         return Pi(self.arg_ty, body_ty)
 
-    def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
+    def _type_check(self, expected_ty: Term, ctx: Ctx, uctx: UCtx) -> None:
         if not isinstance(expected_ty, Pi):
             raise TypeError(
                 "Lambda expected to have Pi type:\n"
@@ -363,7 +518,7 @@ class Lam(Term):
                 f"  expected domain = {expected_ty.arg_ty}\n"
                 f"  found domain = {self.arg_ty}"
             )
-        self.body.type_check(expected_ty.return_ty, ctx.push(self.arg_ty))
+        self.body.type_check(expected_ty.return_ty, ctx.push(self.arg_ty), uctx)
 
 
 @dataclass(frozen=True)
@@ -374,9 +529,9 @@ class Pi(Term):
     return_ty: Term = field(metadata={"": TermFieldMeta(binder_count=1)})
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
-        arg_level = self.arg_ty.expect_universe(ctx)
-        body_level = self.return_ty.expect_universe(ctx.push(self.arg_ty))
+    def _infer_type(self, ctx: Ctx, uctx: UCtx) -> Term:
+        arg_level = self.arg_ty.expect_universe(ctx, uctx)
+        body_level = self.return_ty.expect_universe(ctx.push(self.arg_ty), uctx)
         return Univ(max_level(arg_level, body_level))
 
 
@@ -395,8 +550,8 @@ class App(Term):
         return App(f_whnf, self.arg)
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
-        f_ty = self.func.infer_type(ctx).whnf()
+    def _infer_type(self, ctx: Ctx, uctx: UCtx) -> Term:
+        f_ty = self.func.infer_type(ctx, uctx).whnf()
         if not isinstance(f_ty, Pi):
             raise TypeError(
                 "Application of non-function:\n"
@@ -404,11 +559,11 @@ class App(Term):
                 f"  function = {self.func}\n"
                 f"  inferred f_ty = {f_ty}"
             )
-        self.arg.type_check(f_ty.arg_ty, ctx)
+        self.arg.type_check(f_ty.arg_ty, ctx, uctx)
         return f_ty.return_ty.subst(self.arg)
 
-    def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
-        f_ty = self.func.infer_type(ctx).whnf()
+    def _type_check(self, expected_ty: Term, ctx: Ctx, uctx: UCtx) -> None:
+        f_ty = self.func.infer_type(ctx, uctx).whnf()
         if not isinstance(f_ty, Pi):
             raise TypeError(
                 "Application of non-function:\n"
@@ -416,7 +571,7 @@ class App(Term):
                 f"  function = {self.func}\n"
                 f"  inferred f_ty = {f_ty}"
             )
-        self.arg.type_check(f_ty.arg_ty, ctx)
+        self.arg.type_check(f_ty.arg_ty, ctx, uctx)
         inferred_ty = f_ty.return_ty.subst(self.arg)
         if not expected_ty.type_equal(inferred_ty):
             raise TypeError(
@@ -439,18 +594,22 @@ class Univ(Term):
         object.__setattr__(self, "level", normalized)
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
-        return Univ(succ_level(self.level))
+    def _infer_type(self, ctx: Ctx, uctx: UCtx) -> Term:
+        level = normalize_level(self.level)
+        level.check(uctx)
+        return Univ(succ_level(level))
 
-    def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
+    def _type_check(self, expected_ty: Term, ctx: Ctx, uctx: UCtx) -> None:
         if not isinstance(expected_ty, Univ):
             raise TypeError(
                 "Universe type mismatch:\n"
                 f"  term = {self}\n"
                 f"  expected = {expected_ty}"
             )
-        expected_level = normalize_level(expected_ty.level)
         found_level = normalize_level(self.level)
+        found_level.check(uctx)
+        expected_level = normalize_level(expected_ty.level)
+        expected_level.check(uctx)
         if not level_leq(succ_level(found_level), expected_level):
             raise TypeError(
                 "Universe level mismatch:\n"
@@ -463,6 +622,7 @@ class Univ(Term):
 __all__ = [
     "ConstLevel",
     "LevelExpr",
+    "LevelVar",
     "MaxOfLevels",
     "SuccLevel",
     "Term",

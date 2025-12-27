@@ -2,52 +2,98 @@
 
 from __future__ import annotations
 
+from functools import cache
+
 from .fin import FinType, FZ, FS
 from .nat import NatType, Succ, Zero
-from ..core.ast import Term, Univ, Var
-from ..core.debruijn import mk_app, mk_lams, Telescope, ArgList
+from ..core.ast import ConstLevel, LevelExpr, LevelLike, LevelVar, Term, Univ, Var
+from ..core.debruijn import decompose_app, mk_app, mk_lams, Telescope, ArgList
 from ..core.ind import Elim, Ctor, Ind
 
-Vec = Ind(
-    name="Vec",
-    param_types=Telescope.of(Univ(0)),
-    index_types=Telescope.of(NatType()),
-)
-NilCtor = Ctor(
-    name="Nil",
-    inductive=Vec,
-    result_indices=ArgList.of(Zero()),
-)
-ConsCtor = Ctor(
-    name="Cons",
-    inductive=Vec,
-    field_schemas=Telescope.of(
-        NatType(),  # n : Nat
-        Var(1),  # head : A
-        mk_app(Vec, Var(2), Var(1)),  # tail : Vec A n
-    ),
-    result_indices=ArgList.of(Succ(Var(2))),  # result index = Succ n
-)
-object.__setattr__(Vec, "constructors", (NilCtor, ConsCtor))
+
+@cache
+def _vec_family(level: LevelExpr) -> tuple[Ind, Ctor, Ctor]:
+    vec_ind = Ind(
+        name="Vec",
+        param_types=Telescope.of(Univ(level)),
+        index_types=Telescope.of(NatType()),
+        level=level,
+    )
+    nil_ctor = Ctor(
+        name="Nil",
+        inductive=vec_ind,
+        result_indices=ArgList.of(Zero()),
+    )
+    cons_ctor = Ctor(
+        name="Cons",
+        inductive=vec_ind,
+        field_schemas=Telescope.of(
+            NatType(),  # n : Nat
+            Var(1),  # head : A
+            mk_app(vec_ind, Var(2), Var(1)),  # tail : Vec A n
+        ),
+        result_indices=ArgList.of(Succ(Var(2))),  # result index = Succ n
+    )
+    object.__setattr__(vec_ind, "constructors", (nil_ctor, cons_ctor))
+    return vec_ind, nil_ctor, cons_ctor
 
 
-def VecType(elem_ty: Term, length: Term) -> Term:
-    return mk_app(Vec, elem_ty, length)
+def _normalize_level(level: LevelLike) -> LevelExpr:
+    if isinstance(level, LevelExpr):
+        return level
+    return ConstLevel(level)
 
 
-def Nil(elem_ty: Term) -> Term:
-    return mk_app(NilCtor, elem_ty)
+Vec, NilCtor, ConsCtor = _vec_family(LevelVar(0))
 
 
-def Cons(elem_ty: Term, n: Term, head: Term, tail: Term) -> Term:
-    return mk_app(ConsCtor, elem_ty, n, head, tail)
+def VecAt(level: LevelLike) -> Ind:
+    return _vec_family(_normalize_level(level))[0]
 
 
-def VecElim(P: Term, base: Term, step: Term, xs: Term) -> Elim:
+def NilCtorAt(level: LevelLike) -> Ctor:
+    return _vec_family(_normalize_level(level))[1]
+
+
+def ConsCtorAt(level: LevelLike) -> Ctor:
+    return _vec_family(_normalize_level(level))[2]
+
+
+def VecType(elem_ty: Term, length: Term, *, level: LevelLike | None = None) -> Term:
+    if level is None:
+        level = elem_ty.expect_universe()
+    return mk_app(VecAt(level), elem_ty, length)
+
+
+def Nil(elem_ty: Term, *, level: LevelLike | None = None) -> Term:
+    if level is None:
+        level = elem_ty.expect_universe()
+    return mk_app(NilCtorAt(level), elem_ty)
+
+
+def Cons(
+    elem_ty: Term, n: Term, head: Term, tail: Term, *, level: LevelLike | None = None
+) -> Term:
+    if level is None:
+        level = elem_ty.expect_universe()
+    return mk_app(ConsCtorAt(level), elem_ty, n, head, tail)
+
+
+def VecElim(
+    P: Term, base: Term, step: Term, xs: Term, *, level: LevelLike | None = None
+) -> Elim:
     """Recursor for vectors."""
 
+    if level is None:
+        scrut_ty = xs.infer_type().whnf()
+        head, _ = decompose_app(scrut_ty)
+        if not isinstance(head, Ind):
+            raise TypeError(f"VecElim scrutinee is not a Vec: {scrut_ty}")
+        inductive = head
+    else:
+        inductive = VecAt(level)
     return Elim(
-        inductive=Vec,
+        inductive=inductive,
         motive=P,
         cases=(base, step),
         scrutinee=xs,
@@ -65,13 +111,13 @@ def vec_to_fin_term() -> Term:
 
     motive = mk_lams(
         NatType(),  # n
-        VecType(Var(3), Var(0)),  # xs : Vec A n (A is Var(3) in Γ,n,xs)
+        VecType(Var(3), Var(0), level=0),  # xs : Vec A n (A is Var(3) in Γ,n,xs)
         body=FinType(Succ(Var(1))),  # Fin (Succ n)
     )
     step = mk_lams(
         NatType(),  # n
         Var(3),  # x : A
-        VecType(Var(4), Var(1)),  # xs : Vec A n
+        VecType(Var(4), Var(1), level=0),  # xs : Vec A n
         mk_app(motive.shift(2), Var(2), Var(0)),  # ih : P n xs
         body=FS(Succ(Var(3)), Var(0)),  # Fin (Succ (Succ n))
     )
@@ -79,8 +125,8 @@ def vec_to_fin_term() -> Term:
     return mk_lams(
         Univ(0),  # A
         NatType(),  # n
-        VecType(Var(1), Var(0)),  # xs : Vec A n
-        body=VecElim(motive, FZ(Zero()), step, Var(0)),
+        VecType(Var(1), Var(0), level=0),  # xs : Vec A n
+        body=VecElim(motive, FZ(Zero()), step, Var(0), level=0),
     )
 
 

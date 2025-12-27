@@ -171,6 +171,26 @@ class Ctx:
         return Telescope.of(*(e.ty for e in reversed(self.entries)))
 
 
+@dataclass(frozen=True)
+class UCtx(SeqBase[None]):
+    """Universe context for de Bruijn-indexed universe variables."""
+
+    @classmethod
+    def of(cls: type[Self], *items: None) -> Self:
+        return cls(items)
+
+    @classmethod
+    def empty(cls) -> Self:
+        return cls.of()
+
+    def push(self, count: int = 1) -> UCtx:
+        if count < 0:
+            raise ValueError("Universe context cannot push a negative count")
+        if count == 0:
+            return self
+        return UCtx.of(*([None] * count), *self._data)
+
+
 def mk_app(fn: Term, *args: Term | ArgList) -> Term:
     """Apply ``args`` to ``term`` left-associatively.
 
@@ -273,6 +293,7 @@ def decompose_app(term: Term) -> tuple[Term, ArgList]:
 __all__ = [
     "Ctx",
     "CtxEntry",
+    "UCtx",
     "ArgList",
     "Telescope",
     "mk_app",
