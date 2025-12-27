@@ -11,7 +11,7 @@ from ..core.ind import Ctor, Elim, Ind
 
 
 @cache
-def _all_family(level: LevelExpr) -> tuple[Ind, Ctor, Ctor]:
+def _all_family_norm(level: LevelExpr) -> tuple[Ind, Ctor, Ctor]:
     list_ind = ListAt(level)
     nil_ctor = NilCtorAt(level)
     cons_ctor = ConsCtorAt(level)
@@ -50,19 +50,23 @@ def _normalize_level(level: LevelLike) -> LevelExpr:
     return ConstLevel(level)
 
 
+def _all_family(level: LevelLike) -> tuple[Ind, Ctor, Ctor]:
+    return _all_family_norm(_normalize_level(level))
+
+
 All, AllNilCtor, AllConsCtor = _all_family(0)
 
 
 def AllAt(level: LevelLike) -> Ind:
-    return _all_family(_normalize_level(level))[0]
+    return _all_family(level)[0]
 
 
 def AllNilCtorAt(level: LevelLike) -> Ctor:
-    return _all_family(_normalize_level(level))[1]
+    return _all_family(level)[1]
 
 
 def AllConsCtorAt(level: LevelLike) -> Ctor:
-    return _all_family(_normalize_level(level))[2]
+    return _all_family(level)[2]
 
 
 def AllType(A: Term, P: Term, xs: Term, *, level: LevelLike = 0) -> Term:

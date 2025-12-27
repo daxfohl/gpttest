@@ -11,7 +11,7 @@ from ..core.ind import Ctor, Elim, Ind
 
 
 @cache
-def _sorted_family(level: LevelExpr) -> tuple[Ind, Ctor, Ctor, Ctor]:
+def _sorted_family_norm(level: LevelExpr) -> tuple[Ind, Ctor, Ctor, Ctor]:
     list_ind = ListAt(level)
     nil_ctor = NilCtorAt(level)
     cons_ctor = ConsCtorAt(level)
@@ -73,23 +73,27 @@ def _normalize_level(level: LevelLike) -> LevelExpr:
     return ConstLevel(level)
 
 
+def _sorted_family(level: LevelLike) -> tuple[Ind, Ctor, Ctor, Ctor]:
+    return _sorted_family_norm(_normalize_level(level))
+
+
 Sorted, SortedNilCtor, SortedOneCtor, SortedConsCtor = _sorted_family(0)
 
 
 def SortedAt(level: LevelLike) -> Ind:
-    return _sorted_family(_normalize_level(level))[0]
+    return _sorted_family(level)[0]
 
 
 def SortedNilCtorAt(level: LevelLike) -> Ctor:
-    return _sorted_family(_normalize_level(level))[1]
+    return _sorted_family(level)[1]
 
 
 def SortedOneCtorAt(level: LevelLike) -> Ctor:
-    return _sorted_family(_normalize_level(level))[2]
+    return _sorted_family(level)[2]
 
 
 def SortedConsCtorAt(level: LevelLike) -> Ctor:
-    return _sorted_family(_normalize_level(level))[3]
+    return _sorted_family(level)[3]
 
 
 def SortedType(A: Term, R: Term, xs: Term, *, level: LevelLike = 0) -> Term:

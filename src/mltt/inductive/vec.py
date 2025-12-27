@@ -12,7 +12,7 @@ from ..core.ind import Elim, Ctor, Ind
 
 
 @cache
-def _vec_family(level: LevelExpr) -> tuple[Ind, Ctor, Ctor]:
+def _vec_family_norm(level: LevelExpr) -> tuple[Ind, Ctor, Ctor]:
     vec_ind = Ind(
         name="Vec",
         param_types=Telescope.of(Univ(level)),
@@ -44,19 +44,23 @@ def _normalize_level(level: LevelLike) -> LevelExpr:
     return ConstLevel(level)
 
 
+def _vec_family(level: LevelLike) -> tuple[Ind, Ctor, Ctor]:
+    return _vec_family_norm(_normalize_level(level))
+
+
 Vec, NilCtor, ConsCtor = _vec_family(0)
 
 
 def VecAt(level: LevelLike) -> Ind:
-    return _vec_family(_normalize_level(level))[0]
+    return _vec_family(level)[0]
 
 
 def NilCtorAt(level: LevelLike) -> Ctor:
-    return _vec_family(_normalize_level(level))[1]
+    return _vec_family(level)[1]
 
 
 def ConsCtorAt(level: LevelLike) -> Ctor:
-    return _vec_family(_normalize_level(level))[2]
+    return _vec_family(level)[2]
 
 
 def VecType(elem_ty: Term, length: Term, *, level: LevelLike = 0) -> Term:
@@ -96,13 +100,13 @@ def vec_to_fin_term() -> Term:
 
     motive = mk_lams(
         NatType(),  # n
-        VecType(Var(3), Var(0), level=0),  # xs : Vec A n (A is Var(3) in Γ,n,xs)
+        VecType(Var(3), Var(0)),  # xs : Vec A n (A is Var(3) in Γ,n,xs)
         body=FinType(Succ(Var(1))),  # Fin (Succ n)
     )
     step = mk_lams(
         NatType(),  # n
         Var(3),  # x : A
-        VecType(Var(4), Var(1), level=0),  # xs : Vec A n
+        VecType(Var(4), Var(1)),  # xs : Vec A n
         mk_app(motive.shift(2), Var(2), Var(0)),  # ih : P n xs
         body=FS(Succ(Var(3)), Var(0)),  # Fin (Succ (Succ n))
     )
@@ -110,8 +114,8 @@ def vec_to_fin_term() -> Term:
     return mk_lams(
         Univ(0),  # A
         NatType(),  # n
-        VecType(Var(1), Var(0), level=0),  # xs : Vec A n
-        body=VecElim(motive, FZ(Zero()), step, Var(0), level=0),
+        VecType(Var(1), Var(0)),  # xs : Vec A n
+        body=VecElim(motive, FZ(Zero()), step, Var(0)),
     )
 
 

@@ -10,7 +10,7 @@ from ..core.ind import Elim, Ctor, Ind
 
 
 @cache
-def _maybe_family(level: LevelExpr) -> tuple[Ind, Ctor, Ctor]:
+def _maybe_family_norm(level: LevelExpr) -> tuple[Ind, Ctor, Ctor]:
     maybe_ind = Ind(name="Maybe", param_types=Telescope.of(Univ(level)), level=level)
     nothing_ctor = Ctor(name="Nothing", inductive=maybe_ind)
     just_ctor = Ctor(
@@ -26,19 +26,23 @@ def _normalize_level(level: LevelLike) -> LevelExpr:
     return ConstLevel(level)
 
 
+def _maybe_family(level: LevelLike) -> tuple[Ind, Ctor, Ctor]:
+    return _maybe_family_norm(_normalize_level(level))
+
+
 Maybe, NothingCtor, JustCtor = _maybe_family(0)
 
 
 def MaybeAt(level: LevelLike) -> Ind:
-    return _maybe_family(_normalize_level(level))[0]
+    return _maybe_family(level)[0]
 
 
 def NothingCtorAt(level: LevelLike) -> Ctor:
-    return _maybe_family(_normalize_level(level))[1]
+    return _maybe_family(level)[1]
 
 
 def JustCtorAt(level: LevelLike) -> Ctor:
-    return _maybe_family(_normalize_level(level))[2]
+    return _maybe_family(level)[2]
 
 
 def MaybeType(elem_ty: Term, *, level: LevelLike = 0) -> Term:

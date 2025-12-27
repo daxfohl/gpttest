@@ -12,7 +12,7 @@ from ..core.ind import Ctor, Elim, Ind
 
 
 @cache
-def _allvec_family(level: LevelExpr) -> tuple[Ind, Ctor, Ctor]:
+def _allvec_family_norm(level: LevelExpr) -> tuple[Ind, Ctor, Ctor]:
     vec_ind = VecAt(level)
     all_vec = Ind(
         name="AllVec",
@@ -57,19 +57,23 @@ def _normalize_level(level: LevelLike) -> LevelExpr:
     return ConstLevel(level)
 
 
+def _allvec_family(level: LevelLike) -> tuple[Ind, Ctor, Ctor]:
+    return _allvec_family_norm(_normalize_level(level))
+
+
 AllVec, AllNilCtor, AllConsCtor = _allvec_family(0)
 
 
 def AllVecAt(level: LevelLike) -> Ind:
-    return _allvec_family(_normalize_level(level))[0]
+    return _allvec_family(level)[0]
 
 
 def AllNilCtorAt(level: LevelLike) -> Ctor:
-    return _allvec_family(_normalize_level(level))[1]
+    return _allvec_family(level)[1]
 
 
 def AllConsCtorAt(level: LevelLike) -> Ctor:
-    return _allvec_family(_normalize_level(level))[2]
+    return _allvec_family(level)[2]
 
 
 def AllVecType(A: Term, P: Term, n: Term, xs: Term, *, level: LevelLike = 0) -> Term:

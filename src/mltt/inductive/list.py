@@ -10,7 +10,7 @@ from ..core.ind import Elim, Ctor, Ind
 
 
 @cache
-def _list_family(level: LevelExpr) -> tuple[Ind, Ctor, Ctor]:
+def _list_family_norm(level: LevelExpr) -> tuple[Ind, Ctor, Ctor]:
     list_ind = Ind(name="List", param_types=Telescope.of(Univ(level)), level=level)
     nil_ctor = Ctor(name="Nil", inductive=list_ind)
     cons_ctor = Ctor(
@@ -31,19 +31,23 @@ def _normalize_level(level: LevelLike) -> LevelExpr:
     return ConstLevel(level)
 
 
+def _list_family(level: LevelLike) -> tuple[Ind, Ctor, Ctor]:
+    return _list_family_norm(_normalize_level(level))
+
+
 List, NilCtor, ConsCtor = _list_family(0)
 
 
 def ListAt(level: LevelLike) -> Ind:
-    return _list_family(_normalize_level(level))[0]
+    return _list_family(level)[0]
 
 
 def NilCtorAt(level: LevelLike) -> Ctor:
-    return _list_family(_normalize_level(level))[1]
+    return _list_family(level)[1]
 
 
 def ConsCtorAt(level: LevelLike) -> Ctor:
-    return _list_family(_normalize_level(level))[2]
+    return _list_family(level)[2]
 
 
 def ListType(elem_ty: Term, *, level: LevelLike = 0) -> Term:

@@ -71,12 +71,10 @@ def mk_allvec_elim_body(*, recursive: bool = False, nil: bool = False) -> Term:
     #   scrutinee = AllCons A P 0 z0 (Nil A) px0 (AllNil A P)
     # ------------------------------------------------------------
     n0 = Zero()
-    xs0 = Nil(A, level=0)  # Vec.Nil A : Vec A 0
-    ih0 = AllNil(A, P, level=0)  # AllNil A P : AllVec A P 0 (Nil A)
+    xs0 = Nil(A)  # Vec.Nil A : Vec A 0
+    ih0 = AllNil(A, P)  # AllNil A P : AllVec A P 0 (Nil A)
 
-    scrutinee = (
-        AllNil(A, P, level=0) if nil else AllCons(A, P, n0, z0, xs0, px0, ih0, level=0)
-    )
+    scrutinee = AllNil(A, P) if nil else AllCons(A, P, n0, z0, xs0, px0, ih0)
 
     # ------------------------------------------------------------
     # Motive (constant Nat):
@@ -84,11 +82,9 @@ def mk_allvec_elim_body(*, recursive: bool = False, nil: bool = False) -> Term:
     # ------------------------------------------------------------
     motive = mk_lams(
         NatType(),  # n : Nat          (n = Var(0))
-        VecType(A.shift(1), Var(0), level=0),
+        VecType(A.shift(1), Var(0)),
         # xs : Vec A n      (xs = Var(0), n = Var(1) after xs binder, but here n is still Var(0) in this arg_ty position)
-        AllVecType(
-            A.shift(2), P.shift(2), Var(1), Var(0), level=0
-        ),  # all : AllVec A P n xs
+        AllVecType(A.shift(2), P.shift(2), Var(1), Var(0)),  # all : AllVec A P n xs
         body=NatType(),
     )
 
@@ -108,18 +104,16 @@ def mk_allvec_elim_body(*, recursive: bool = False, nil: bool = False) -> Term:
     all_cons = mk_lams(
         NatType(),  # n : Nat
         A.shift(1),  # x : A
-        VecType(
-            A.shift(2), Var(1), level=0
-        ),  # xs : Vec A n   (n is Var(1) after x binder)
+        VecType(A.shift(2), Var(1)),  # xs : Vec A n   (n is Var(1) after x binder)
         App(P.shift(3), Var(1)),  # px : P x       (x is Var(1) after xs binder)
         AllVecType(
-            A.shift(4), P.shift(4), Var(3), Var(1), level=0
+            A.shift(4), P.shift(4), Var(3), Var(1)
         ),  # ih : AllVec A P n xs  (n=Var(3), xs=Var(1) after px binder)
         ih_ih_ty,  # ih_ih : motive n xs ih
         body=Succ(Var(0)) if recursive else Zero(),  # Var(0) is ih_ih (the last binder)
     )
 
-    return AllVecElim(motive, all_nil, all_cons, scrutinee, level=0)
+    return AllVecElim(motive, all_nil, all_cons, scrutinee)
 
 
 def test_allvec_elim_body_iota_nil() -> None:
@@ -132,15 +126,15 @@ def test_allvec_elim_body_iota_nil() -> None:
         Univ(0),  # A
         Pi(Var(0), Univ(0)),  # P
         NatType(),  # n
-        vec.VecType(Var(2), Var(0), level=0),  # xs
-        allvec.AllVecType(Var(3), Var(2), Var(1), Var(0), level=0),  # pf
+        vec.VecType(Var(2), Var(0)),  # xs
+        allvec.AllVecType(Var(3), Var(2), Var(1), Var(0)),  # pf
         body=mk_allvec_elim_body(nil=True),  # <-- changed
     )
 
     A = NatType()
     P = mk_lams(NatType(), body=Univ(0))
     pf = allvec.AllNil(A, P)
-    xs = vec.Nil(A, level=0)
+    xs = vec.Nil(A)
 
     term = mk_app(closed, A, P, Zero(), xs, pf)
     assert term.normalize() == Zero()
@@ -155,8 +149,8 @@ def test_allvec_elim_body_iota_cons_uses_ih() -> None:
         Univ(0),
         Pi(Var(0), Univ(0)),
         NatType(),
-        vec.VecType(Var(2), Var(0), level=0),
-        allvec.AllVecType(Var(3), Var(2), Var(1), Var(0), level=0),
+        vec.VecType(Var(2), Var(0)),
+        allvec.AllVecType(Var(3), Var(2), Var(1), Var(0)),
         body=mk_allvec_elim_body(recursive=True),
     )
 
@@ -164,7 +158,7 @@ def test_allvec_elim_body_iota_cons_uses_ih() -> None:
     P = mk_lams(NatType(), body=Univ(0))
 
     pf0 = allvec.AllNil(A, P)
-    xs0 = vec.Nil(A, level=0)
+    xs0 = vec.Nil(A)
 
     x = Zero()
     px = mk_app(P, x)
