@@ -100,9 +100,7 @@ def test_vec_rec_preserves_length_index() -> None:
     rec.type_check(NatType())
 
 
-@pytest.mark.parametrize(
-    "elem", (Zero(), Succ(Zero()), vec.Nil(NatType()), NatType(), Univ(0), Univ(55))
-)
+@pytest.mark.parametrize("elem", (Zero(), Succ(Zero()), vec.Nil(NatType())))
 @pytest.mark.parametrize("n", range(5))
 def test_infer_type(elem: Term, n: int) -> None:
     elem_ty = elem.infer_type()
@@ -111,6 +109,14 @@ def test_infer_type(elem: Term, n: int) -> None:
         vector = vec.Cons(elem_ty, numeral(i), elem, vector)
     t = vector.infer_type()
     assert t == VecType(elem_ty, numeral(n))
+
+
+@pytest.mark.parametrize("elem", (Univ(0), Univ(55), NatType()))
+def test_infer_type_rejects_type_elements(elem: Term) -> None:
+    elem_ty = elem.infer_type()
+    vector = vec.Nil(elem_ty)
+    with pytest.raises(TypeError):
+        _ = vector.infer_type()
 
 
 def test_ctor_type() -> None:
@@ -219,7 +225,7 @@ def test_recursive_detection_whnfs_field_head() -> None:
     branch = mk_lams(
         mk_app(mk_lams(Univ(0), body=Var(0)), lazy),
         Univ(0),  # ih : motive scrutinee
-        body=Univ(0),
+        body=NatType(),
     )
 
     elim = Elim(inductive=lazy, motive=motive, cases=(branch,), scrutinee=Var(0))

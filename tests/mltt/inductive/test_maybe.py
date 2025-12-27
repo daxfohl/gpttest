@@ -42,10 +42,15 @@ def test_maybe_rec_eliminates() -> None:
     term_nothing.type_check(NatType())
 
 
-@pytest.mark.parametrize(
-    "elem", (Zero(), Succ(Zero()), NatType(), MaybeType(NatType()), Univ(0))
-)
+@pytest.mark.parametrize("elem", (Zero(), Succ(Zero())))
 def test_infer_type(elem: Term) -> None:
     elem_ty = elem.infer_type()
     assert Nothing(elem_ty).infer_type() == MaybeType(elem_ty)
     assert Just(elem_ty, elem).infer_type() == MaybeType(elem_ty)
+
+
+@pytest.mark.parametrize("elem", (Univ(0), Univ(55), NatType(), MaybeType(NatType())))
+def test_infer_type_rejects_type_elements(elem: Term) -> None:
+    elem_ty = elem.infer_type()
+    with pytest.raises(TypeError):
+        _ = Nothing(elem_ty).infer_type()

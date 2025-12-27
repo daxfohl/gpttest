@@ -39,9 +39,7 @@ def test_listrec_length_of_singleton() -> None:
     length_term.type_check(NatType())
 
 
-@pytest.mark.parametrize(
-    "elem", (Zero(), Succ(Zero()), listm.Nil(NatType()), NatType(), Univ(0), Univ(55))
-)
+@pytest.mark.parametrize("elem", (Zero(), Succ(Zero()), listm.Nil(NatType())))
 @pytest.mark.parametrize("n", range(5))
 def test_infer_type(elem: Term, n: int) -> None:
     elem_ty = elem.infer_type()
@@ -50,6 +48,14 @@ def test_infer_type(elem: Term, n: int) -> None:
         l = listm.Cons(elem_ty, elem, l)
     t = l.infer_type()
     assert t == listm.ListType(elem_ty)
+
+
+@pytest.mark.parametrize("elem", (Univ(0), Univ(55), NatType()))
+def test_infer_type_rejects_type_elements(elem: Term) -> None:
+    elem_ty = elem.infer_type()
+    term = listm.Nil(elem_ty)
+    with pytest.raises(TypeError):
+        _ = term.infer_type()
 
 
 def test_ctor_type() -> None:
