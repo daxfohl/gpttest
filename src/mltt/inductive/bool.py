@@ -6,7 +6,7 @@ from ..core.ast import App, Lam, Term, Univ, Var
 from ..core.debruijn import mk_app, mk_lams
 from ..core.ind import Elim, Ctor, Ind
 
-Bool = Ind(name="Bool", level=0)
+Bool = Ind(name="Bool")
 FalseCtor = Ctor(name="False", inductive=Bool)
 TrueCtor = Ctor(name="True", inductive=Bool)
 object.__setattr__(Bool, "constructors", (FalseCtor, TrueCtor))

@@ -11,7 +11,7 @@ from ..core.ast import (
 from ..core.debruijn import mk_app, mk_lams, Telescope, ArgList
 from ..core.ind import Elim, Ctor, Ind
 
-Fin = Ind(name="Fin", index_types=Telescope.of(NatType()), level=0)
+Fin = Ind(name="Fin", index_types=Telescope.of(NatType()))
 FZCtor = Ctor(
     name="FZ",
     inductive=Fin,

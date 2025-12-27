@@ -11,6 +11,123 @@ if TYPE_CHECKING:
     from .debruijn import Ctx, ArgList
 
 
+@dataclass(frozen=True)
+class LevelExpr:
+    """Base class for universe level expressions."""
+
+    def normalize(self) -> LevelExpr:
+        return self
+
+    def as_int(self) -> int | None:
+        return None
+
+
+@dataclass(frozen=True)
+class ConstLevel(LevelExpr):
+    """A concrete universe level."""
+
+    value: int = 0
+
+    def __post_init__(self) -> None:
+        if self.value < 0:
+            raise ValueError("Universe level must be non-negative")
+
+    def as_int(self) -> int | None:
+        return self.value
+
+
+@dataclass(frozen=True)
+class SuccLevel(LevelExpr):
+    """A successor universe level."""
+
+    pred: LevelExpr
+
+    def normalize(self) -> LevelExpr:
+        pred = normalize_level(self.pred)
+        pred_int = pred.as_int()
+        if pred_int is not None:
+            return ConstLevel(pred_int + 1)
+        if pred is not self.pred:
+            return SuccLevel(pred)
+        return self
+
+
+@dataclass(frozen=True)
+class MaxOfLevels(LevelExpr):
+    """The maximum of one or more universe levels."""
+
+    levels: tuple[LevelExpr, ...]
+
+    def normalize(self) -> LevelExpr:
+        flattened: list[LevelExpr] = []
+        for level in self.levels:
+            norm = normalize_level(level)
+            if isinstance(norm, MaxOfLevels):
+                flattened.extend(norm.levels)
+            else:
+                flattened.append(norm)
+        if not flattened:
+            return ConstLevel(0)
+        const_levels = [level for level in flattened if isinstance(level, ConstLevel)]
+        if len(const_levels) == len(flattened):
+            return ConstLevel(max(level.value for level in const_levels))
+        unique: list[LevelExpr] = []
+        for level in flattened:
+            if level not in unique:
+                unique.append(level)
+        if len(unique) == 1:
+            return unique[0]
+        return MaxOfLevels(tuple(unique))
+
+
+LevelLike = LevelExpr | int
+
+
+def normalize_level(level: LevelLike) -> LevelExpr:
+    if isinstance(level, int):
+        return ConstLevel(level)
+    if isinstance(level, LevelExpr):
+        return level.normalize()
+    raise TypeError(f"Unexpected level expression: {level!r}")
+
+
+def max_level(*levels: LevelLike) -> LevelExpr:
+    normalized = [normalize_level(level) for level in levels]
+    return normalize_level(MaxOfLevels(tuple(normalized)))
+
+
+def succ_level(level: LevelLike) -> LevelExpr:
+    return normalize_level(SuccLevel(normalize_level(level)))
+
+
+def _level_int(level: LevelLike) -> int | None:
+    return normalize_level(level).as_int()
+
+
+def level_lt(left: LevelLike, right: LevelLike) -> bool:
+    left_int = _level_int(left)
+    right_int = _level_int(right)
+    if left_int is None or right_int is None:
+        raise TypeError(
+            "Cannot compare non-constant universe levels:\n"
+            f"  left = {left}\n"
+            f"  right = {right}"
+        )
+    return left_int < right_int
+
+
+def level_leq(left: LevelLike, right: LevelLike) -> bool:
+    left_int = _level_int(left)
+    right_int = _level_int(right)
+    if left_int is None or right_int is None:
+        raise TypeError(
+            "Cannot compare non-constant universe levels:\n"
+            f"  left = {left}\n"
+            f"  right = {right}"
+        )
+    return left_int <= right_int
+
+
 def _map_term_values(value: Any, f: Callable[[Term], Term]) -> Any:
     if isinstance(value, Term):
         return f(value)
@@ -136,13 +253,13 @@ class Term:
     def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
         self._check_against_inferred(expected_ty, ctx)
 
-    def expect_universe(self, ctx: Ctx | None = None) -> int:
+    def expect_universe(self, ctx: Ctx | None = None) -> LevelExpr:
         ty = self.infer_type(ctx).whnf()
         if not isinstance(ty, Univ):
             raise TypeError(
                 "Expected a universe:\n" f"  term = {self}\n" f"  inferred = {ty}"
             )
-        return ty.level
+        return normalize_level(ty.level)
 
     def type_equal(self, other: Term) -> bool:
         self_whnf = self.whnf()
@@ -260,7 +377,7 @@ class Pi(Term):
     def _infer_type(self, ctx: Ctx) -> Term:
         arg_level = self.arg_ty.expect_universe(ctx)
         body_level = self.return_ty.expect_universe(ctx.push(self.arg_ty))
-        return Univ(max(arg_level, body_level))
+        return Univ(max_level(arg_level, body_level))
 
 
 @dataclass(frozen=True)
@@ -314,16 +431,16 @@ class App(Term):
 class Univ(Term):
     """A universe ``Type(level)``."""
 
-    level: int = 0
+    level: LevelLike = 0
     is_terminal: ClassVar[bool] = True
 
     def __post_init__(self) -> None:
-        if self.level < 0:
-            raise ValueError("Universe level must be non-negative")
+        normalized = normalize_level(self.level)
+        object.__setattr__(self, "level", normalized)
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: Ctx) -> Term:
-        return Univ(self.level + 1)
+        return Univ(succ_level(self.level))
 
     def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
         if not isinstance(expected_ty, Univ):
@@ -336,6 +453,10 @@ class Univ(Term):
 
 
 __all__ = [
+    "ConstLevel",
+    "LevelExpr",
+    "MaxOfLevels",
+    "SuccLevel",
     "Term",
     "Var",
     "Lam",

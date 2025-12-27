@@ -14,7 +14,6 @@ AllVec = Ind(
     index_types=Telescope.of(
         NatType(), VecType(Var(2), Var(0))
     ),  # n : Nat, xs : Vec A n
-    level=0,
 )
 
 AllNilCtor = Ctor(

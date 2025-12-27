@@ -12,7 +12,6 @@ Tree = Ind(
         Univ(0),  # A : Type
         Univ(0),  # B : Type
     ),
-    level=0,
 )
 LeafCtor = Ctor(
     name="Leaf",

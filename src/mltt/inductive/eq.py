@@ -10,7 +10,6 @@ IdType = Ind(
     name="Id",
     param_types=Telescope.of(Univ(0), Var(0)),
     index_types=Telescope.of(Var(1)),
-    level=0,
 )
 ReflCtor = Ctor(
     name="Refl",

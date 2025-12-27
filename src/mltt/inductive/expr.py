@@ -12,7 +12,6 @@ Expr = Ind(
     name="Expr",
     param_types=Telescope.of(Univ(0)),
     index_types=Telescope.of(Var(0)),
-    level=0,
 )
 
 ConstCtor = Ctor(

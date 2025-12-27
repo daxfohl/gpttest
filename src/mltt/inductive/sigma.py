@@ -12,7 +12,6 @@ Sigma = Ind(
         Univ(0),  # A : Type
         Pi(Var(0), Univ(0)),  # B : A -> Type
     ),
-    level=0,
 )
 PairCtor = Ctor(
     name="Pair",

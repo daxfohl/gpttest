@@ -7,7 +7,7 @@ from ..core.ast import App, Lam, Term, Var
 from ..core.debruijn import mk_lams, Telescope
 from ..core.ind import Elim, Ctor, Ind
 
-Nat = Ind(name="Nat", level=0)
+Nat = Ind(name="Nat")
 ZeroCtor = Ctor(name="Zero", inductive=Nat)
 SuccCtor = Ctor(name="Succ", inductive=Nat, field_schemas=Telescope.of(Nat))
 object.__setattr__(Nat, "constructors", (ZeroCtor, SuccCtor))

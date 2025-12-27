@@ -16,7 +16,6 @@ RTC = Ind(
         Var(1),  # x : A
         Var(2),  # z : A
     ),
-    level=0,
 )
 
 RTCReflCtor = Ctor(

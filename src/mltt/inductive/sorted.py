@@ -14,7 +14,6 @@ Sorted = Ind(
         Pi(Var(0), Pi(Var(1), Univ(0))),  # R : A -> A -> Type
     ),
     index_types=Telescope.of(App(List, Var(1))),  # xs : List A
-    level=0,
 )
 
 SortedNilCtor = Ctor(

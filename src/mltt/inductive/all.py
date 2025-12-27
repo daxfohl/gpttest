@@ -14,7 +14,6 @@ All = Ind(
         Pi(Var(0), Univ(0)),  # P : A -> Type
     ),
     index_types=Telescope.of(App(List, Var(1))),  # xs : List A
-    level=0,
 )
 
 AllNilCtor = Ctor(

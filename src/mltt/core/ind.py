@@ -6,8 +6,42 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import ClassVar
 
-from .ast import Term, Pi, Univ, App, TermFieldMeta
+from .ast import (
+    Term,
+    Pi,
+    Univ,
+    App,
+    TermFieldMeta,
+    LevelExpr,
+    level_lt,
+    max_level,
+    normalize_level,
+)
 from .debruijn import Ctx, mk_app, mk_pis, decompose_app, Telescope, ArgList
+
+
+def infer_ind_level(ctx: Ctx, ind: Ind) -> LevelExpr:
+    if ind.level is not None:
+        return normalize_level(ind.level)
+    levels: list[LevelExpr] = []
+    binders = ind.param_types + ind.index_types
+    for b in binders:
+        levels.append(_binder_universe_level(b, ctx))
+        ctx = ctx.push(b)
+    return max_level(*levels) if levels else normalize_level(0)
+
+
+def _binder_universe_level(binder: Term, ctx: Ctx) -> LevelExpr:
+    binder_whnf = binder.whnf()
+    if isinstance(binder_whnf, Univ):
+        return normalize_level(binder_whnf.level)
+    if isinstance(binder_whnf, Pi):
+        arg_level = _binder_universe_level(binder_whnf.arg_ty, ctx)
+        body_level = _binder_universe_level(
+            binder_whnf.return_ty, ctx.push(binder_whnf.arg_ty)
+        )
+        return max_level(arg_level, body_level)
+    return binder.expect_universe(ctx)
 
 
 def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
@@ -18,16 +52,21 @@ def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
     """
 
     binders = ind.param_types + ind.index_types
+    binder_levels: list[LevelExpr] = []
     for b in binders:
-        level = b.expect_universe(ctx)
-        # if ind.level < level:
-        #     raise TypeError(
-        #         f"Inductive {ind.name} declared at Type({ind.level}) "
-        #         f"but has binder {b} of type Type({level})."
-        #     )
+        level = _binder_universe_level(b, ctx)
+        binder_levels.append(level)
+        if ind.level is not None and level_lt(ind.level, level):
+            raise TypeError(
+                f"Inductive {ind.name} declared at Type({ind.level}) "
+                f"but has binder {b} of type Type({level})."
+            )
         ctx = ctx.push(b)
 
-    return mk_pis(binders, return_ty=Univ(ind.level))
+    inferred_level = max_level(*binder_levels) if binder_levels else normalize_level(0)
+    ind_level = inferred_level if ind.level is None else ind.level
+
+    return mk_pis(binders, return_ty=Univ(ind_level))
 
 
 def infer_ctor_type(ctor: Ctor) -> Term:
@@ -166,11 +205,12 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
     # sanity check target_ty really is a type in Type u (or ≤ u with cumulativity)
     _ = target_ty.infer_type(ctx).expect_universe(ctx)
 
-    if u < ind.level:
+    ind_level = infer_ind_level(ctx, ind)
+    if level_lt(u, ind_level):
         raise TypeError(
             "Eliminator motive returns too small a universe:\n"
             f"  motive level = {u}\n"
-            f"  inductive level = {ind.level}"
+            f"  inductive level = {ind_level}"
         )
 
     return target_ty
@@ -194,8 +234,13 @@ class Ind(Term):
     constructors: tuple[Ctor, ...] = field(
         repr=False, default=(), metadata={"": TermFieldMeta(unchecked=True)}
     )
-    level: int = 0
+    level: LevelExpr | int | None = None
     is_terminal: ClassVar[bool] = True
+
+    def __post_init__(self) -> None:
+        if self.level is None:
+            return
+        object.__setattr__(self, "level", normalize_level(self.level))
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: Ctx) -> Term:

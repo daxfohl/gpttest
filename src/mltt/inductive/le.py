@@ -9,7 +9,7 @@ from ..core.ast import Term, Var
 from ..core.debruijn import mk_app, mk_lams, Telescope, ArgList
 from ..core.ind import Elim, Ctor, Ind
 
-Le = Ind(name="Le", index_types=Telescope.of(NatType(), NatType()), level=0)
+Le = Ind(name="Le", index_types=Telescope.of(NatType(), NatType()))
 LeReflCtor = Ctor(
     name="le_refl",
     inductive=Le,

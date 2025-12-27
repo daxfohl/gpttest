@@ -2,7 +2,19 @@
 
 from __future__ import annotations
 
-from .ast import App, Lam, Pi, Term, Univ, Var
+from .ast import (
+    App,
+    ConstLevel,
+    Lam,
+    LevelExpr,
+    MaxOfLevels,
+    Pi,
+    SuccLevel,
+    Term,
+    Univ,
+    Var,
+    normalize_level,
+)
 from .ind import Elim, Ctor, Ind
 
 ATOM_PREC = 3
@@ -76,6 +88,17 @@ def _render_app_like(head: str, args: list[tuple[str, int]]) -> tuple[str, int]:
 def pretty(term: Term) -> str:
     """Return a human-friendly string for ``term``."""
 
+    def fmt_level(level: LevelExpr) -> str:
+        match level:
+            case ConstLevel(value):
+                return str(value)
+            case SuccLevel(pred):
+                return f"{fmt_level(pred)}+1"
+            case MaxOfLevels(levels):
+                inner = ", ".join(fmt_level(level) for level in levels)
+                return f"max({inner})"
+        raise TypeError(f"Cannot pretty-print unknown level: {level!r}")
+
     def fmt(t: Term, ctx: list[str]) -> tuple[str, int]:
         match t:
             case Var(k):
@@ -83,7 +106,14 @@ def pretty(term: Term) -> str:
                 return name, ATOM_PREC
 
             case Univ(level):
-                return ("Type" if level == 0 else f"Type{level}"), ATOM_PREC
+                level = normalize_level(level)
+                match level:
+                    case ConstLevel(0):
+                        return "Type", ATOM_PREC
+                    case ConstLevel(value):
+                        return f"Type{value}", ATOM_PREC
+                    case _:
+                        return f"Type({fmt_level(level)})", ATOM_PREC
 
             case Ind() as inductive:
                 return _inductive_label(inductive), ATOM_PREC

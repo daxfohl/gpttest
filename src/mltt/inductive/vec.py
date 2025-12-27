@@ -12,7 +12,6 @@ Vec = Ind(
     name="Vec",
     param_types=Telescope.of(Univ(0)),
     index_types=Telescope.of(NatType()),
-    level=0,
 )
 NilCtor = Ctor(
     name="Nil",
