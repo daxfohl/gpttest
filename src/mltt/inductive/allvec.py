@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from functools import cache
 
-from .nat import NatType, Succ, Zero
-from .vec import ConsCtorAt, NilCtorAt, VecType
-from ..core.ast import App, Pi, Term, Univ, Var
-from ..core.debruijn import mk_app, Telescope, ArgList
-from ..core.ind import Ctor, Elim, Ind
+from mltt.inductive.nat import NatType, Succ, Zero
+from mltt.inductive.vec import ConsCtorAt, NilCtorAt, VecType
+from mltt.core.ast import App, Pi, Term, Univ, Var
+from mltt.core.debruijn import mk_app, Telescope, ArgList
+from mltt.core.ind import Ctor, Elim, Ind
 
 
 @cache

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from ..core.ast import Pi, Term, Univ, Var
-from ..core.debruijn import mk_app, Telescope, ArgList
-from ..core.ind import Elim, Ctor, Ind
+from mltt.core.ast import Pi, Term, Univ, Var
+from mltt.core.debruijn import mk_app, Telescope, ArgList
+from mltt.core.ind import Elim, Ctor, Ind
 
 RTC = Ind(
     name="RTC",

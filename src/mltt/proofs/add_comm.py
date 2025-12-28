@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from ..core.ast import Lam, Term, Var, Pi
-from ..core.debruijn import mk_app, mk_lams
-from ..inductive.eq import Refl, Id, ap, trans, sym
-from ..inductive.nat import NatType, Succ, Zero, add, NatElim
+from mltt.core.ast import Lam, Term, Var, Pi
+from mltt.core.debruijn import mk_app, mk_lams
+from mltt.inductive.eq import Refl, Id, ap, trans, sym
+from mltt.inductive.nat import NatType, Succ, Zero, add, NatElim
 
 
 def add_zero_right() -> Term:

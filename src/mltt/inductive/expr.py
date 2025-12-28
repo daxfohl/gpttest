@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from .sigma import Sigma
-from ..core.ast import Lam, Term, Univ, Var
-from ..core.debruijn import mk_app, Telescope, ArgList
-from ..core.ind import Elim, Ctor, Ind
+from mltt.inductive.sigma import Sigma
+from mltt.core.ast import Lam, Term, Univ, Var
+from mltt.core.debruijn import mk_app, Telescope, ArgList
+from mltt.core.ind import Elim, Ctor, Ind
 
 # Expr (Ty : Type1) (τ : Ty) : Type1
 Expr = Ind(

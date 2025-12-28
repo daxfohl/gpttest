@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from functools import cache
 
-from ..core.ast import App, Term, Univ, Var
-from ..core.debruijn import mk_app, Telescope
-from ..core.ind import Elim, Ctor, Ind
+from mltt.core.ast import App, Term, Univ, Var
+from mltt.core.debruijn import mk_app, Telescope
+from mltt.core.ind import Elim, Ctor, Ind
 
 
 @cache
