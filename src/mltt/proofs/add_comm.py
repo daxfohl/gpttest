@@ -32,7 +32,7 @@ def add_zero_right() -> Term:
                     A=NatType(),
                     B0=NatType(),
                     x=add(Var(1), Zero()),  # add k 0
-                    y=Var(1),  # k
+                    # k
                     p=Var(0),  # ih
                 ),
             ),
@@ -87,7 +87,7 @@ def add_succ_right() -> Term:
             A=NatType(),
             B0=NatType(),
             x=add(Var(1), Succ(Var(2))),  # add k (Succ n)
-            y=Succ(add(Var(1), Var(2))),  # Succ (add k n)
+            # Succ (add k n)
             p=Var(0),  # ih
         ),
     )
@@ -125,7 +125,7 @@ def add_comm() -> Term:
         sym(
             NatType(),
             add(Var(0), Zero()),  # x = add m 0
-            Var(0),  # y = m
+            # y = m
             mk_app(add_zero_right(), Var(0)),  # p : add m 0 = m
         ),
     )
@@ -139,26 +139,26 @@ def add_comm() -> Term:
                 NatType(),
                 add(Succ(Var(2)), Var(0)),  # add (Succ n) m
                 Succ(add(Var(0), Var(2))),  # Succ (add m n)
-                add(Var(0), Succ(Var(2))),  # add m (Succ n)
+                # add m (Succ n)
                 trans(
                     NatType(),
                     add(Succ(Var(2)), Var(0)),  # add (Succ n) m
                     Succ(add(Var(2), Var(0))),  # Succ (add n m)
-                    Succ(add(Var(0), Var(2))),  # Succ (add m n)
+                    # Succ (add m n)
                     mk_app(succ_add(), Var(2), Var(0)),  # succ_add n m
                     ap(
                         f=Lam(NatType(), Succ(Var(0))),
                         A=NatType(),
                         B0=NatType(),
                         x=add(Var(2), Var(0)),  # add n m
-                        y=add(Var(0), Var(2)),  # add m n
+                        # add m n
                         p=mk_app(Var(1), Var(0)),  # ih m
                     ),
                 ),
                 sym(
                     NatType(),
                     add(Var(0), Succ(Var(2))),  # x
-                    Succ(add(Var(0), Var(2))),  # y
+                    # y
                     mk_app(add_succ_right(), Var(2), Var(0)),
                 ),
             ),

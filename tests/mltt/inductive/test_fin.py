@@ -67,7 +67,7 @@ def test_ctor_type() -> None:
 def test_fin_modulus() -> None:
     n = 4
     for i in range(n):
-        term = fin_modulus(numeral(n), fin.of_int(i, n))
+        term = fin_modulus(numeral(n))
         assert term.normalize() == numeral(n)
         term.type_check(NatType())
 
@@ -75,6 +75,6 @@ def test_fin_modulus() -> None:
 def test_fin_to_nat() -> None:
     n = 5
     for i in range(n):
-        term = fin_to_nat(numeral(n), fin.of_int(i, n))
+        term = fin_to_nat(fin.of_int(i, n))
         assert term.normalize() == numeral(i)
         term.type_check(NatType())

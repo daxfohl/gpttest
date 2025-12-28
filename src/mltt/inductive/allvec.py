@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cache
 
 from .nat import NatType, Succ, Zero
-from .vec import ConsCtorAt, NilCtorAt, VecAt, VecType
+from .vec import ConsCtorAt, NilCtorAt, VecType
 from ..core.ast import App, Pi, Term, Univ, Var
 from ..core.debruijn import mk_app, Telescope, ArgList
 from ..core.ind import Ctor, Elim, Ind
@@ -13,7 +13,6 @@ from ..core.ind import Ctor, Elim, Ind
 
 @cache
 def _allvec_family(level: int) -> tuple[Ind, Ctor, Ctor]:
-    vec_ind = VecAt(level)
     nil_ctor = NilCtorAt(level)
     cons_ctor = ConsCtorAt(level)
 

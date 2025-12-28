@@ -9,10 +9,9 @@ def test_cong_builds_identity_elimination_over_function_application() -> None:
     B = Lam(NatType(), Var(0))
     f = Lam(NatType(), Succ(Var(0)))
     x = Zero()
-    y = Succ(Zero())
     p = Var(1)
 
-    result = cong(f, A, B, x, y, p)
+    result = cong(f, A, B, x, p)
 
     P = mk_lams(
         A,
@@ -28,10 +27,9 @@ def test_cong_builds_identity_elimination_over_function_application() -> None:
 def test_sym_builds_identity_elimination_with_swapped_arguments() -> None:
     A = NatType()
     x = Zero()
-    y = Succ(Zero())
     p = Var(0)
 
-    result = sym(A, x, y, p)
+    result = sym(A, x, p)
 
     P = mk_lams(
         A,
@@ -48,11 +46,10 @@ def test_trans_builds_identity_elimination_for_composition() -> None:
     A = NatType()
     x = Zero()
     y = Succ(Zero())
-    z = Succ(Succ(Zero()))
     p = Var(0)
     q = Var(1)
 
-    result = trans(A, x, y, z, p, q)
+    result = trans(A, x, y, p, q)
 
     Q = mk_lams(
         A,

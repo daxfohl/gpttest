@@ -61,7 +61,7 @@ def of_int(i: int, n: int) -> Term:
     return FS(numeral(n - 1), of_int(i - 1, n - 1))
 
 
-def fin_modulus(n: Term, f: Term) -> Term:
+def fin_modulus(n: Term) -> Term:
     return n
 
 
@@ -69,7 +69,7 @@ def fin_modulus_term() -> Term:
     return mk_lams(
         NatType(),  # n
         FinType(Var(0)),  # x : Fin n
-        body=fin_modulus(Var(1), Var(0)),  # return n
+        body=fin_modulus(Var(1)),  # return n
     )
 
 
@@ -77,11 +77,11 @@ def fin_to_nat_term() -> Term:
     return mk_lams(
         NatType(),
         FinType(Var(0)),
-        body=fin_to_nat(Var(1), Var(0)),  # return n
+        body=fin_to_nat(Var(0)),  # return n
     )
 
 
-def fin_to_nat(n: Term, k: Term) -> Term:
+def fin_to_nat(k: Term) -> Term:
     P = mk_lams(NatType(), FinType(Var(0)), body=NatType())
     base = mk_lams(NatType(), body=Zero())
     step = mk_lams(

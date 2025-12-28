@@ -37,7 +37,7 @@ def test_double_preserves_y_equals_x_plus_seven() -> None:
             A=NatType(),
             B0=NatType(),
             x=Var(1),  # y
-            y=add(Var(2), seven),  # x + 7
+            # x + 7
             p=Var(0),  # p : y = x+7
         ),
     )

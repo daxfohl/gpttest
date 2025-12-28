@@ -47,11 +47,11 @@ def test_let_pair_iota_reduces() -> None:
     p = sigma.Pair(A, B, a, b)
 
     # let (x,y)=p in x  ==>  a
-    term = sigma.let_pair(A, B, C=NatType(), p=p, f=Var(1))  # Var(1)=a under [b,a]
+    term = sigma.let_pair(A, B, p=p, f=Var(1))  # Var(1)=a under [b,a]
     assert term.normalize().type_equal(a.normalize())
 
     # let (x,y)=p in y  ==>  b
-    term2 = sigma.let_pair(A, B, C=NatType(), p=p, f=Var(0))  # Var(0)=b
+    term2 = sigma.let_pair(A, B, p=p, f=Var(0))  # Var(0)=b
     assert term2.normalize().type_equal(b.normalize())
 
 
@@ -97,7 +97,7 @@ def test_let_pair_handles_nondependent_B() -> None:
 
     # body returns b, so C is B a = Fin (Succ a)
     C = NatType()
-    term = sigma.let_pair(A, B, C=C, p=p, f=Zero())
+    term = sigma.let_pair(A, B, p=p, f=Zero())
     assert term.infer_type().type_equal(C)
 
 
@@ -109,17 +109,7 @@ def test_let_pair_handles_dependent_B() -> None:
     b = mk_app(FZCtor, a)
     p = sigma.Pair(A, B, a, b)
 
-    # C : Π a:A. Π b:B a. Type
-    # C a b := B a
-    C = Lam(
-        A,
-        Lam(
-            App(B.shift(1), Var(0)),  # b : B a
-            App(B.shift(1), Var(1)),  # result type = B a
-        ),
-    )
-
-    term = sigma.let_pair_dep(A, B, C=C, p=p, f_body=Var(0))  # return b
+    term = sigma.let_pair_dep(A, B, p=p, f_body=Var(0))  # return b
     expected = App(B, a)  # B 3
     assert term.infer_type().type_equal(expected)
 

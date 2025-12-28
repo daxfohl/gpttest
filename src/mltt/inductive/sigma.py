@@ -88,14 +88,14 @@ def snd_term() -> Term:
     )
 
 
-def let_pair_dep_fn(A: Term, B: Term, C: Term, p: Term, f: Term) -> Term:
+def let_pair_dep_fn(A: Term, B: Term, p: Term, f: Term) -> Term:
     return mk_app(f, fst(A, B, p), snd(A, B, p))
 
 
-def let_pair_dep(A: Term, B: Term, C: Term, p: Term, f_body: Term) -> Term:
+def let_pair_dep(A: Term, B: Term, p: Term, f_body: Term) -> Term:
     # f_body is in context extended by a then b (so Var(0)=b, Var(1)=a)
     f_fn = mk_lams(A, App(B, Var(0)), body=f_body)  # λ a. λ b. f_body
-    return let_pair_dep_fn(A, B, C, p, f_fn)
+    return let_pair_dep_fn(A, B, p, f_fn)
 
 
 def let_pair_dep_term() -> Term:
@@ -112,20 +112,15 @@ def let_pair_dep_term() -> Term:
         mk_pis(
             Var(3), App(Var(3), Var(0)), return_ty=mk_app(Var(3), Var(1), Var(0))
         ),  # f
-        body=let_pair_dep_fn(Var(4), Var(3), Var(2), Var(1), Var(0)),
+        body=let_pair_dep_fn(Var(4), Var(3), Var(1), Var(0)),
     )
 
 
-def let_pair_fn(A: Term, B: Term, C: Term, p: Term, f: Term) -> Term:
-    C_const = mk_lams(A, App(B.shift(1), Var(0)), body=C.shift(2))
-    return let_pair_dep_fn(A, B, C_const, p, f)
-
-
-def let_pair(A: Term, B: Term, C: Term, p: Term, f: Term) -> Term:
+def let_pair(A: Term, B: Term, p: Term, f: Term) -> Term:
     # Treat ``f`` as the body under binders ``a`` and ``b``, then pass the
     # resulting function to ``let_pair_fn``.
     f_fn = mk_lams(A, App(B, Var(0)), body=f)
-    return let_pair_fn(A, B, C, p, f_fn)
+    return let_pair_dep_fn(A, B, p, f_fn)
 
 
 def let_pair_term() -> Term:
@@ -138,5 +133,5 @@ def let_pair_term() -> Term:
         Univ(0),  # C
         SigmaType(Var(2), Var(1)),  # p : Sigma A B
         mk_pis(Var(3), App(Var(3), Var(0)), return_ty=Var(3)),  # f
-        body=let_pair_fn(Var(4), Var(3), Var(2), Var(1), Var(0)),
+        body=let_pair_dep_fn(Var(4), Var(3), Var(1), Var(0)),
     )

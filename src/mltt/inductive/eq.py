@@ -38,7 +38,7 @@ def IdElim(P: Term, d: Term, p: Term) -> Elim:
     return Elim(inductive=IdType, motive=P, cases=(d,), scrutinee=p)
 
 
-def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
+def cong3(f: Term, A: Term, B: Term, x: Term, p: Term) -> Term:
     """Dependent congruence for arbitrary codomains."""
 
     P = mk_lams(
@@ -54,7 +54,7 @@ def cong3(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
     return IdElim(P, d, p)
 
 
-def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
+def cong(f: Term, A: Term, B: Term, x: Term, p: Term) -> Term:
     """Standard dependent congruence."""
 
     A1 = A.shift(1)
@@ -72,13 +72,13 @@ def cong(f: Term, A: Term, B: Term, x: Term, y: Term, p: Term) -> Term:
     return IdElim(P, d, p)
 
 
-def ap(f: Term, A: Term, B0: Term, x: Term, y: Term, p: Term) -> Term:
+def ap(f: Term, A: Term, B0: Term, x: Term, p: Term) -> Term:
     """Non-dependent congruence (``ap``)."""
 
-    return cong(f, A, Lam(A, B0), x, y, p)
+    return cong(f, A, Lam(A, B0), x, p)
 
 
-def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
+def sym(A: Term, x: Term, p: Term) -> Term:
     """Symmetry of identity proofs."""
 
     A1 = A.shift(1)
@@ -95,7 +95,7 @@ def sym(A: Term, x: Term, y: Term, p: Term) -> Term:
     return IdElim(P, d, p)
 
 
-def trans(A: Term, x: Term, y: Term, z: Term, p: Term, q: Term) -> Term:
+def trans(A: Term, x: Term, y: Term, p: Term, q: Term) -> Term:
     """Transitivity of identity proofs."""
 
     A1 = A.shift(1)
