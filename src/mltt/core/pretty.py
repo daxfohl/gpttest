@@ -12,6 +12,7 @@ from .ast import (
     Pi,
     SuccLevel,
     Term,
+    UForall,
     Univ,
     Var,
     normalize_level,
@@ -155,6 +156,14 @@ def pretty(term: Term) -> str:
                     body_text, body_prec, PI_PREC, allow_equal=True
                 )
                 return f"Pi {binder} : {arg_disp}. {body_disp}", PI_PREC
+
+            case UForall(body):
+                binder = _fresh_name(ctx, base="u")
+                body_text, body_prec = fmt(body, [binder, *ctx])
+                body_disp = _maybe_paren(
+                    body_text, body_prec, PI_PREC, allow_equal=True
+                )
+                return f"forall {binder}. {body_disp}", PI_PREC
 
             case Elim(inductive, motive, cases, scrutinee):
                 motive_text, motive_prec = fmt(motive, ctx)

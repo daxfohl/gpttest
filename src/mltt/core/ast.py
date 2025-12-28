@@ -222,16 +222,17 @@ def _map_term_values(value: Any, f: Callable[[Term], Term]) -> Any:
 
 def _map_level_values(
     value: Any,
-    term_mapper: Callable[[Term], Term],
-    level_mapper: Callable[[LevelExpr], LevelExpr],
+    term_mapper: Callable[[Term, int], Term],
+    level_mapper: Callable[[LevelExpr, int], LevelExpr],
+    cutoff: int,
     *,
     allow_term_recursion: bool,
 ) -> Any:
     if isinstance(value, LevelExpr):
-        return level_mapper(value)
+        return level_mapper(value, cutoff)
     if isinstance(value, Term):
         if allow_term_recursion:
-            return term_mapper(value)
+            return term_mapper(value, cutoff)
         return value
     if isinstance(value, tuple):
         return tuple(
@@ -239,6 +240,7 @@ def _map_level_values(
                 v,
                 term_mapper,
                 level_mapper,
+                cutoff,
                 allow_term_recursion=allow_term_recursion,
             )
             for v in value
@@ -249,6 +251,7 @@ def _map_level_values(
 @dataclass(frozen=True, kw_only=True)
 class TermFieldMeta:
     binder_count: int = 0
+    u_binder_count: int = 0
     unchecked: bool = False
 
 
@@ -283,17 +286,21 @@ class Term:
         # noinspection PyArgumentList
         return replace(self, **updates) if updates else self
 
-    def _replace_levels(self, mapper: Callable[[LevelExpr], LevelExpr]) -> Term:
-        def term_mapper(t: Term) -> Term:
-            return t._replace_levels(mapper)
+    def _replace_levels_with_cutoff(
+        self, mapper: Callable[[LevelExpr, int], LevelExpr], cutoff: int
+    ) -> Term:
+        def term_mapper(t: Term, term_cutoff: int) -> Term:
+            return t._replace_levels_with_cutoff(mapper, term_cutoff)
 
         updates = {}
         for f in fields(self):
             value = getattr(self, f.name)
+            field_cutoff = cutoff + meta(f).u_binder_count
             new_value = _map_level_values(
                 value,
                 term_mapper,
                 mapper,
+                field_cutoff,
                 allow_term_recursion=not self.is_terminal,
             )
             if new_value != value:
@@ -331,11 +338,16 @@ class Term:
 
     def level_shift(self, by: int, cutoff: int = 0) -> Term:
         """Shift free universe variables in the term."""
-        return self._replace_levels(lambda level: level.shift(by, cutoff))
+        return self._replace_levels_with_cutoff(
+            lambda level, level_cutoff: level.shift(by, level_cutoff), cutoff
+        )
 
     def level_subst(self, sub: LevelExpr, j: int = 0) -> Term:
         """Substitute ``sub`` for ``LevelVar(j)`` inside the term."""
-        return self._replace_levels(lambda level: level.subst(sub, j))
+        return self._replace_levels_with_cutoff(
+            lambda level, level_cutoff: level.subst(sub, j + level_cutoff),
+            cutoff=0,
+        )
 
     def level_instantiate(
         self, actuals: Sequence[LevelExpr], depth_above: int = 0
@@ -536,6 +548,27 @@ class Pi(Term):
 
 
 @dataclass(frozen=True)
+class UForall(Term):
+    """Universe-polymorphic type binder."""
+
+    body: Term = field(metadata={"": TermFieldMeta(u_binder_count=1)})
+
+    # Typing -------------------------------------------------------------------
+    def _infer_type(self, ctx: Ctx, uctx: UCtx) -> Term:
+        _ = self.body.expect_universe(ctx, uctx.push())
+        return Univ(0)
+
+    def _type_check(self, expected_ty: Term, ctx: Ctx, uctx: UCtx) -> None:
+        if not isinstance(expected_ty, Univ):
+            raise TypeError(
+                "Universe-forall expected to have Universe type:\n"
+                f"  term = {self}\n"
+                f"  expected = {expected_ty}"
+            )
+        _ = self.body.expect_universe(ctx, uctx.push())
+
+
+@dataclass(frozen=True)
 class App(Term):
     """Function application."""
 
@@ -629,6 +662,7 @@ __all__ = [
     "Var",
     "Lam",
     "Pi",
+    "UForall",
     "App",
     "Univ",
 ]

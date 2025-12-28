@@ -1,6 +1,14 @@
 import pytest
 
-from mltt.core.ast import ConstLevel, LevelVar, MaxOfLevels, SuccLevel, Univ
+from mltt.core.ast import (
+    ConstLevel,
+    LevelVar,
+    MaxOfLevels,
+    Pi,
+    SuccLevel,
+    UForall,
+    Univ,
+)
 from mltt.core.debruijn import UCtx
 from mltt.core.pretty import pretty
 
@@ -36,3 +44,11 @@ def test_universe_var_scope_and_pretty() -> None:
     uctx = UCtx.empty().push()
     assert Univ(LevelVar(0)).infer_type(uctx=uctx) == Univ(SuccLevel(LevelVar(0)))
     assert pretty(Univ(LevelVar(0))) == "Type(u0)"
+
+
+def test_universe_polymorphic_id_type() -> None:
+    poly_id_ty = UForall(Pi(Univ(LevelVar(0)), Univ(LevelVar(0))))
+    assert poly_id_ty.infer_type() == Univ(0)
+    assert poly_id_ty.body.level_instantiate([ConstLevel(2)]) == Pi(
+        Univ(ConstLevel(2)), Univ(ConstLevel(2))
+    )
