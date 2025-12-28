@@ -38,6 +38,3 @@ def BotRec(motive: Term, scrutinee: Term) -> Elim:
     """Ex falso eliminator for Bottom."""
 
     return Elim(inductive=Bot, motive=motive, cases=(), scrutinee=scrutinee)
-
-
-__all__ = ["Top", "TopType", "Tt", "TopRec", "Bot", "BotType", "BotRec"]

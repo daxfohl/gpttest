@@ -64,6 +64,3 @@ def RTCRec(motive: Term, refl_case: Term, step_case: Term, proof: Term) -> Elim:
     return Elim(
         inductive=RTC, motive=motive, cases=(refl_case, step_case), scrutinee=proof
     )
-
-
-__all__ = ["RTC", "RTCType", "RTCRefl", "RTCStep", "RTCRec"]

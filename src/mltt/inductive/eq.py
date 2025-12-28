@@ -109,6 +109,3 @@ def trans(A: Term, x: Term, y: Term, z: Term, p: Term, q: Term) -> Term:
         body=Id(A2, x2, Var(1)),
     )
     return IdElim(Q, p, q)
-
-
-__all__ = ["IdType", "Id", "Refl", "IdElim", "cong3", "cong", "ap", "sym", "trans"]

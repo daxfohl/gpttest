@@ -132,20 +132,3 @@ def SortedRec(
         cases=(nil_case, one_case, cons_case),
         scrutinee=proof,
     )
-
-
-__all__ = [
-    "Sorted",
-    "SortedAt",
-    "SortedType",
-    "SortedNil",
-    "SortedOne",
-    "SortedCons",
-    "SortedRec",
-    "SortedNilCtor",
-    "SortedOneCtor",
-    "SortedConsCtor",
-    "SortedNilCtorAt",
-    "SortedOneCtorAt",
-    "SortedConsCtorAt",
-]

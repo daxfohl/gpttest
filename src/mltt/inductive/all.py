@@ -86,17 +86,3 @@ def AllRec(
         cases=(nil_case, cons_case),
         scrutinee=proof,
     )
-
-
-__all__ = [
-    "All",
-    "AllAt",
-    "AllType",
-    "AllNil",
-    "AllCons",
-    "AllRec",
-    "AllNilCtor",
-    "AllConsCtor",
-    "AllNilCtorAt",
-    "AllConsCtorAt",
-]

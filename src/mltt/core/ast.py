@@ -339,13 +339,3 @@ class Univ(Term):
                 f"  term = {self}\n"
                 f"  expected = {expected_ty}"
             )
-
-
-__all__ = [
-    "Term",
-    "Var",
-    "Lam",
-    "Pi",
-    "App",
-    "Univ",
-]

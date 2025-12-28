@@ -268,15 +268,3 @@ def decompose_app(term: Term) -> tuple[Term, ArgList]:
         args.append(term.arg)
         term = term.func
     return term, ArgList.of(*reversed(args))
-
-
-__all__ = [
-    "Ctx",
-    "CtxEntry",
-    "ArgList",
-    "Telescope",
-    "mk_app",
-    "mk_pis",
-    "mk_lams",
-    "decompose_app",
-]

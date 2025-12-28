@@ -284,10 +284,3 @@ class Elim(Term):
     # Typing -------------------------------------------------------------------
     def _infer_type(self, ctx: Ctx) -> Term:
         return infer_elim_type(self, ctx)
-
-
-__all__ = [
-    "Ind",
-    "Ctor",
-    "Elim",
-]

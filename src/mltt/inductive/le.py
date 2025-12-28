@@ -74,16 +74,3 @@ def LeRTCStep(n: Term, m: Term, ih: Term) -> Term:
 
     step = Refl(NatType(), Succ(m))
     return RTCStep(NatType(), PredRelation, Succ(m), n, m, step, ih)
-
-
-__all__ = [
-    "Le",
-    "LeType",
-    "LeRefl",
-    "LeStep",
-    "LeRec",
-    "LeRTCType",
-    "LeRTCRefl",
-    "LeRTCStep",
-    "PredRelation",
-]

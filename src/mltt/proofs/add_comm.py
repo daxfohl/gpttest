@@ -173,12 +173,3 @@ def add_comm() -> Term:
             Var(0),
         ),
     )
-
-
-__all__ = [
-    "add_zero_right",
-    "add_zero_left",
-    "succ_add",
-    "add_succ_right",
-    "add_comm",
-]

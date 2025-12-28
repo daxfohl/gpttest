@@ -65,14 +65,3 @@ def ExprRec(motive: Term, const_case: Term, pair_case: Term, scrutinee: Term) ->
         cases=(const_case, pair_case),
         scrutinee=scrutinee,
     )
-
-
-__all__ = [
-    "Expr",
-    "ExprType",
-    "Const",
-    "Pair",
-    "ExprRec",
-    "ConstCtor",
-    "PairCtor",
-]

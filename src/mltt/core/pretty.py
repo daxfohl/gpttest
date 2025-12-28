@@ -140,6 +140,3 @@ def pretty(term: Term) -> str:
         raise TypeError(f"Cannot pretty-print unknown term: {t!r}")
 
     return fmt(term, [])[0]
-
-
-__all__ = ["pretty"]

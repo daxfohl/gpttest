@@ -104,22 +104,3 @@ def or_term() -> Term:
 
 def or_(lhs: Term, rhs: Term) -> Term:
     return mk_app(or_term(), lhs, rhs)
-
-
-__all__ = [
-    "Bool",
-    "BoolType",
-    "FalseCtor",
-    "TrueCtor",
-    "False_",
-    "True_",
-    "BoolRec",
-    "if_term",
-    "if_",
-    "not_term",
-    "not_",
-    "and_term",
-    "and_",
-    "or_term",
-    "or_",
-]
