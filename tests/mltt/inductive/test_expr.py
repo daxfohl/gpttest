@@ -30,7 +30,7 @@ def test_pair_typechecks() -> None:
 
 def test_ctor_types() -> None:
     expected_const = mk_pis(
-        Univ(0),
+        Univ(1),
         Var(0),  # τ : Ty
         Var(0),  # value : τ
         return_ty=ExprType(Var(2), Var(1)),
@@ -38,7 +38,7 @@ def test_ctor_types() -> None:
     assert ConstCtor.infer_type().type_equal(expected_const)
 
     expected_pair = mk_pis(
-        Univ(0),
+        Univ(1),
         Var(0),  # A : Ty
         Var(1),  # B : Ty
         ExprType(Var(2), Var(1)),

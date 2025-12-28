@@ -154,6 +154,17 @@ def test_type_universe_levels_are_indexed() -> None:
     assert Univ(2).infer_type() == Univ(3)
 
 
+def test_type_check_universe_levels_are_cumulative() -> None:
+    Univ(0).type_check(Univ(1))
+    Univ(0).type_check(Univ(2))
+    Univ(1).type_check(Univ(3))
+
+    with pytest.raises(TypeError, match="Universe level mismatch"):
+        Univ(0).type_check(Univ(0))
+    with pytest.raises(TypeError, match="Universe level mismatch"):
+        Univ(1).type_check(Univ(1))
+
+
 def test_infer_type_of_lambda_returns_pi_type() -> None:
     term = Lam(NatType(), Var(0))
 

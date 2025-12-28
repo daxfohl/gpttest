@@ -7,12 +7,12 @@ from ..core.ast import Lam, Term, Univ, Var
 from ..core.debruijn import mk_app, Telescope, ArgList
 from ..core.ind import Elim, Ctor, Ind
 
-# Expr (Ty : Type) (τ : Ty) : Type
+# Expr (Ty : Type1) (τ : Ty) : Type1
 Expr = Ind(
     name="Expr",
-    param_types=Telescope.of(Univ(0)),
+    param_types=Telescope.of(Univ(1)),
     index_types=Telescope.of(Var(0)),
-    level=0,
+    level=1,
 )
 
 ConstCtor = Ctor(

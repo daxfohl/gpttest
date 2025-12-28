@@ -52,5 +52,8 @@ def test_maybe_rec_eliminates() -> None:
 )
 def test_infer_type(elem: Term) -> None:
     elem_ty = elem.infer_type()
-    assert Nothing(elem_ty).infer_type() == MaybeType(elem_ty)
-    assert Just(elem_ty, elem).infer_type() == MaybeType(elem_ty)
+    level = elem_ty.expect_universe()
+    assert Nothing(elem_ty, level=level).infer_type() == MaybeType(elem_ty, level=level)
+    assert Just(elem_ty, elem, level=level).infer_type() == MaybeType(
+        elem_ty, level=level
+    )

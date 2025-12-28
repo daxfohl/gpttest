@@ -110,11 +110,12 @@ def test_vec_rec_preserves_length_index() -> None:
 @pytest.mark.parametrize("n", range(5))
 def test_infer_type(elem: Term, n: int) -> None:
     elem_ty = elem.infer_type()
-    vector = vec.Nil(elem_ty)
+    level = elem_ty.expect_universe()
+    vector = vec.Nil(elem_ty, level=level)
     for i in range(n):
-        vector = vec.Cons(elem_ty, numeral(i), elem, vector)
+        vector = vec.Cons(elem_ty, numeral(i), elem, vector, level=level)
     t = vector.infer_type()
-    assert t == VecType(elem_ty, numeral(n))
+    assert t == VecType(elem_ty, numeral(n), level=level)
 
 
 def test_ctor_type() -> None:
@@ -219,15 +220,15 @@ def test_recursive_detection_whnfs_field_head() -> None:
     )
     object.__setattr__(lazy, "constructors", (lazy_ctor,))
 
-    motive = mk_lams(mk_app(lazy), body=Univ(0))
+    motive = mk_lams(mk_app(lazy), body=Univ(1))
     branch = mk_lams(
         mk_app(mk_lams(Univ(0), body=Var(0)), lazy),
-        Univ(0),  # ih : motive scrutinee
+        Univ(1),  # ih : motive scrutinee
         body=Univ(0),
     )
 
     elim = Elim(inductive=lazy, motive=motive, cases=(branch,), scrutinee=Var(0))
-    Lam_ty = mk_pis(mk_app(lazy), return_ty=Univ(0))
+    Lam_ty = mk_pis(mk_app(lazy), return_ty=Univ(1))
 
     term = mk_lams(mk_app(lazy), body=elim)
     term.type_check(Lam_ty)

@@ -332,7 +332,13 @@ class Univ(Term):
                 f"  term = {self}\n"
                 f"  expected = {expected_ty}"
             )
-        # TODO: Check Universe Levels once Ind supports cumulativity
+        min_level = self.level + 1
+        if expected_ty.level < min_level:
+            raise TypeError(
+                "Universe level mismatch:\n"
+                f"  term = {self}\n"
+                f"  expected = {expected_ty}"
+            )
 
 
 __all__ = [
