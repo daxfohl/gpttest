@@ -5,9 +5,9 @@ from __future__ import annotations
 from functools import cache
 
 from mltt.inductive.list import ConsCtorAt, ListAt, NilCtorAt
-from mltt.core.ast import App, Pi, Term, Univ, Var
-from mltt.core.debruijn import mk_app, Telescope, ArgList
-from mltt.core.ind import Elim, Ctor, Ind
+from mltt.kernel.ast import App, Pi, Term, Univ, Var
+from mltt.kernel.debruijn import mk_app, Telescope, ArgList
+from mltt.kernel.ind import Elim, Ctor, Ind
 
 
 @cache

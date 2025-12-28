@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from mltt.core.ast import App, Lam, Pi, Term, Univ, Var
-from mltt.core.debruijn import mk_app, mk_pis, mk_lams, Telescope
-from mltt.core.ind import Elim, Ctor, Ind
+from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var
+from mltt.kernel.debruijn import mk_app, mk_pis, mk_lams, Telescope
+from mltt.kernel.ind import Elim, Ctor, Ind
 
 Sigma = Ind(
     name="Sigma",

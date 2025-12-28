@@ -1,15 +1,15 @@
 import pytest
 
 import mltt.inductive.vec as vec
-from mltt.core.ast import Univ, Var
-from mltt.core.debruijn import (
+from mltt.kernel.ast import Univ, Var
+from mltt.kernel.debruijn import (
     mk_app,
     mk_pis,
     mk_lams,
     Telescope,
     ArgList,
 )
-from mltt.core.ind import Ctor, Elim, Ind
+from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.inductive.nat import NatType, Succ, Zero
 
 

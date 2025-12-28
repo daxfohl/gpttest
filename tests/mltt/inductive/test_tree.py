@@ -1,6 +1,6 @@
 import mltt.inductive.tree as treem
-from mltt.core.ast import Lam, Univ, Var
-from mltt.core.debruijn import mk_app, mk_pis, mk_lams
+from mltt.kernel.ast import Lam, Univ, Var
+from mltt.kernel.debruijn import mk_app, mk_pis, mk_lams
 from mltt.inductive.nat import NatType, Succ, Zero, add
 
 

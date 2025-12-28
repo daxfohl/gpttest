@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import ClassVar
 
-from mltt.core.ast import Term, Pi, Univ, App, TermFieldMeta
-from mltt.core.debruijn import Ctx, mk_app, mk_pis, decompose_app, Telescope, ArgList
+from mltt.kernel.ast import Term, Pi, Univ, App, TermFieldMeta
+from mltt.kernel.debruijn import Ctx, mk_app, mk_pis, decompose_app, Telescope, ArgList
 
 
 def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:

@@ -8,7 +8,7 @@ from operator import methodcaller
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 if TYPE_CHECKING:
-    from mltt.core.debruijn import Ctx, ArgList
+    from mltt.kernel.debruijn import Ctx, ArgList
 
 
 def _map_term_values(value: Any, f: Callable[[Term], Term]) -> Any:
@@ -121,7 +121,7 @@ class Term:
 
     # --- Typing ---------------------------------------------------------------
     def infer_type(self, ctx: Ctx | None = None) -> Term:
-        from mltt.core.debruijn import Ctx
+        from mltt.kernel.debruijn import Ctx
 
         return self._infer_type(ctx or Ctx())
 
@@ -129,7 +129,7 @@ class Term:
         raise TypeError(f"Unexpected term in infer_type:\n  term = {self!r}")
 
     def type_check(self, ty: Term, ctx: Ctx | None = None) -> None:
-        from mltt.core.debruijn import Ctx
+        from mltt.kernel.debruijn import Ctx
 
         self._type_check(ty.whnf(), ctx or Ctx())
 
@@ -174,7 +174,7 @@ class Term:
     # --- Display --------------------------------------------------------------
     def __str__(self) -> str:
         # Deferred import avoids cycles when pretty-printing dataclass reprs.
-        from mltt.core.pretty import pretty
+        from mltt.kernel.pretty import pretty
 
         return pretty(self)
 

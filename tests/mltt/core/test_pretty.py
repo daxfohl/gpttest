@@ -1,6 +1,6 @@
-from mltt.core.ast import App, Lam, Pi, Var
-from mltt.core.debruijn import mk_lams
-from mltt.core.pretty import pretty
+from mltt.kernel.ast import App, Lam, Pi, Var
+from mltt.kernel.debruijn import mk_lams
+from mltt.kernel.pretty import pretty
 from mltt.inductive.nat import NatType, Succ, Zero
 
 

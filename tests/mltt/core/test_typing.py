@@ -1,7 +1,7 @@
 import pytest
 
-from mltt.core.ast import App, Lam, Pi, Term, Univ, Var
-from mltt.core.debruijn import Ctx, mk_app, mk_lams
+from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var
+from mltt.kernel.debruijn import Ctx, mk_app, mk_lams
 from mltt.inductive.eq import Id, IdElim, Refl
 from mltt.inductive.nat import NatRec, NatType, Zero, add, numeral
 

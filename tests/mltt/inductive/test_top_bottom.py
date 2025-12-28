@@ -1,4 +1,4 @@
-from mltt.core.ast import Lam, Pi, Var
+from mltt.kernel.ast import Lam, Pi, Var
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Zero
 from mltt.inductive.top_bottom import BotRec, BotType, TopRec, TopType, Tt

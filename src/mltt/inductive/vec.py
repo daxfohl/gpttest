@@ -6,9 +6,9 @@ from functools import cache
 
 from mltt.inductive.fin import FinType, FZ, FS
 from mltt.inductive.nat import NatType, Succ, Zero
-from mltt.core.ast import Term, Univ, Var
-from mltt.core.debruijn import mk_app, mk_lams, Telescope, ArgList
-from mltt.core.ind import Elim, Ctor, Ind
+from mltt.kernel.ast import Term, Univ, Var
+from mltt.kernel.debruijn import mk_app, mk_lams, Telescope, ArgList
+from mltt.kernel.ind import Elim, Ctor, Ind
 
 
 @cache

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from mltt.core.ast import Term
-from mltt.core.ind import Elim, Ctor, Ind
+from mltt.kernel.ast import Term
+from mltt.kernel.ind import Elim, Ctor, Ind
 
 # Top (unit) has a single inhabitant.
 Top = Ind(name="Top", level=0)

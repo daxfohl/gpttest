@@ -1,5 +1,5 @@
-from mltt.core.ast import Lam, Var
-from mltt.core.debruijn import Ctx, mk_pis, mk_lams
+from mltt.kernel.ast import Lam, Var
+from mltt.kernel.debruijn import Ctx, mk_pis, mk_lams
 from mltt.inductive.eq import Id, Refl, ap
 from mltt.inductive.nat import NatType, Succ, add, numeral
 

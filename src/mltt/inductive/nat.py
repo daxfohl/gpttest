@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from mltt.inductive.maybe import MaybeType, Nothing, Just
-from mltt.core.ast import App, Lam, Term, Var
-from mltt.core.debruijn import mk_lams, Telescope
-from mltt.core.ind import Elim, Ctor, Ind
+from mltt.kernel.ast import App, Lam, Term, Var
+from mltt.kernel.debruijn import mk_lams, Telescope
+from mltt.kernel.ind import Elim, Ctor, Ind
 
 Nat = Ind(name="Nat", level=0)
 ZeroCtor = Ctor(name="Zero", inductive=Nat)

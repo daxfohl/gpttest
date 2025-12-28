@@ -5,9 +5,9 @@ from __future__ import annotations
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Succ
 from mltt.inductive.rtc import RTCRefl, RTCStep, RTCType
-from mltt.core.ast import Term, Var
-from mltt.core.debruijn import mk_app, mk_lams, Telescope, ArgList
-from mltt.core.ind import Elim, Ctor, Ind
+from mltt.kernel.ast import Term, Var
+from mltt.kernel.debruijn import mk_app, mk_lams, Telescope, ArgList
+from mltt.kernel.ind import Elim, Ctor, Ind
 
 Le = Ind(name="Le", index_types=Telescope.of(NatType(), NatType()), level=0)
 LeReflCtor = Ctor(

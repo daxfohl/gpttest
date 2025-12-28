@@ -1,5 +1,5 @@
-from mltt.core.ast import Lam, Univ, Var
-from mltt.core.debruijn import mk_app, mk_pis
+from mltt.kernel.ast import Lam, Univ, Var
+from mltt.kernel.debruijn import mk_app, mk_pis
 from mltt.inductive.expr import Const, ConstCtor, ExprType, Pair, PairCtor
 from mltt.inductive.nat import NatType, Zero
 from mltt.inductive.sigma import Sigma

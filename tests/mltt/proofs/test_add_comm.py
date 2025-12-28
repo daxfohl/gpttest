@@ -1,5 +1,5 @@
-from mltt.core.ast import Var
-from mltt.core.debruijn import mk_app, mk_pis
+from mltt.kernel.ast import Var
+from mltt.kernel.debruijn import mk_app, mk_pis
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Succ, Zero, add, numeral
 from mltt.proofs.add_comm import (

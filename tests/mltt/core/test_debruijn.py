@@ -1,6 +1,6 @@
-from mltt.core.ast import App, Lam, Pi, Term, Univ, Var
-from mltt.core.debruijn import mk_pis, mk_lams, ArgList
-from mltt.core.ind import Elim
+from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var
+from mltt.kernel.debruijn import mk_pis, mk_lams, ArgList
+from mltt.kernel.ind import Elim
 from mltt.inductive.allvec import AllConsCtor, AllVecType
 from mltt.inductive.bool import BoolType
 from mltt.inductive.eq import Id, IdElim, ReflCtor

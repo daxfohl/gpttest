@@ -1,6 +1,6 @@
 import mltt.inductive.sigma as sigma
-from mltt.core.ast import App, Lam, Pi, Univ, Var
-from mltt.core.debruijn import mk_app, mk_pis, mk_lams
+from mltt.kernel.ast import App, Lam, Pi, Univ, Var
+from mltt.kernel.debruijn import mk_app, mk_pis, mk_lams
 from mltt.inductive.fin import Fin, FZCtor
 from mltt.inductive.nat import NatType, Succ, Zero, numeral
 

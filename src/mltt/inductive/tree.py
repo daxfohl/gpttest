@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from mltt.core.ast import Term, Univ, Var
-from mltt.core.debruijn import mk_app, Telescope
-from mltt.core.ind import Elim, Ctor, Ind
+from mltt.kernel.ast import Term, Univ, Var
+from mltt.kernel.debruijn import mk_app, Telescope
+from mltt.kernel.ind import Elim, Ctor, Ind
 
 Tree = Ind(
     name="Tree",

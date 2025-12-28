@@ -1,7 +1,7 @@
 import pytest
 
-from mltt.core.ast import Lam, Pi, Univ, Var, Term
-from mltt.core.debruijn import mk_pis
+from mltt.kernel.ast import Lam, Pi, Univ, Var, Term
+from mltt.kernel.debruijn import mk_pis
 from mltt.inductive.maybe import (
     Just,
     JustCtor,

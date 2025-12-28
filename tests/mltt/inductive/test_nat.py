@@ -1,7 +1,7 @@
 import pytest
 
-from mltt.core.ast import Pi
-from mltt.core.debruijn import mk_pis
+from mltt.kernel.ast import Pi
+from mltt.kernel.debruijn import mk_pis
 from mltt.inductive.maybe import MaybeType, Nothing, Just
 from mltt.inductive.nat import (
     NatType,

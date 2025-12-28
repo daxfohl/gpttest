@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from mltt.inductive.nat import NatType, Succ, Zero, numeral
-from mltt.core.ast import (
+from mltt.kernel.ast import (
     App,
     Term,
     Var,
 )
-from mltt.core.debruijn import mk_app, mk_lams, Telescope, ArgList
-from mltt.core.ind import Elim, Ctor, Ind
+from mltt.kernel.debruijn import mk_app, mk_lams, Telescope, ArgList
+from mltt.kernel.ind import Elim, Ctor, Ind
 
 Fin = Ind(name="Fin", index_types=Telescope.of(NatType()), level=0)
 FZCtor = Ctor(

@@ -1,5 +1,5 @@
-from mltt.core.ast import App, Var
-from mltt.core.debruijn import mk_lams
+from mltt.kernel.ast import App, Var
+from mltt.kernel.debruijn import mk_lams
 from mltt.inductive.eq import IdElim, Refl
 from mltt.inductive.nat import NatRec, NatType, Zero, Succ
 

@@ -1,9 +1,9 @@
 import pytest
 
 import mltt.inductive.vec as vec
-from mltt.core.ast import Term, Univ, Var
-from mltt.core.debruijn import mk_app, mk_pis, mk_lams, Telescope
-from mltt.core.ind import Elim, Ctor, Ind
+from mltt.kernel.ast import Term, Univ, Var
+from mltt.kernel.debruijn import mk_app, mk_pis, mk_lams, Telescope
+from mltt.kernel.ind import Elim, Ctor, Ind
 from mltt.inductive import list as lst
 from mltt.inductive.fin import FinType, FZ, FS
 from mltt.inductive.nat import NatType, Succ, Zero, add, numeral

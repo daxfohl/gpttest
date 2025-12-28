@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Generic, TypeVar, overload, Self, Sequence, Iterable, Callable
 
-from mltt.core.ast import Term, App, Lam, Pi, Var
+from mltt.kernel.ast import Term, App, Lam, Pi, Var
 
 T = TypeVar("T")
 

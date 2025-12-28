@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from mltt.core.ast import App, Lam, Pi, Term, Univ, Var
-from mltt.core.ind import Elim, Ctor, Ind
+from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var
+from mltt.kernel.ind import Elim, Ctor, Ind
 
 ATOM_PREC = 3
 APP_PREC = 2
