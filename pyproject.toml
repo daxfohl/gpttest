@@ -48,10 +48,13 @@ testpaths = ["tests"]
 
 [tool.mypy]
 python_version = "3.14"
-files = ["src/mltt", "tests"]
+mypy_path = ["src", "tests"]
+files = ["src", "tests"]
 show_error_codes = true
 warn_unused_configs = true
 strict_optional = true
 disallow_incomplete_defs = true
 disallow_untyped_defs = true
 warn_return_any = true
+explicit_package_bases = true
+namespace_packages = true
