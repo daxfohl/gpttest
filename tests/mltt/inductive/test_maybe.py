@@ -6,6 +6,7 @@ from mltt.inductive.maybe import (
     Just,
     JustCtor,
     Maybe,
+    MaybeAt,
     MaybeElim,
     MaybeType,
     Nothing,
@@ -16,6 +17,10 @@ from mltt.inductive.nat import NatType, Succ, Zero
 
 def test_infer_maybe_type_constructor() -> None:
     assert Maybe.infer_type() == Pi(Univ(0), Univ(0))
+
+
+def test_infer_maybe_type_constructor_at_level() -> None:
+    assert MaybeAt(1).infer_type() == Pi(Univ(1), Univ(1))
 
 
 def test_ctor_types() -> None:

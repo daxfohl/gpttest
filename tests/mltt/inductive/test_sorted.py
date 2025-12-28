@@ -1,11 +1,12 @@
 from mltt.core.ast import Lam, Pi, Univ, Var, Term
 from mltt.core.debruijn import mk_app, mk_pis
 from mltt.inductive.eq import Id, Refl
-from mltt.inductive.list import Cons, List, Nil
+from mltt.inductive.list import Cons, List, ListAt, Nil
 from mltt.inductive.nat import NatType, Zero
 from mltt.inductive.sorted import (
     SortedCons,
     SortedConsCtor,
+    SortedAt,
     SortedNil,
     SortedNilCtor,
     SortedOne,
@@ -72,3 +73,13 @@ def test_sorted_ctor_types() -> None:
         ),
     )
     assert SortedConsCtor.infer_type().type_equal(expected_cons)
+
+
+def test_infer_sorted_type_constructor_at_level() -> None:
+    expected = mk_pis(
+        Univ(1),
+        Pi(Var(0), Pi(Var(1), Univ(1))),
+        mk_app(ListAt(1), Var(1)),
+        return_ty=Univ(1),
+    )
+    assert SortedAt(1).infer_type().type_equal(expected)

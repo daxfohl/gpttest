@@ -1,9 +1,26 @@
 from mltt.core.ast import Univ, Var, Pi, App, Term
 from mltt.core.debruijn import mk_lams, mk_pis, mk_app
 from mltt.inductive import vec, allvec
-from mltt.inductive.allvec import AllVecType, AllVecElim, AllNil, AllCons
+from mltt.inductive.allvec import (
+    AllCons,
+    AllNil,
+    AllVecAt,
+    AllVecElim,
+    AllVecType,
+)
 from mltt.inductive.nat import NatType, Zero, Succ
 from mltt.inductive.vec import VecType, Nil
+
+
+def test_infer_allvec_type_constructor_at_level() -> None:
+    expected = mk_pis(
+        Univ(1),
+        Pi(Var(0), Univ(1)),
+        NatType(),
+        VecType(Var(2), Var(0), level=1),
+        return_ty=Univ(1),
+    )
+    assert AllVecAt(1).infer_type().type_equal(expected)
 
 
 def test_elim_allvec_allcons_requires_param_shift_under_fields_for_result_indices() -> (

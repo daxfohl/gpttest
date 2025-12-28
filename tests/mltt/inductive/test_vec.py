@@ -14,6 +14,10 @@ def test_infer_vec_type() -> None:
     assert vec.Vec.infer_type() == mk_pis(Univ(0), NatType(), return_ty=Univ(0))
 
 
+def test_infer_vec_type_at_level() -> None:
+    assert vec.VecAt(1).infer_type() == mk_pis(Univ(1), NatType(), return_ty=Univ(1))
+
+
 def test_nil_has_zero_length() -> None:
     elem_ty = NatType()
     nil = vec.Nil(elem_ty)

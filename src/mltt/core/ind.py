@@ -20,11 +20,11 @@ def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
     binders = ind.param_types + ind.index_types
     for b in binders:
         level = b.expect_universe(ctx)
-        # if ind.level < level:
-        #     raise TypeError(
-        #         f"Inductive {ind.name} declared at Type({ind.level}) "
-        #         f"but has binder {b} of type Type({level})."
-        #     )
+        if ind.level < level - 1:
+            raise TypeError(
+                f"Inductive {ind.name} declared at Type({ind.level}) "
+                f"but has binder {b} of type Type({level})."
+            )
         ctx = ctx.push(b)
 
     return mk_pis(binders, return_ty=Univ(ind.level))

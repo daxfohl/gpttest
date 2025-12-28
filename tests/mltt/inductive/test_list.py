@@ -11,6 +11,10 @@ def test_infer_list_type_constructor() -> None:
     assert listm.List.infer_type() == Pi(Univ(0), Univ(0))
 
 
+def test_infer_list_type_constructor_at_level() -> None:
+    assert listm.ListAt(1).infer_type() == Pi(Univ(1), Univ(1))
+
+
 def test_list_nil_and_cons_type_check() -> None:
     elem_ty = NatType()
     nil_nat = listm.Nil(elem_ty)

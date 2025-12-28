@@ -1,7 +1,14 @@
 from mltt.core.ast import Lam, Pi, Univ, Var
 from mltt.core.debruijn import mk_app, mk_pis
-from mltt.inductive.all import AllCons, AllConsCtor, AllNil, AllNilCtor, AllType
-from mltt.inductive.list import Cons, ConsCtor, List, Nil, NilCtor
+from mltt.inductive.all import (
+    AllAt,
+    AllCons,
+    AllConsCtor,
+    AllNil,
+    AllNilCtor,
+    AllType,
+)
+from mltt.inductive.list import Cons, ConsCtor, List, ListAt, Nil, NilCtor
 from mltt.inductive.nat import NatType, Zero
 
 
@@ -50,3 +57,13 @@ def test_all_ctor_types() -> None:
         return_ty=AllType(Var(5), Var(4), mk_app(ConsCtor, Var(5), Var(2), Var(3))),
     )
     assert AllConsCtor.infer_type().type_equal(expected_cons)
+
+
+def test_infer_all_type_constructor_at_level() -> None:
+    expected = mk_pis(
+        Univ(1),
+        Pi(Var(0), Univ(1)),
+        mk_app(ListAt(1), Var(1)),
+        return_ty=Univ(1),
+    )
+    assert AllAt(1).infer_type().type_equal(expected)

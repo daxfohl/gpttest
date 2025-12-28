@@ -1,3 +1,5 @@
+import pytest
+
 import mltt.inductive.vec as vec
 from mltt.core.ast import Univ, Var
 from mltt.core.debruijn import (
@@ -9,6 +11,12 @@ from mltt.core.debruijn import (
 )
 from mltt.core.ind import Ctor, Elim, Ind
 from mltt.inductive.nat import NatType, Succ, Zero
+
+
+def test_infer_ind_type_rejects_too_small_universe_level() -> None:
+    ind = Ind(name="Bad", param_types=Telescope.of(Univ(1)), level=0)
+    with pytest.raises(TypeError, match="declared at Type\\(0\\)"):
+        ind.infer_type()
 
 
 def test_instantiate_ctor_arg_types_shifts_params_by_fields() -> None:

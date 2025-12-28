@@ -2,33 +2,58 @@
 
 from __future__ import annotations
 
+from functools import cache
+
 from ..core.ast import App, Term, Univ, Var
 from ..core.debruijn import mk_app, Telescope
 from ..core.ind import Elim, Ctor, Ind
 
-Maybe = Ind(name="Maybe", param_types=Telescope.of(Univ(0)), level=0)
-NothingCtor = Ctor(name="Nothing", inductive=Maybe)
-JustCtor = Ctor(name="Just", inductive=Maybe, field_schemas=Telescope.of(Var(0)))
-object.__setattr__(Maybe, "constructors", (NothingCtor, JustCtor))
+
+@cache
+def _maybe_family(level: int) -> tuple[Ind, Ctor, Ctor]:
+    maybe_ind = Ind(name="Maybe", param_types=Telescope.of(Univ(level)), level=level)
+    nothing_ctor = Ctor(name="Nothing", inductive=maybe_ind)
+    just_ctor = Ctor(
+        name="Just", inductive=maybe_ind, field_schemas=Telescope.of(Var(0))
+    )
+    object.__setattr__(maybe_ind, "constructors", (nothing_ctor, just_ctor))
+    return maybe_ind, nothing_ctor, just_ctor
 
 
-def MaybeType(elem_ty: Term) -> Term:
-    return App(Maybe, elem_ty)
+Maybe, NothingCtor, JustCtor = _maybe_family(0)
 
 
-def Nothing(elem_ty: Term) -> Term:
-    return App(NothingCtor, elem_ty)
+def MaybeAt(level: int = 0) -> Ind:
+    return _maybe_family(level)[0]
 
 
-def Just(elem_ty: Term, value: Term) -> Term:
-    return mk_app(JustCtor, elem_ty, value)
+def NothingCtorAt(level: int = 0) -> Ctor:
+    return _maybe_family(level)[1]
 
 
-def MaybeElim(P: Term, nothing_case: Term, just_case: Term, scrutinee: Term) -> Elim:
+def JustCtorAt(level: int = 0) -> Ctor:
+    return _maybe_family(level)[2]
+
+
+def MaybeType(elem_ty: Term, *, level: int = 0) -> Term:
+    return App(MaybeAt(level), elem_ty)
+
+
+def Nothing(elem_ty: Term, *, level: int = 0) -> Term:
+    return App(NothingCtorAt(level), elem_ty)
+
+
+def Just(elem_ty: Term, value: Term, *, level: int = 0) -> Term:
+    return mk_app(JustCtorAt(level), elem_ty, value)
+
+
+def MaybeElim(
+    P: Term, nothing_case: Term, just_case: Term, scrutinee: Term, *, level: int = 0
+) -> Elim:
     """Eliminate Maybe by providing branches for ``Nothing`` and ``Just``."""
 
     return Elim(
-        inductive=Maybe,
+        inductive=MaybeAt(level),
         motive=P,
         cases=(nothing_case, just_case),
         scrutinee=scrutinee,
@@ -37,9 +62,12 @@ def MaybeElim(P: Term, nothing_case: Term, just_case: Term, scrutinee: Term) -> 
 
 __all__ = [
     "Maybe",
+    "MaybeAt",
     "MaybeType",
     "NothingCtor",
+    "NothingCtorAt",
     "JustCtor",
+    "JustCtorAt",
     "Nothing",
     "Just",
     "MaybeElim",
