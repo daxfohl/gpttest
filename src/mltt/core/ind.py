@@ -64,7 +64,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
     ind = elim.inductive
     scrut_ty = scrut.infer_type(ctx).whnf()
     scrut_ty_head, scrut_ty_bindings = decompose_app(scrut_ty)
-    if scrut_ty_head is not ind:
+    if scrut_ty_head != ind:
         raise TypeError(
             "Eliminator scrutinee not of the right inductive type:\n"
             f"  scrutinee = {scrut}\n"
@@ -143,7 +143,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
         ihs: list[Term] = []
         for ri, j in enumerate(ctor.rps):
             h, rec_field_args = decompose_app(ctor_field_types[j].shift(m - j))
-            assert h is ind
+            assert h == ind
             rec_params = rec_field_args[:p]
             rec_indices = rec_field_args[p : p + q]
             assert rec_params == params_in_fields_ctx, f"{rec_params} != {rec_params}"
@@ -183,16 +183,21 @@ class Ind(Term):
     name: str
     param_types: Telescope = field(
         repr=False,
+        compare=False,
         default=Telescope.empty(),
         metadata={"": TermFieldMeta(unchecked=True)},
     )
     index_types: Telescope = field(
         repr=False,
+        compare=False,
         default=Telescope.empty(),
         metadata={"": TermFieldMeta(unchecked=True)},
     )
     constructors: tuple[Ctor, ...] = field(
-        repr=False, default=(), metadata={"": TermFieldMeta(unchecked=True)}
+        repr=False,
+        compare=False,
+        default=(),
+        metadata={"": TermFieldMeta(unchecked=True)},
     )
     level: int = 0
     is_terminal: ClassVar[bool] = True
@@ -207,14 +212,19 @@ class Ctor(Term):
     """A constructor for an inductive type."""
 
     name: str
-    inductive: Ind = field(repr=False, metadata={"": TermFieldMeta(unchecked=True)})
+    inductive: Ind = field(
+        repr=False,
+        metadata={"": TermFieldMeta(unchecked=True)},
+    )
     field_schemas: Telescope = field(
         repr=False,
+        compare=False,
         default=Telescope.empty(),
         metadata={"": TermFieldMeta(unchecked=True)},
     )
     result_indices: ArgList = field(
         repr=False,
+        compare=False,
         default=ArgList.empty(),
         metadata={"": TermFieldMeta(unchecked=True)},
     )
@@ -223,7 +233,7 @@ class Ctor(Term):
     @cached_property
     def index_in_inductive(self) -> int:
         for idx, ctor in enumerate(self.inductive.constructors):
-            if ctor is self:
+            if ctor == self:
                 return idx
         raise TypeError("Constructor does not belong to inductive type")
 
@@ -232,7 +242,7 @@ class Ctor(Term):
         return tuple(
             j
             for j, s in enumerate(self.field_schemas)
-            if decompose_app(s.whnf())[0] is self.inductive
+            if decompose_app(s.whnf())[0] == self.inductive
         )
 
     def iota_reduce(self, cases: tuple[Term, ...], args: ArgList, motive: Term) -> Term:
@@ -264,7 +274,7 @@ class Elim(Term):
     def whnf_step(self) -> Term:
         scrutinee_whnf = self.scrutinee.whnf()
         head, args = decompose_app(scrutinee_whnf)
-        if isinstance(head, Ctor) and head.inductive is self.inductive:
+        if isinstance(head, Ctor) and head.inductive == self.inductive:
             expected_args = len(self.inductive.param_types) + len(head.field_schemas)
             if len(args) != expected_args:
                 raise ValueError()

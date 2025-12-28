@@ -61,7 +61,7 @@ def _ctor_label(ctor: Ctor) -> str:
 
     inductive = ctor.inductive
     for idx, candidate in enumerate(inductive.constructors):
-        if candidate is ctor:
+        if candidate == ctor:
             return f"{_inductive_label(inductive)}.ctor{idx}"
     return _inductive_label(inductive)
 
