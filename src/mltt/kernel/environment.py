@@ -18,6 +18,7 @@ class GlobalDecl:
 
     ty: Term
     value: Term | None = None
+    reducible: bool = True
 
 
 @dataclass(frozen=True)
@@ -164,12 +165,12 @@ class Env:
 class Const(Term):
     name: str
 
-    # Typing: look up in globals table
     def _infer_type(self, env: Env) -> Term:
         decl = env.globals[self.name]
         return decl.ty
 
-    # Reduction: optionally unfold if decl.value exists and is reducible
     def _whnf_step(self, env: Env) -> Term:
         decl = env.globals[self.name]
-        return decl.value.whnf(env) if decl.value is not None else self
+        if decl is None or decl.value is None or not decl.reducible:
+            return self
+        return decl.value.whnf(env)

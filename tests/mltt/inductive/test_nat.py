@@ -1,6 +1,7 @@
 import pytest
 
 from mltt.kernel.ast import Pi
+from mltt.kernel.environment import Const
 from mltt.kernel.telescope import mk_pis
 from mltt.inductive.maybe import MaybeType, Nothing, Just
 from mltt.inductive.nat import (
@@ -14,6 +15,7 @@ from mltt.inductive.nat import (
     SuccCtor,
     pred_maybe,
 )
+from mltt.surface.prelude import prelude_env
 
 
 def test_add_has_expected_pi_type() -> None:
@@ -57,6 +59,14 @@ def test_ctor_type() -> None:
     t = ZeroCtor.infer_type()
     assert t == NatType()
     t = SuccCtor.infer_type()
+    assert t == Pi(NatType(), NatType())
+
+
+def test_ctor_type_env() -> None:
+    env = prelude_env()
+    t = Const("Nat.Zero").infer_type(env)
+    assert t == NatType()
+    t = Const("Nat.Succ").infer_type(env)
     assert t == Pi(NatType(), NatType())
 
 
