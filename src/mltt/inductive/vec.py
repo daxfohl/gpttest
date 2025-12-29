@@ -7,7 +7,7 @@ from functools import cache
 from mltt.inductive.fin import FinType, FZ, FS
 from mltt.inductive.nat import NatType, Succ, Zero
 from mltt.kernel.ast import Term, Univ, Var
-from mltt.kernel.debruijn import mk_app, mk_lams, Telescope, ArgList
+from mltt.kernel.telescope import mk_app, mk_lams, Telescope, ArgList
 from mltt.kernel.ind import Elim, Ctor, Ind
 
 

@@ -1,5 +1,5 @@
 from mltt.kernel.ast import App, Lam, Pi, Var
-from mltt.kernel.debruijn import mk_lams
+from mltt.kernel.telescope import mk_lams
 from mltt.kernel.pretty import pretty
 from mltt.inductive.nat import NatType, Succ, Zero
 

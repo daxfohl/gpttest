@@ -1,5 +1,6 @@
 from mltt.kernel.ast import Lam, Var
-from mltt.kernel.debruijn import Env, mk_pis, mk_lams
+from mltt.kernel.telescope import mk_pis, mk_lams
+from mltt.kernel.environment import Env
 from mltt.inductive.eq import Id, Refl, ap
 from mltt.inductive.nat import NatType, Succ, add, numeral
 

@@ -8,7 +8,8 @@ from operator import methodcaller
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 if TYPE_CHECKING:
-    from mltt.kernel.debruijn import Env, ArgList
+    from mltt.kernel.telescope import ArgList
+    from mltt.kernel.environment import Env
 
 
 def _map_term_values(value: Any, f: Callable[[Term], Term]) -> Any:
@@ -121,7 +122,7 @@ class Term:
 
     # --- Typing ---------------------------------------------------------------
     def infer_type(self, env: Env | None = None) -> Term:
-        from mltt.kernel.debruijn import Env
+        from mltt.kernel.environment import Env
 
         return self._infer_type(env or Env())
 
@@ -129,7 +130,7 @@ class Term:
         raise TypeError(f"Unexpected term in infer_type:\n  term = {self!r}")
 
     def type_check(self, ty: Term, env: Env | None = None) -> None:
-        from mltt.kernel.debruijn import Env
+        from mltt.kernel.environment import Env
 
         self._type_check(ty.whnf(), env or Env())
 

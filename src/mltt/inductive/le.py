@@ -6,7 +6,7 @@ from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Succ
 from mltt.inductive.rtc import RTCRefl, RTCStep, RTCType
 from mltt.kernel.ast import Term, Var
-from mltt.kernel.debruijn import mk_app, mk_lams, Telescope, ArgList
+from mltt.kernel.telescope import mk_app, mk_lams, Telescope, ArgList
 from mltt.kernel.ind import Elim, Ctor, Ind
 
 Le = Ind(name="Le", index_types=Telescope.of(NatType(), NatType()), level=0)

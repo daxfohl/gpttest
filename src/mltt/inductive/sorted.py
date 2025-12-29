@@ -6,7 +6,7 @@ from functools import cache
 
 from mltt.inductive.list import ConsCtorAt, ListAt, NilCtorAt
 from mltt.kernel.ast import App, Pi, Term, Univ, Var
-from mltt.kernel.debruijn import mk_app, Telescope, ArgList
+from mltt.kernel.telescope import mk_app, Telescope, ArgList
 from mltt.kernel.ind import Elim, Ctor, Ind
 
 

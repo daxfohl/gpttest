@@ -2,7 +2,7 @@ import pytest
 
 import mltt.inductive.fin as fin
 from mltt.kernel.ast import Pi, Univ, Var
-from mltt.kernel.debruijn import mk_app, mk_pis, mk_lams
+from mltt.kernel.telescope import mk_app, mk_pis, mk_lams
 from mltt.inductive.fin import (
     FZCtor,
     FSCtor,

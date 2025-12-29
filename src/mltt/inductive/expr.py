@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from mltt.inductive.sigma import Sigma
 from mltt.kernel.ast import Lam, Term, Univ, Var
-from mltt.kernel.debruijn import mk_app, Telescope, ArgList
+from mltt.kernel.telescope import mk_app, Telescope, ArgList
 from mltt.kernel.ind import Elim, Ctor, Ind
 
 # Expr (Ty : Type1) (τ : Ty) : Type1

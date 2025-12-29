@@ -1,7 +1,7 @@
 import pytest
 
 from mltt.kernel.ast import Univ, Var
-from mltt.kernel.debruijn import mk_app, mk_pis
+from mltt.kernel.telescope import mk_app, mk_pis
 from mltt.inductive.bool import (
     BoolType,
     False_,

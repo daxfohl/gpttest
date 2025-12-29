@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from mltt.kernel.ast import Lam, Term, Var, Pi
-from mltt.kernel.debruijn import mk_app, mk_lams
+from mltt.kernel.telescope import mk_app, mk_lams
 from mltt.inductive.eq import Refl, Id, ap, trans, sym
 from mltt.inductive.nat import NatType, Succ, Zero, add, NatElim
 

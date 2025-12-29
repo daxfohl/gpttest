@@ -2,7 +2,7 @@ import pytest
 
 import mltt.inductive.vec as vec
 from mltt.kernel.ast import Univ, Var
-from mltt.kernel.debruijn import (
+from mltt.kernel.telescope import (
     mk_app,
     mk_pis,
     mk_lams,

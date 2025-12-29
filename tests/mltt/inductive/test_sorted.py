@@ -1,5 +1,5 @@
 from mltt.kernel.ast import Lam, Pi, Univ, Var, Term
-from mltt.kernel.debruijn import mk_app, mk_pis
+from mltt.kernel.telescope import mk_app, mk_pis
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.list import Cons, List, ListAt, Nil
 from mltt.inductive.nat import NatType, Zero

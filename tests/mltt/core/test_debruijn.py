@@ -1,5 +1,5 @@
 from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var
-from mltt.kernel.debruijn import mk_pis, mk_lams, ArgList
+from mltt.kernel.telescope import mk_pis, mk_lams, ArgList
 from mltt.kernel.ind import Elim
 from mltt.inductive.allvec import AllConsCtor, AllVecType
 from mltt.inductive.bool import BoolType

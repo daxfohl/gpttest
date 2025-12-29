@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cache
 
 from mltt.kernel.ast import App, Term, Univ, Var
-from mltt.kernel.debruijn import mk_app, Telescope
+from mltt.kernel.telescope import mk_app, Telescope
 from mltt.kernel.ind import Elim, Ctor, Ind
 
 

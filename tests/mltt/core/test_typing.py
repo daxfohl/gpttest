@@ -1,7 +1,8 @@
 import pytest
 
 from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var
-from mltt.kernel.debruijn import Env, mk_app, mk_lams
+from mltt.kernel.telescope import mk_app, mk_lams
+from mltt.kernel.environment import Env
 from mltt.inductive.eq import Id, IdElim, Refl
 from mltt.inductive.nat import NatRec, NatType, Zero, add, numeral
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from mltt.kernel.ast import Pi, Term, Univ, Var
-from mltt.kernel.debruijn import mk_app, Telescope, ArgList
+from mltt.kernel.telescope import mk_app, Telescope, ArgList
 from mltt.kernel.ind import Elim, Ctor, Ind
 
 RTC = Ind(

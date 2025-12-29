@@ -2,7 +2,7 @@ import pytest
 
 import mltt.inductive.list as listm
 from mltt.kernel.ast import Lam, Pi, Univ, Var, Term
-from mltt.kernel.debruijn import mk_app, mk_pis, mk_lams
+from mltt.kernel.telescope import mk_app, mk_pis, mk_lams
 from mltt.inductive.list import ConsCtor, NilCtor
 from mltt.inductive.nat import NatType, Succ, Zero
 

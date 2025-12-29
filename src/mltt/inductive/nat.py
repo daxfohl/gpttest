@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from mltt.inductive.maybe import MaybeType, Nothing, Just
 from mltt.kernel.ast import App, Lam, Term, Var
-from mltt.kernel.debruijn import mk_lams, Telescope
+from mltt.kernel.telescope import mk_lams, Telescope
 from mltt.kernel.ind import Elim, Ctor, Ind
 
 Nat = Ind(name="Nat", level=0)
