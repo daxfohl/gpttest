@@ -84,16 +84,16 @@ class Telescope(SeqBase[Term]):
 
 
 @dataclass(frozen=True)
-class CtxEntry:
+class Binder:
     """Single context entry containing the type of a bound variable."""
 
     ty: Term
 
     @staticmethod
-    def of(entry: CtxEntry | Term) -> CtxEntry:
+    def of(entry: Binder | Term) -> Binder:
         """Coerce an entry or term into a ``CtxEntry``."""
 
-        return entry if isinstance(entry, CtxEntry) else CtxEntry(entry)
+        return entry if isinstance(entry, Binder) else Binder(entry)
 
 
 @dataclass(frozen=True)
@@ -129,7 +129,7 @@ class Env:
         lookup, matching standard de Bruijn conventions for Pi/Lam codomains.
     """
 
-    binders: tuple[CtxEntry, ...] = ()
+    binders: tuple[Binder, ...] = ()
 
     def push_binders(self, *tys: Term) -> Env:
         """Prepend binders to the context.
@@ -149,9 +149,9 @@ class Env:
         return Env.of(*reversed(tys), *self.binders)
 
     @staticmethod
-    def of(*env: CtxEntry | Term) -> Env:
+    def of(*env: Binder | Term) -> Env:
         """Coerce a sequence of entries or terms into a ``Ctx`` of ``CtxEntry``."""
-        return Env(tuple(CtxEntry.of(entry) for entry in env))
+        return Env(tuple(Binder.of(entry) for entry in env))
 
     def __str__(self) -> str:
         if len(self.binders) < 2:
