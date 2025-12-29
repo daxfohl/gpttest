@@ -8,7 +8,7 @@ from mltt.inductive.nat import NatRec, NatType, Zero, add, numeral
 
 
 def test_infer_var() -> None:
-    with pytest.raises(TypeError, match="Unbound variable"):
+    with pytest.raises(IndexError, match="Unbound variable"):
         assert Var(0).infer_type()
     t = NatType()
     assert Var(0).infer_type(Env.of(t)) == t
@@ -19,13 +19,13 @@ def test_infer_lam() -> None:
     assert Lam(Var(10), Var(0)).infer_type() == Pi(Var(10), Var(11))
     assert Lam(Univ(0), Var(0)).infer_type() == Pi(Univ(0), Univ(0))
     assert Lam(Univ(10), Var(0)).infer_type() == Pi(Univ(10), Univ(10))
-    with pytest.raises(TypeError, match="Unbound variable"):
+    with pytest.raises(IndexError, match="Unbound variable"):
         Lam(Var(0), Var(1)).infer_type()
-    with pytest.raises(TypeError, match="Unbound variable"):
+    with pytest.raises(IndexError, match="Unbound variable"):
         Lam(Var(10), Var(1)).infer_type()
-    with pytest.raises(TypeError, match="Unbound variable"):
+    with pytest.raises(IndexError, match="Unbound variable"):
         Lam(Univ(0), Var(1)).infer_type()
-    with pytest.raises(TypeError, match="Unbound variable"):
+    with pytest.raises(IndexError, match="Unbound variable"):
         Lam(Univ(10), Var(1)).infer_type()
     assert Lam(Var(0), Univ(0)).infer_type() == Pi(Var(0), Univ(1))
     assert Lam(Var(10), Univ(0)).infer_type() == Pi(Var(10), Univ(1))

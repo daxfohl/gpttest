@@ -26,7 +26,7 @@ def infer_ind_type(env: Env, ind: Ind) -> Term:
                 f"Inductive {ind.name} declared at Type({ind.level}) "
                 f"but has binder {b} of type Type({level})."
             )
-        env = env.push_binders(b)
+        env = env.push_binder(b)
 
     return mk_pis(binders, return_ty=Univ(ind.level))
 

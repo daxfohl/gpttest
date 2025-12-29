@@ -1,71 +1,23 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from types import MappingProxyType
+from typing import overload
 
 from mltt.kernel.ast import Term
 
 
 @dataclass(frozen=True)
-class Env:
+class GlobalDecl:
     """
-    Typing context for de Bruijn-indexed terms.
+    A top-level declaration.
 
-    Representation:
-        The context is stored as a sequence of entries, where index 0 refers to
-        the *innermost (most recently introduced) binder*, index 1 to the next
-        outer binder, and so on.
-
-    Invariant:
-        Each stored entry type is scoped in the *tail context* beneath it. The
-        type of Var(0) is stored in the context of Var(1..), the type of Var(1)
-        is stored in the context of Var(2..), and so on.
-
-    Extension discipline:
-        `prepend(t)` prepends a new binder at index 0 without rewriting existing
-        entry types. `prepend(t0, t1, ..., tn)` is equivalent to repeated
-        single-binder extension:
-            prepend(t0, t1, ..., tn) == prepend(t0).prepend(t1)...prepend(tn)
-        where binder types are ordered outermost → innermost, matching the order
-        of arguments to `nested_pi` / `nested_lam`.
-
-    Interpretation:
-        Given a context Γ and an index k, `Var(k)` refers to the binder whose
-        type is stored at Γ[k]. Lookup shifts the stored type by k to account
-        for the binders in front of it.
-
-    Notes:
-        This design keeps entry types relative to their tails and shifts on
-        lookup, matching standard de Bruijn conventions for Pi/Lam codomains.
+    - ty: type of the constant/definition
+    - value: definitional body (None for axioms/constructors if you don't unfold them)
     """
 
-    binders: tuple[Binder, ...] = ()
-
-    def push_binders(self, *tys: Term) -> Env:
-        """Prepend binders to the context.
-
-        Args:
-            tys: Binder types ordered outermost → innermost, like nested_pi/nested_lam.
-
-        Semantics:
-            prepend(t0, t1, ..., tk) == prepend(t0).prepend(t1)...prepend(tk)
-
-        De Bruijn invariant:
-            The newest binder is at index 0. Stored entry types are not rewritten
-            on extension; lookup shifts by index instead.
-        """
-        # push(t0, ..., tk) == push(t0).push(t1)...push(tk)
-        # so insert from innermost to outermost (reverse order).
-        return Env.of(*reversed(tys), *self.binders)
-
-    @staticmethod
-    def of(*env: Binder | Term) -> Env:
-        """Coerce a sequence of entries or terms into a ``Ctx`` of ``CtxEntry``."""
-        return Env(tuple(Binder.of(entry) for entry in env))
-
-    def __str__(self) -> str:
-        if len(self.binders) < 2:
-            return f"Ctx{self.binders}"
-        return f"Ctx(\n{"".join([f"  #{i}: {e.ty}\n" for i, e in enumerate(self.binders)])})"
+    ty: Term
+    value: Term | None = None
 
 
 @dataclass(frozen=True)
@@ -73,9 +25,136 @@ class Binder:
     """Single context entry containing the type of a bound variable."""
 
     ty: Term
+    name: str | None = None
+    value: Term | None = None  # for let-bindings; None for ordinary binders
+
+    @overload
+    @staticmethod
+    def of(entry: Binder) -> Binder: ...
+
+    @overload
+    @staticmethod
+    def of(
+        entry: Term, name: str | None = None, value: Term | None = None
+    ) -> Binder: ...
 
     @staticmethod
-    def of(entry: Binder | Term) -> Binder:
-        """Coerce an entry or term into a ``CtxEntry``."""
+    def of(
+        entry: Binder | Term, name: str | None = None, value: Term | None = None
+    ) -> Binder:
+        """Coerce an entry or term into a ``Binder``."""
 
-        return entry if isinstance(entry, Binder) else Binder(entry)
+        if isinstance(entry, Binder):
+            assert name is None and value is None
+            return entry
+        return Binder(entry, name, value)
+
+
+@dataclass(frozen=True)
+class Env:
+    """
+    Surface/elaboration environment over a de Bruijn typing context.
+
+    Notes:
+        - Binder types scoped in tail context.
+    """
+
+    binders: tuple[Binder, ...] = ()
+    globals: MappingProxyType[str, GlobalDecl] = MappingProxyType({})
+
+    # ---- extending the environment ----
+    def push_binder(self, ty: Term, name: str | None = None) -> Env:
+        """
+        Push a new binder at de Bruijn index 0.
+
+        This mirrors Ctx.push(ty) which does not rewrite existing entry types.
+        """
+        binders = (Binder.of(ty, name),) + self.binders
+        return replace(self, binders=binders)
+
+    def push_binders(self, *binders: Term | tuple[Term, str]) -> Env:
+        """
+        Push many binders ordered outermost -> innermost (like nested_lam/nested_pi).
+
+        Example:
+            env.push_binders(("x", A), ("y", B)) pushes x then y, so y ends up at index 0.
+        """
+        env = self
+        for b in binders:
+            if isinstance(b, (tuple, list)):
+                env = env.push_binder(*b)
+            else:
+                env = env.push_binder(b)
+        return env
+
+    def push_let(self, name: str | None, ty: Term, value: Term) -> Env:
+        """
+        Push a let-bound variable at index 0 with its type and definitional value.
+
+        Whether the kernel has let-terms or you treat lets as sugar,
+        this is still useful for pretty-printing and optional unfolding.
+        """
+
+        binders = (Binder.of(ty, name, value),) + self.binders
+        return replace(self, binders=binders)
+
+    # ---- name resolution (locals) ----
+    def lookup_local(self, name: str) -> int | None:
+        """
+        Return the de Bruijn index for the nearest local binder with this name.
+        """
+        # index 0 = innermost
+        for i, le in enumerate(self.binders):
+            if le.name == name:
+                return i
+        return None
+
+    # ---- lookup (globals) ----
+    def lookup_global(self, name: str) -> GlobalDecl | None:
+        return self.globals.get(name)
+
+    def lookup_name(self, name: str) -> tuple[str, int | GlobalDecl] | None:
+        """
+        Unified lookup for surface resolution:
+          - if local found: ("local", index)
+          - else if global found: ("global", decl)
+          - else None
+        """
+        k = self.lookup_local(name)
+        if k is not None:
+            return "local", k
+        g = self.lookup_global(name)
+        if g is not None:
+            return "global", g
+        return None
+
+    # ---- helpers for typing + printing ----
+    def local_type(self, k: int) -> Term:
+        """
+        Return the type of Var(k) in this environment in *current scope*.
+
+        Stored entry types are scoped in tail, and we shift on lookup by k.
+        """
+        if k < 0 or k >= len(self.binders):
+            raise IndexError(f"Unbound variable {k}")
+        return self.binders[k].ty.shift(k + 1)
+
+    def local_value(self, k: int) -> Term | None:
+        if k < 0 or k >= len(self.binders):
+            raise IndexError(f"Unbound variable {k}")
+        return self.binders[k].value
+
+    def names(self) -> tuple[str | None, ...]:
+        """
+        Names ordered by de Bruijn index (0 = innermost).
+        """
+        return tuple(le.name for le in self.binders)
+
+    @staticmethod
+    def of(*env: Binder | Term) -> Env:
+        return Env(tuple(Binder.of(entry) for entry in env))
+
+    def __str__(self) -> str:
+        if len(self.binders) < 2:
+            return f"Ctx{self.binders}"
+        return f"Ctx(\n{"".join([f"  #{i}: {e.ty}\n" for i, e in enumerate(self.binders)])})"

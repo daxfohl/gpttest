@@ -204,14 +204,10 @@ class Var(Term):
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, env: Env) -> Term:
-        if self.k < len(env.binders):
-            return env.binders[self.k].ty.shift(self.k + 1)
-        raise TypeError(f"Unbound variable {self.k}")
+        return env.local_type(self.k)
 
     def _type_check(self, expected_ty: Term, env: Env) -> None:
-        if self.k >= len(env.binders):
-            raise TypeError(f"Unbound variable {self.k}")
-        found_ty = env.binders[self.k].ty.shift(self.k + 1)
+        found_ty = self._infer_type(env)
         if not found_ty.type_equal(expected_ty):
             raise TypeError(
                 "Variable type mismatch:\n"
@@ -230,7 +226,7 @@ class Lam(Term):
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, env: Env) -> Term:
-        body_ty = self.body.infer_type(env.push_binders(self.arg_ty))
+        body_ty = self.body.infer_type(env.push_binder(self.arg_ty))
         return Pi(self.arg_ty, body_ty)
 
     def _type_check(self, expected_ty: Term, env: Env) -> None:
@@ -247,7 +243,7 @@ class Lam(Term):
                 f"  expected domain = {expected_ty.arg_ty}\n"
                 f"  found domain = {self.arg_ty}"
             )
-        self.body.type_check(expected_ty.return_ty, env.push_binders(self.arg_ty))
+        self.body.type_check(expected_ty.return_ty, env.push_binder(self.arg_ty))
 
 
 @dataclass(frozen=True)
@@ -260,7 +256,7 @@ class Pi(Term):
     # Typing -------------------------------------------------------------------
     def _infer_type(self, env: Env) -> Term:
         arg_level = self.arg_ty.expect_universe(env)
-        body_level = self.return_ty.expect_universe(env.push_binders(self.arg_ty))
+        body_level = self.return_ty.expect_universe(env.push_binder(self.arg_ty))
         return Univ(max(arg_level, body_level))
 
 
