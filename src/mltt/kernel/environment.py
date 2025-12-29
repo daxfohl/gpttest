@@ -172,4 +172,4 @@ class Const(Term):
     # Reduction: optionally unfold if decl.value exists and is reducible
     def _whnf_step(self, env: Env) -> Term:
         decl = env.globals[self.name]
-        return decl.value if decl.value is not None else self
+        return decl.value.whnf(env) if decl.value is not None else self

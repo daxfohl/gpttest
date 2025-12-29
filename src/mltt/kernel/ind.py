@@ -93,7 +93,7 @@ def infer_elim_type(elim: Elim, env: Env) -> Term:
 
     # 2.3 The scrutinee binder domain must match the scrutinee type
     scrut_dom = motive_applied_ty.arg_ty
-    if not scrut_dom.type_equal(scrut_ty):
+    if not scrut_dom._type_equal(scrut_ty, env):
         raise TypeError(
             "InductiveElim motive scrutinee domain mismatch:\n"
             f"  expected scrut_ty = {scrut_ty}\n"

@@ -155,9 +155,9 @@ class Term:
             )
         return ty.level
 
-    def type_equal(self, other: Term) -> bool:
-        self_whnf = self.whnf()
-        other_whnf = other.whnf()
+    def _type_equal(self, other: Term, env: Env) -> bool:
+        self_whnf = self.whnf(env)
+        other_whnf = other.whnf(env)
         if self_whnf == other_whnf:
             return True
         if type(self_whnf) is not type(other_whnf):
@@ -166,15 +166,21 @@ class Term:
             s = getattr(self_whnf, f.name)
             o = getattr(other_whnf, f.name)
             if isinstance(s, Term) and isinstance(o, Term):
-                if not s.type_equal(o):
+                if not s._type_equal(o, env):
                     return False
             elif s != o:
                 return False
         return True
 
+    def type_equal(self, other: Term, env: Env | None = None) -> bool:
+        from mltt.kernel.environment import Env
+
+        env = env or Env()
+        return self._type_equal(other, env)
+
     def _check_against_inferred(self, expected_ty: Term, env: Env) -> None:
         inferred_ty = self.infer_type(env)
-        if not expected_ty.type_equal(inferred_ty):
+        if not expected_ty._type_equal(inferred_ty, env):
             raise TypeError(
                 f"{type(self).__name__} type mismatch:\n"
                 f"  term = {self}\n"
@@ -218,7 +224,7 @@ class Var(Term):
 
     def _type_check(self, expected_ty: Term, env: Env) -> None:
         found_ty = self._infer_type(env)
-        if not found_ty.type_equal(expected_ty):
+        if not found_ty._type_equal(expected_ty, env):
             raise TypeError(
                 "Variable type mismatch:\n"
                 f"  term = {self}\n"
@@ -246,7 +252,7 @@ class Lam(Term):
                 f"  term = {self}\n"
                 f"  expected = {expected_ty}"
             )
-        if not self.arg_ty.type_equal(expected_ty.arg_ty):
+        if not self.arg_ty._type_equal(expected_ty.arg_ty, env):
             raise TypeError(
                 "Lambda domain mismatch:\n"
                 f"  term = {self}\n"
@@ -308,7 +314,7 @@ class App(Term):
             )
         self.arg.type_check(f_ty.arg_ty, env)
         inferred_ty = f_ty.return_ty.subst(self.arg)
-        if not expected_ty.type_equal(inferred_ty):
+        if not expected_ty._type_equal(inferred_ty, env):
             raise TypeError(
                 "Application result type mismatch:\n"
                 f"  term = {self}\n"
