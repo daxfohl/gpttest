@@ -158,3 +158,18 @@ class Env:
         if len(self.binders) < 2:
             return f"Ctx{self.binders}"
         return f"Ctx(\n{"".join([f"  #{i}: {e.ty}\n" for i, e in enumerate(self.binders)])})"
+
+
+@dataclass(frozen=True)
+class Const(Term):
+    name: str
+
+    # Typing: look up in globals table
+    def _infer_type(self, env: Env) -> Term:
+        decl = env.globals[self.name]
+        return decl.ty
+
+    # Reduction: optionally unfold if decl.value exists and is reducible
+    def _whnf_step(self, env: Env) -> Term:
+        decl = env.globals[self.name]
+        return decl.value if decl.value is not None else self

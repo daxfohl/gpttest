@@ -86,15 +86,24 @@ class Term:
         return t
 
     # --- Reduction ------------------------------------------------------------
-    def whnf_step(self) -> Term:
+    def _whnf_step(self, env: Env) -> Term:
         """Weak head normal form."""
         return self
 
-    def whnf(self) -> Term:
+    def whnf_step(self, env: Env | None = None) -> Term:
         """Weak head normal form."""
-        reduced = self.whnf_step()
+        from mltt.kernel.environment import Env
+
+        return self._whnf_step(env or Env())
+
+    def whnf(self, env: Env | None = None) -> Term:
+        """Weak head normal form."""
+        from mltt.kernel.environment import Env
+
+        env = env or Env()
+        reduced = self.whnf_step(env)
         if reduced != self:
-            return reduced.whnf()
+            return reduced.whnf(env)
         return self
 
     def _reduce_inside_step(self, reducer: Callable[[Term], Term]) -> Term:
@@ -132,13 +141,14 @@ class Term:
     def type_check(self, ty: Term, env: Env | None = None) -> None:
         from mltt.kernel.environment import Env
 
-        self._type_check(ty.whnf(), env or Env())
+        env = env or Env()
+        self._type_check(ty.whnf(env), env)
 
     def _type_check(self, expected_ty: Term, env: Env) -> None:
         self._check_against_inferred(expected_ty, env)
 
     def expect_universe(self, env: Env | None = None) -> int:
-        ty = self.infer_type(env).whnf()
+        ty = self.infer_type(env).whnf(env)
         if not isinstance(ty, Univ):
             raise TypeError(
                 "Expected a universe:\n" f"  term = {self}\n" f"  inferred = {ty}"
@@ -268,15 +278,15 @@ class App(Term):
     arg: Term
 
     # Reduction ----------------------------------------------------------------
-    def whnf_step(self) -> Term:
-        f_whnf = self.func.whnf()
+    def _whnf_step(self, env: Env) -> Term:
+        f_whnf = self.func.whnf(env)
         if isinstance(f_whnf, Lam):
             return f_whnf.body.subst(self.arg)
         return App(f_whnf, self.arg)
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, env: Env) -> Term:
-        f_ty = self.func.infer_type(env).whnf()
+        f_ty = self.func.infer_type(env).whnf(env)
         if not isinstance(f_ty, Pi):
             raise TypeError(
                 "Application of non-function:\n"
@@ -288,7 +298,7 @@ class App(Term):
         return f_ty.return_ty.subst(self.arg)
 
     def _type_check(self, expected_ty: Term, env: Env) -> None:
-        f_ty = self.func.infer_type(env).whnf()
+        f_ty = self.func.infer_type(env).whnf(env)
         if not isinstance(f_ty, Pi):
             raise TypeError(
                 "Application of non-function:\n"

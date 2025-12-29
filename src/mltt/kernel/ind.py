@@ -63,7 +63,7 @@ def infer_elim_type(elim: Elim, env: Env) -> Term:
 
     scrut = elim.scrutinee
     ind = elim.inductive
-    scrut_ty = scrut.infer_type(env).whnf()
+    scrut_ty = scrut.infer_type(env).whnf(env)
     scrut_ty_head, scrut_ty_bindings = decompose_app(scrut_ty)
     if scrut_ty_head != ind:
         raise TypeError(
@@ -82,7 +82,7 @@ def infer_elim_type(elim: Elim, env: Env) -> Term:
     motive_applied = mk_app(motive, indices_actual)
 
     # 2.2 Infer the type of this partially applied motive
-    motive_applied_ty = motive_applied.infer_type(env).whnf()
+    motive_applied_ty = motive_applied.infer_type(env).whnf(env)
     if not isinstance(motive_applied_ty, Pi):
         raise TypeError(
             "InductiveElim motive must take scrutinee after indices:\n"
@@ -101,7 +101,7 @@ def infer_elim_type(elim: Elim, env: Env) -> Term:
         )
 
     # 2.4 The motive codomain must be a universe
-    body_ty = motive_applied_ty.return_ty.whnf()
+    body_ty = motive_applied_ty.return_ty.whnf(env)
     if not isinstance(body_ty, Univ):
         raise TypeError(
             "InductiveElim motive codomain must be a universe:\n"
@@ -272,8 +272,8 @@ class Elim(Term):
     scrutinee: Term
 
     # Reduction ----------------------------------------------------------------
-    def whnf_step(self) -> Term:
-        scrutinee_whnf = self.scrutinee.whnf()
+    def _whnf_step(self, env: Env) -> Term:
+        scrutinee_whnf = self.scrutinee.whnf(env)
         head, args = decompose_app(scrutinee_whnf)
         if isinstance(head, Ctor) and head.inductive == self.inductive:
             expected_args = len(self.inductive.param_types) + len(head.field_schemas)
