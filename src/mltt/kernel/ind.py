@@ -7,10 +7,10 @@ from functools import cached_property
 from typing import ClassVar
 
 from mltt.kernel.ast import Term, Pi, Univ, App, TermFieldMeta
-from mltt.kernel.debruijn import Ctx, mk_app, mk_pis, decompose_app, Telescope, ArgList
+from mltt.kernel.debruijn import Env, mk_app, mk_pis, decompose_app, Telescope, ArgList
 
 
-def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
+def infer_ind_type(env: Env, ind: Ind) -> Term:
     """Compute the dependent function type of an inductive.
 
     The resulting Pi-tower has parameters outermost, then indices,
@@ -19,13 +19,13 @@ def infer_ind_type(ctx: Ctx, ind: Ind) -> Term:
 
     binders = ind.param_types + ind.index_types
     for b in binders:
-        level = b.expect_universe(ctx)
+        level = b.expect_universe(env)
         if ind.level < level - 1:
             raise TypeError(
                 f"Inductive {ind.name} declared at Type({ind.level}) "
                 f"but has binder {b} of type Type({level})."
             )
-        ctx = ctx.push(b)
+        env = env.push_binders(b)
 
     return mk_pis(binders, return_ty=Univ(ind.level))
 
@@ -56,13 +56,13 @@ def infer_ctor_type(ctor: Ctor) -> Term:
     )
 
 
-def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
+def infer_elim_type(elim: Elim, env: Env) -> Term:
     """Infer the type of an ``InductiveElim`` while checking its well-formedness."""
     # 1. Infer type of scrutinee and extract params/indices.
 
     scrut = elim.scrutinee
     ind = elim.inductive
-    scrut_ty = scrut.infer_type(ctx).whnf()
+    scrut_ty = scrut.infer_type(env).whnf()
     scrut_ty_head, scrut_ty_bindings = decompose_app(scrut_ty)
     if scrut_ty_head != ind:
         raise TypeError(
@@ -81,7 +81,7 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
     motive_applied = mk_app(motive, indices_actual)
 
     # 2.2 Infer the type of this partially applied motive
-    motive_applied_ty = motive_applied.infer_type(ctx).whnf()
+    motive_applied_ty = motive_applied.infer_type(env).whnf()
     if not isinstance(motive_applied_ty, Pi):
         raise TypeError(
             "InductiveElim motive must take scrutinee after indices:\n"
@@ -156,15 +156,15 @@ def infer_elim_type(elim: Elim, ctx: Ctx) -> Term:
 
         # 3.6 Expected branch type: Π fields. Π ihs. codomain.
         branch_ty = mk_pis(ctor_field_types, ih_types, return_ty=codomain)
-        case.type_check(branch_ty, ctx)
+        case.type_check(branch_ty, env)
 
-    u = motive_applied_ty.return_ty.expect_universe(ctx)  # cod should be Univ(u)
+    u = motive_applied_ty.return_ty.expect_universe(env)  # cod should be Univ(u)
 
     # target type is P i⃗_actual scrut
     target_ty = App(motive_applied, scrut)
 
     # sanity check target_ty really is a type in Type u (or ≤ u with cumulativity)
-    _ = target_ty.infer_type(ctx).expect_universe(ctx)
+    _ = target_ty.infer_type(env).expect_universe(env)
 
     if u < ind.level:
         raise TypeError(
@@ -203,8 +203,8 @@ class Ind(Term):
     is_terminal: ClassVar[bool] = True
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
-        return infer_ind_type(ctx, self)
+    def _infer_type(self, env: Env) -> Term:
+        return infer_ind_type(env, self)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -257,7 +257,7 @@ class Ctor(Term):
         return mk_app(case, ctor_args, ihs)
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
+    def _infer_type(self, env: Env) -> Term:
         return infer_ctor_type(self)
 
 
@@ -282,5 +282,5 @@ class Elim(Term):
         return Elim(self.inductive, self.motive, self.cases, scrutinee_whnf)
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
-        return infer_elim_type(self, ctx)
+    def _infer_type(self, env: Env) -> Term:
+        return infer_elim_type(self, env)

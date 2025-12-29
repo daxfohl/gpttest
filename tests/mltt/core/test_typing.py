@@ -1,7 +1,7 @@
 import pytest
 
 from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var
-from mltt.kernel.debruijn import Ctx, mk_app, mk_lams
+from mltt.kernel.debruijn import Env, mk_app, mk_lams
 from mltt.inductive.eq import Id, IdElim, Refl
 from mltt.inductive.nat import NatRec, NatType, Zero, add, numeral
 
@@ -10,7 +10,7 @@ def test_infer_var() -> None:
     with pytest.raises(TypeError, match="Unbound variable"):
         assert Var(0).infer_type()
     t = NatType()
-    assert Var(0).infer_type(Ctx.of(t)) == t
+    assert Var(0).infer_type(Env.of(t)) == t
 
 
 def test_infer_lam() -> None:
@@ -38,7 +38,7 @@ def test_infer_lam() -> None:
 
 def test_infer_lam_ctx() -> None:
     def infer(t: Term) -> Term:
-        return t.infer_type(Ctx.of(Univ(100)))
+        return t.infer_type(Env.of(Univ(100)))
 
     assert infer(Lam(NatType(), Var(0))) == Pi(NatType(), NatType())
     assert infer(Lam(NatType(), Zero())) == Pi(NatType(), NatType())
@@ -125,9 +125,9 @@ def test_two_level_lambda_type_refers_to_previous_binder() -> None:
     )
 
     # Empty context
-    ctx = Ctx()
+    env = Env()
 
-    ty = term.infer_type(ctx)
+    ty = term.infer_type(env)
 
     # Expected type: Π (A : Type₀). Π (x : A). A
     # De Bruijn: Pi(Univ(0), Pi(Var(0), Var(1)))

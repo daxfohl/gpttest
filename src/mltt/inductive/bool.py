@@ -50,7 +50,7 @@ def if_term() -> Term:
                 Lam(
                     Var(2),  # f : A (A is Var(2) here)
                     body=BoolRec(
-                        motive=Lam(BoolType(), Var(4)),  # ctx = [Bool, f, t, b, A]
+                        motive=Lam(BoolType(), Var(4)),  # env = [Bool, f, t, b, A]
                         false_case=Var(0),  # f
                         true_case=Var(1),  # t
                         scrutinee=Var(2),  # b

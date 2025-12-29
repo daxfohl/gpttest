@@ -97,7 +97,7 @@ class CtxEntry:
 
 
 @dataclass(frozen=True)
-class Ctx:
+class Env:
     """
     Typing context for de Bruijn-indexed terms.
 
@@ -140,7 +140,7 @@ class Ctx:
     def __getitem__(self, idx: int) -> CtxEntry:
         return self.entries[idx]
 
-    def push(self, *tys: Term) -> Ctx:
+    def push_binders(self, *tys: Term) -> Env:
         """Prepend binders to the context.
 
         Args:
@@ -155,12 +155,12 @@ class Ctx:
         """
         # push(t0, ..., tk) == push(t0).push(t1)...push(tk)
         # so insert from innermost to outermost (reverse order).
-        return Ctx.of(*reversed(tys), *self.entries)
+        return Env.of(*reversed(tys), *self.entries)
 
     @staticmethod
-    def of(*ctx: CtxEntry | Term) -> Ctx:
+    def of(*env: CtxEntry | Term) -> Env:
         """Coerce a sequence of entries or terms into a ``Ctx`` of ``CtxEntry``."""
-        return Ctx(tuple(CtxEntry.of(entry) for entry in ctx))
+        return Env(tuple(CtxEntry.of(entry) for entry in env))
 
     def __str__(self) -> str:
         if len(self.entries) < 2:

@@ -8,7 +8,7 @@ from operator import methodcaller
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 if TYPE_CHECKING:
-    from mltt.kernel.debruijn import Ctx, ArgList
+    from mltt.kernel.debruijn import Env, ArgList
 
 
 def _map_term_values(value: Any, f: Callable[[Term], Term]) -> Any:
@@ -120,24 +120,24 @@ class Term:
         return self
 
     # --- Typing ---------------------------------------------------------------
-    def infer_type(self, ctx: Ctx | None = None) -> Term:
-        from mltt.kernel.debruijn import Ctx
+    def infer_type(self, env: Env | None = None) -> Term:
+        from mltt.kernel.debruijn import Env
 
-        return self._infer_type(ctx or Ctx())
+        return self._infer_type(env or Env())
 
-    def _infer_type(self, ctx: Ctx) -> Term:
+    def _infer_type(self, env: Env) -> Term:
         raise TypeError(f"Unexpected term in infer_type:\n  term = {self!r}")
 
-    def type_check(self, ty: Term, ctx: Ctx | None = None) -> None:
-        from mltt.kernel.debruijn import Ctx
+    def type_check(self, ty: Term, env: Env | None = None) -> None:
+        from mltt.kernel.debruijn import Env
 
-        self._type_check(ty.whnf(), ctx or Ctx())
+        self._type_check(ty.whnf(), env or Env())
 
-    def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
-        self._check_against_inferred(expected_ty, ctx)
+    def _type_check(self, expected_ty: Term, env: Env) -> None:
+        self._check_against_inferred(expected_ty, env)
 
-    def expect_universe(self, ctx: Ctx | None = None) -> int:
-        ty = self.infer_type(ctx).whnf()
+    def expect_universe(self, env: Env | None = None) -> int:
+        ty = self.infer_type(env).whnf()
         if not isinstance(ty, Univ):
             raise TypeError(
                 "Expected a universe:\n" f"  term = {self}\n" f"  inferred = {ty}"
@@ -161,8 +161,8 @@ class Term:
                 return False
         return True
 
-    def _check_against_inferred(self, expected_ty: Term, ctx: Ctx) -> None:
-        inferred_ty = self.infer_type(ctx)
+    def _check_against_inferred(self, expected_ty: Term, env: Env) -> None:
+        inferred_ty = self.infer_type(env)
         if not expected_ty.type_equal(inferred_ty):
             raise TypeError(
                 f"{type(self).__name__} type mismatch:\n"
@@ -202,15 +202,15 @@ class Var(Term):
         return self
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
-        if self.k < len(ctx):
-            return ctx[self.k].ty.shift(self.k + 1)
+    def _infer_type(self, env: Env) -> Term:
+        if self.k < len(env):
+            return env[self.k].ty.shift(self.k + 1)
         raise TypeError(f"Unbound variable {self.k}")
 
-    def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
-        if self.k >= len(ctx):
+    def _type_check(self, expected_ty: Term, env: Env) -> None:
+        if self.k >= len(env):
             raise TypeError(f"Unbound variable {self.k}")
-        found_ty = ctx[self.k].ty.shift(self.k + 1)
+        found_ty = env[self.k].ty.shift(self.k + 1)
         if not found_ty.type_equal(expected_ty):
             raise TypeError(
                 "Variable type mismatch:\n"
@@ -228,11 +228,11 @@ class Lam(Term):
     body: Term = field(metadata={"": TermFieldMeta(binder_count=1)})
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
-        body_ty = self.body.infer_type(ctx.push(self.arg_ty))
+    def _infer_type(self, env: Env) -> Term:
+        body_ty = self.body.infer_type(env.push_binders(self.arg_ty))
         return Pi(self.arg_ty, body_ty)
 
-    def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
+    def _type_check(self, expected_ty: Term, env: Env) -> None:
         if not isinstance(expected_ty, Pi):
             raise TypeError(
                 "Lambda expected to have Pi type:\n"
@@ -246,7 +246,7 @@ class Lam(Term):
                 f"  expected domain = {expected_ty.arg_ty}\n"
                 f"  found domain = {self.arg_ty}"
             )
-        self.body.type_check(expected_ty.return_ty, ctx.push(self.arg_ty))
+        self.body.type_check(expected_ty.return_ty, env.push_binders(self.arg_ty))
 
 
 @dataclass(frozen=True)
@@ -257,9 +257,9 @@ class Pi(Term):
     return_ty: Term = field(metadata={"": TermFieldMeta(binder_count=1)})
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
-        arg_level = self.arg_ty.expect_universe(ctx)
-        body_level = self.return_ty.expect_universe(ctx.push(self.arg_ty))
+    def _infer_type(self, env: Env) -> Term:
+        arg_level = self.arg_ty.expect_universe(env)
+        body_level = self.return_ty.expect_universe(env.push_binders(self.arg_ty))
         return Univ(max(arg_level, body_level))
 
 
@@ -278,8 +278,8 @@ class App(Term):
         return App(f_whnf, self.arg)
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
-        f_ty = self.func.infer_type(ctx).whnf()
+    def _infer_type(self, env: Env) -> Term:
+        f_ty = self.func.infer_type(env).whnf()
         if not isinstance(f_ty, Pi):
             raise TypeError(
                 "Application of non-function:\n"
@@ -287,11 +287,11 @@ class App(Term):
                 f"  function = {self.func}\n"
                 f"  inferred f_ty = {f_ty}"
             )
-        self.arg.type_check(f_ty.arg_ty, ctx)
+        self.arg.type_check(f_ty.arg_ty, env)
         return f_ty.return_ty.subst(self.arg)
 
-    def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
-        f_ty = self.func.infer_type(ctx).whnf()
+    def _type_check(self, expected_ty: Term, env: Env) -> None:
+        f_ty = self.func.infer_type(env).whnf()
         if not isinstance(f_ty, Pi):
             raise TypeError(
                 "Application of non-function:\n"
@@ -299,7 +299,7 @@ class App(Term):
                 f"  function = {self.func}\n"
                 f"  inferred f_ty = {f_ty}"
             )
-        self.arg.type_check(f_ty.arg_ty, ctx)
+        self.arg.type_check(f_ty.arg_ty, env)
         inferred_ty = f_ty.return_ty.subst(self.arg)
         if not expected_ty.type_equal(inferred_ty):
             raise TypeError(
@@ -322,10 +322,10 @@ class Univ(Term):
             raise ValueError("Universe level must be non-negative")
 
     # Typing -------------------------------------------------------------------
-    def _infer_type(self, ctx: Ctx) -> Term:
+    def _infer_type(self, env: Env) -> Term:
         return Univ(self.level + 1)
 
-    def _type_check(self, expected_ty: Term, ctx: Ctx) -> None:
+    def _type_check(self, expected_ty: Term, env: Env) -> None:
         if not isinstance(expected_ty, Univ):
             raise TypeError(
                 "Universe type mismatch:\n"

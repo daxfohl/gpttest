@@ -108,7 +108,7 @@ def let_pair_dep_term() -> Term:
         Univ(0),  # A
         Pi(Var(0), Univ(0)),  # B
         mk_pis(Var(1), App(Var(1), Var(0)), return_ty=Univ(0)),  # C
-        SigmaType(Var(2), Var(1)),  # p : Sigma A B   (ctx [C,B,A])
+        SigmaType(Var(2), Var(1)),  # p : Sigma A B   (env [C,B,A])
         mk_pis(
             Var(3), App(Var(3), Var(0)), return_ty=mk_app(Var(3), Var(1), Var(0))
         ),  # f

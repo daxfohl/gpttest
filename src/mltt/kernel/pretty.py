@@ -11,12 +11,12 @@ PI_PREC = 1
 LAM_PREC = 0
 
 
-def _fresh_name(ctx: list[str], base: str = "x") -> str:
-    """Return a name not already present in ``ctx``."""
+def _fresh_name(env: list[str], base: str = "x") -> str:
+    """Return a name not already present in ``env``."""
 
     candidate = base
     suffix = 0
-    while candidate in ctx:
+    while candidate in env:
         suffix += 1
         candidate = f"{base}{suffix}"
     return candidate
@@ -76,10 +76,10 @@ def _render_app_like(head: str, args: list[tuple[str, int]]) -> tuple[str, int]:
 def pretty(term: Term) -> str:
     """Return a human-friendly string for ``term``."""
 
-    def fmt(t: Term, ctx: list[str]) -> tuple[str, int]:
+    def fmt(t: Term, env: list[str]) -> tuple[str, int]:
         match t:
             case Var(k):
-                name = ctx[k] if k < len(ctx) else f"#{k}"
+                name = env[k] if k < len(env) else f"#{k}"
                 return name, ATOM_PREC
 
             case Univ(level):
@@ -92,8 +92,8 @@ def pretty(term: Term) -> str:
                 return _ctor_label(ctor), ATOM_PREC
 
             case App(f, a):
-                func_text, func_prec = fmt(f, ctx)
-                arg_text, arg_prec = fmt(a, ctx)
+                func_text, func_prec = fmt(f, env)
+                arg_text, arg_prec = fmt(a, env)
                 func_disp = _maybe_paren(
                     func_text, func_prec, APP_PREC, allow_equal=True
                 )
@@ -101,17 +101,17 @@ def pretty(term: Term) -> str:
                 return f"{func_disp} {arg_disp}", APP_PREC
 
             case Lam(arg_ty, body):
-                binder = _fresh_name(ctx)
-                arg_text, arg_prec = fmt(arg_ty, ctx)
-                body_text, _ = fmt(body, [binder, *ctx])
+                binder = _fresh_name(env)
+                arg_text, arg_prec = fmt(arg_ty, env)
+                body_text, _ = fmt(body, [binder, *env])
                 arg_disp = _maybe_paren(arg_text, arg_prec, PI_PREC, allow_equal=False)
                 return f"\\{binder} : {arg_disp}. {body_text}", LAM_PREC
 
             case Pi(arg_ty, body):
                 dependent = _uses_var(body, target=0)
-                binder = _fresh_name(ctx, base="_" if not dependent else "x")
-                arg_text, arg_prec = fmt(arg_ty, ctx)
-                body_text, body_prec = fmt(body, [binder, *ctx])
+                binder = _fresh_name(env, base="_" if not dependent else "x")
+                arg_text, arg_prec = fmt(arg_ty, env)
+                body_text, body_prec = fmt(body, [binder, *env])
                 arg_disp = _maybe_paren(arg_text, arg_prec, PI_PREC, allow_equal=False)
                 if not dependent:
                     body_disp = _maybe_paren(
@@ -124,9 +124,9 @@ def pretty(term: Term) -> str:
                 return f"Pi {binder} : {arg_disp}. {body_disp}", PI_PREC
 
             case Elim(inductive, motive, cases, scrutinee):
-                motive_text, motive_prec = fmt(motive, ctx)
-                scrutinee_text, scrutinee_prec = fmt(scrutinee, ctx)
-                cases_text = ", ".join(fmt(case, ctx)[0] for case in cases)
+                motive_text, motive_prec = fmt(motive, env)
+                scrutinee_text, scrutinee_prec = fmt(scrutinee, env)
+                cases_text = ", ".join(fmt(case, env)[0] for case in cases)
                 parts = [
                     f"elim {_inductive_label(inductive)}",
                     _maybe_paren(motive_text, motive_prec, APP_PREC, allow_equal=False),

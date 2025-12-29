@@ -1,5 +1,5 @@
 from mltt.kernel.ast import Lam, Var
-from mltt.kernel.debruijn import Ctx, mk_pis, mk_lams
+from mltt.kernel.debruijn import Env, mk_pis, mk_lams
 from mltt.inductive.eq import Id, Refl, ap
 from mltt.inductive.nat import NatType, Succ, add, numeral
 
@@ -8,9 +8,9 @@ def test_refl_proves_succ_self_equality() -> None:
     witness = Succ(Var(0))
     ty = NatType()
     proof = Refl(ty, witness)
-    ctx = Ctx.of(ty)
+    env = Env.of(ty)
 
-    proof.type_check(Id(ty, witness, witness), ctx)
+    proof.type_check(Id(ty, witness, witness), env)
 
 
 def test_double_preserves_y_equals_x_plus_seven() -> None:
