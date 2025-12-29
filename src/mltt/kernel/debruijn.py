@@ -129,16 +129,7 @@ class Env:
         lookup, matching standard de Bruijn conventions for Pi/Lam codomains.
     """
 
-    entries: tuple[CtxEntry, ...] = ()
-
-    def __len__(self) -> int:
-        return len(self.entries)
-
-    def __iter__(self) -> Iterator[CtxEntry]:
-        return iter(self.entries)
-
-    def __getitem__(self, idx: int) -> CtxEntry:
-        return self.entries[idx]
+    binders: tuple[CtxEntry, ...] = ()
 
     def push_binders(self, *tys: Term) -> Env:
         """Prepend binders to the context.
@@ -155,7 +146,7 @@ class Env:
         """
         # push(t0, ..., tk) == push(t0).push(t1)...push(tk)
         # so insert from innermost to outermost (reverse order).
-        return Env.of(*reversed(tys), *self.entries)
+        return Env.of(*reversed(tys), *self.binders)
 
     @staticmethod
     def of(*env: CtxEntry | Term) -> Env:
@@ -163,12 +154,9 @@ class Env:
         return Env(tuple(CtxEntry.of(entry) for entry in env))
 
     def __str__(self) -> str:
-        if len(self.entries) < 2:
-            return f"Ctx{self.entries}"
-        return f"Ctx(\n{"".join([f"  #{i}: {e.ty}\n" for i, e in enumerate(self)])})"
-
-    def as_telescope(self) -> Telescope:
-        return Telescope.of(*(e.ty for e in reversed(self.entries)))
+        if len(self.binders) < 2:
+            return f"Ctx{self.binders}"
+        return f"Ctx(\n{"".join([f"  #{i}: {e.ty}\n" for i, e in enumerate(self.binders)])})"
 
 
 def mk_app(fn: Term, *args: Term | ArgList) -> Term:

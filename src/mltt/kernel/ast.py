@@ -203,14 +203,14 @@ class Var(Term):
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, env: Env) -> Term:
-        if self.k < len(env):
-            return env[self.k].ty.shift(self.k + 1)
+        if self.k < len(env.binders):
+            return env.binders[self.k].ty.shift(self.k + 1)
         raise TypeError(f"Unbound variable {self.k}")
 
     def _type_check(self, expected_ty: Term, env: Env) -> None:
-        if self.k >= len(env):
+        if self.k >= len(env.binders):
             raise TypeError(f"Unbound variable {self.k}")
-        found_ty = env[self.k].ty.shift(self.k + 1)
+        found_ty = env.binders[self.k].ty.shift(self.k + 1)
         if not found_ty.type_equal(expected_ty):
             raise TypeError(
                 "Variable type mismatch:\n"
