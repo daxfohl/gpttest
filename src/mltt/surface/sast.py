@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var
 from mltt.kernel.environment import Const, Env
 from mltt.kernel.levels import LConst
-from mltt.kernel.telescope import mk_app, mk_pis
 
 if TYPE_CHECKING:
     from mltt.surface.elab_state import ElabState
@@ -57,6 +56,7 @@ class SBinder:
     name: str
     ty: SurfaceTerm | None
     span: Span
+    implicit: bool = False
 
     def elab(self, env: Env, state: "ElabState") -> tuple[Term, Env]:
         if self.ty is None:
@@ -64,6 +64,12 @@ class SBinder:
         ty_term, _ = self.ty.elab_infer(env, state)
         _ = ty_term.expect_universe(env)
         return ty_term, env.push_binder(ty_term, name=self.name)
+
+
+@dataclass(frozen=True)
+class SArg:
+    term: SurfaceTerm
+    implicit: bool = False
 
 
 @dataclass
@@ -158,7 +164,7 @@ class SHole(SurfaceTerm):
         raise SurfaceError("Hole needs expected type", self.span)
 
     def elab_check(self, env: Env, state: "ElabState", expected: Term) -> Term:
-        return state.fresh_meta(env, expected, self.span)
+        return state.fresh_meta(env, expected, self.span, kind="hole")
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         raise SurfaceError("Hole requires elaboration", self.span)
@@ -175,23 +181,26 @@ class SLam(SurfaceTerm):
                 "Cannot infer unannotated lambda; add binder types or use check-mode",
                 self.span,
             )
-        binder_tys, env1 = _elab_binders(env, state, self.binders)
+        binder_tys, binder_impls, env1 = _elab_binders(env, state, self.binders)
         body_term, body_ty = self.body.elab_infer(env1, state)
         lam_term = body_term
         lam_ty = body_ty
-        for ty in reversed(binder_tys):
-            lam_term = Lam(ty, lam_term)
-            lam_ty = Pi(ty, lam_ty)
+        for ty, implicit in reversed(list(zip(binder_tys, binder_impls))):
+            lam_term = Lam(ty, lam_term, implicit=implicit)
+            lam_ty = Pi(ty, lam_ty, implicit=implicit)
         return lam_term, lam_ty
 
     def elab_check(self, env: Env, state: "ElabState", expected: Term) -> Term:
         binder_tys: list[Term] = []
+        binder_impls: list[bool] = []
         env1 = env
         expected_ty = expected
         for binder in self.binders:
             pi_ty = expected_ty.whnf(env1)
             if not isinstance(pi_ty, Pi):
                 raise SurfaceError("Lambda needs expected function type", self.span)
+            if binder.implicit != pi_ty.implicit:
+                raise SurfaceError("Lambda binder implicitness mismatch", binder.span)
             if binder.ty is None:
                 binder_ty = pi_ty.arg_ty
             else:
@@ -200,25 +209,28 @@ class SLam(SurfaceTerm):
                 if not binder_ty.type_equal(pi_ty.arg_ty, env1):
                     raise SurfaceError("Lambda binder type mismatch", binder.span)
             binder_tys.append(binder_ty)
+            binder_impls.append(binder.implicit)
             env1 = env1.push_binder(binder_ty, name=binder.name)
             expected_ty = pi_ty.return_ty
         body_term = self.body.elab_check(env1, state, expected_ty)
         lam_term = body_term
-        for ty in reversed(binder_tys):
-            lam_term = Lam(ty, lam_term)
+        for ty, implicit in reversed(list(zip(binder_tys, binder_impls))):
+            lam_term = Lam(ty, lam_term, implicit=implicit)
         return lam_term
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         if any(b.ty is None for b in self.binders):
             raise SurfaceError("Missing binder type", self.span)
         tys: list[Term] = []
+        impls: list[bool] = []
         for binder in self.binders:
             assert binder.ty is not None
             tys.append(binder.ty.resolve(env, names))
+            impls.append(binder.implicit)
             names.push(binder.name)
         term = self.body.resolve(env, names)
-        for ty in reversed(tys):
-            term = Lam(ty, term)
+        for ty, implicit in reversed(list(zip(tys, impls))):
+            term = Lam(ty, term, implicit=implicit)
             names.pop()
         return term
 
@@ -229,22 +241,26 @@ class SPi(SurfaceTerm):
     body: SurfaceTerm
 
     def elab_infer(self, env: Env, state: "ElabState") -> tuple[Term, Term]:
-        binder_tys, env1 = _elab_binders(env, state, self.binders)
+        binder_tys, binder_impls, env1 = _elab_binders(env, state, self.binders)
         body_term, _ = self.body.elab_infer(env1, state)
-        pi_term = mk_pis(*binder_tys, return_ty=body_term)
+        pi_term: Term = body_term
+        for ty, implicit in reversed(list(zip(binder_tys, binder_impls))):
+            pi_term = Pi(ty, pi_term, implicit=implicit)
         return pi_term, pi_term.infer_type(env)
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         if any(b.ty is None for b in self.binders):
             raise SurfaceError("Missing binder type", self.span)
         tys: list[Term] = []
+        impls: list[bool] = []
         for binder in self.binders:
             assert binder.ty is not None
             tys.append(binder.ty.resolve(env, names))
+            impls.append(binder.implicit)
             names.push(binder.name)
         term = self.body.resolve(env, names)
-        for ty in reversed(tys):
-            term = Pi(ty, term)
+        for ty, implicit in reversed(list(zip(tys, impls))):
+            term = Pi(ty, term, implicit=implicit)
             names.pop()
         return term
 
@@ -252,23 +268,46 @@ class SPi(SurfaceTerm):
 @dataclass(frozen=True)
 class SApp(SurfaceTerm):
     fn: SurfaceTerm
-    args: tuple[SurfaceTerm, ...]
+    args: tuple[SArg, ...]
 
     def elab_infer(self, env: Env, state: "ElabState") -> tuple[Term, Term]:
         fn_term, fn_ty = self.fn.elab_infer(env, state)
-        for arg in self.args:
+        pending = list(self.args)
+        while pending:
             fn_ty_whnf = fn_ty.whnf(env)
             if not isinstance(fn_ty_whnf, Pi):
-                raise SurfaceError("Application of non-function", arg.span)
-            arg_term = arg.elab_check(env, state, fn_ty_whnf.arg_ty)
-            fn_term = App(fn_term, arg_term)
+                raise SurfaceError("Application of non-function", pending[0].term.span)
+            if fn_ty_whnf.implicit and not pending[0].implicit:
+                meta = state.fresh_meta(
+                    env, fn_ty_whnf.arg_ty, self.span, kind="implicit"
+                )
+                fn_term = App(fn_term, meta, implicit=True)
+                fn_ty = fn_ty_whnf.return_ty.subst(meta)
+                continue
+            arg = pending.pop(0)
+            if arg.implicit != fn_ty_whnf.implicit:
+                raise SurfaceError(
+                    "Implicit argument provided where explicit expected", arg.term.span
+                )
+            arg_term = arg.term.elab_check(env, state, fn_ty_whnf.arg_ty)
+            fn_term = App(fn_term, arg_term, implicit=fn_ty_whnf.implicit)
             fn_ty = fn_ty_whnf.return_ty.subst(arg_term)
+        while True:
+            fn_ty_whnf = fn_ty.whnf(env)
+            if not isinstance(fn_ty_whnf, Pi) or not fn_ty_whnf.implicit:
+                break
+            meta = state.fresh_meta(env, fn_ty_whnf.arg_ty, self.span, kind="implicit")
+            fn_term = App(fn_term, meta, implicit=True)
+            fn_ty = fn_ty_whnf.return_ty.subst(meta)
         return fn_term, fn_ty
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         fn = self.fn.resolve(env, names)
-        args = tuple(arg.resolve(env, names) for arg in self.args)
-        return mk_app(fn, *args)
+        term = fn
+        for arg in self.args:
+            arg_term = arg.term.resolve(env, names)
+            term = App(term, arg_term, implicit=arg.implicit)
+        return term
 
 
 @dataclass(frozen=True)
@@ -318,9 +357,11 @@ class SLet(SurfaceTerm):
 
 def _elab_binders(
     env: Env, state: "ElabState", binders: tuple[SBinder, ...]
-) -> tuple[list[Term], Env]:
+) -> tuple[list[Term], list[bool], Env]:
     binder_tys: list[Term] = []
+    binder_impls: list[bool] = []
     for binder in binders:
         ty_term, env = binder.elab(env, state)
         binder_tys.append(ty_term)
-    return binder_tys, env
+        binder_impls.append(binder.implicit)
+    return binder_tys, binder_impls, env

@@ -30,7 +30,7 @@ def _uses_var(term: Term, target: int, depth: int = 0) -> bool:
     match term:
         case Var(k):
             return k == target + depth
-        case Lam(ty, body) | Pi(ty, body):
+        case Lam(ty, body, _) | Pi(ty, body, _):
             return _uses_var(ty, target, depth) or _uses_var(body, target, depth + 1)
         case Let(arg_ty, value, body):
             return (
@@ -38,7 +38,7 @@ def _uses_var(term: Term, target: int, depth: int = 0) -> bool:
                 or _uses_var(value, target, depth)
                 or _uses_var(body, target, depth + 1)
             )
-        case App(f, a):
+        case App(f, a, _):
             return _uses_var(f, target, depth) or _uses_var(a, target, depth)
         case UApp(head, _levels):
             return _uses_var(head, target, depth)
@@ -122,13 +122,15 @@ def pretty(term: Term) -> str:
             case MetaVar(mid):
                 return f"?m{mid}", ATOM_PREC
 
-            case App(f, a):
+            case App(f, a, implicit):
                 func_text, func_prec = fmt(f, env)
                 arg_text, arg_prec = fmt(a, env)
                 func_disp = _maybe_paren(
                     func_text, func_prec, APP_PREC, allow_equal=True
                 )
                 arg_disp = _maybe_paren(arg_text, arg_prec, APP_PREC, allow_equal=False)
+                if implicit:
+                    return f"{func_disp} {{{arg_disp}}}", APP_PREC
                 return f"{func_disp} {arg_disp}", APP_PREC
 
             case UApp(head, levels):
@@ -136,14 +138,15 @@ def pretty(term: Term) -> str:
                 level_texts = ", ".join(_pretty_level(level) for level in levels)
                 return f"{head_text}@{{{level_texts}}}", ATOM_PREC
 
-            case Lam(arg_ty, body):
+            case Lam(arg_ty, body, implicit):
                 binder = _fresh_name(env)
                 arg_text, arg_prec = fmt(arg_ty, env)
                 body_text, _ = fmt(body, [binder, *env])
                 arg_disp = _maybe_paren(arg_text, arg_prec, PI_PREC, allow_equal=False)
-                return f"\\{binder} : {arg_disp}. {body_text}", LAM_PREC
+                binder_text = f"{{{binder}}}" if implicit else binder
+                return f"\\{binder_text} : {arg_disp}. {body_text}", LAM_PREC
 
-            case Pi(arg_ty, body):
+            case Pi(arg_ty, body, implicit):
                 dependent = _uses_var(body, target=0)
                 binder = _fresh_name(env, base="_" if not dependent else "x")
                 arg_text, arg_prec = fmt(arg_ty, env)
@@ -153,10 +156,14 @@ def pretty(term: Term) -> str:
                     body_disp = _maybe_paren(
                         body_text, body_prec, PI_PREC, allow_equal=True
                     )
+                    if implicit:
+                        return f"{{{arg_disp}}} -> {body_disp}", PI_PREC
                     return f"{arg_disp} -> {body_disp}", PI_PREC
                 body_disp = _maybe_paren(
                     body_text, body_prec, PI_PREC, allow_equal=True
                 )
+                if implicit:
+                    return f"Pi {{{binder}}} : {arg_disp}. {body_disp}", PI_PREC
                 return f"Pi {binder} : {arg_disp}. {body_disp}", PI_PREC
 
             case Let(arg_ty, value, body):

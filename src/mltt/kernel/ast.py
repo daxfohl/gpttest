@@ -262,11 +262,12 @@ class Lam(Term):
 
     arg_ty: Term
     body: Term = field(metadata={"": TermFieldMeta(binder_count=1)})
+    implicit: bool = False
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, env: Env) -> Term:
         body_ty = self.body.infer_type(env.push_binder(self.arg_ty))
-        return Pi(self.arg_ty, body_ty)
+        return Pi(self.arg_ty, body_ty, implicit=self.implicit)
 
     def _type_check(self, expected_ty: Term, env: Env) -> None:
         if not isinstance(expected_ty, Pi):
@@ -282,6 +283,13 @@ class Lam(Term):
                 f"  expected domain = {expected_ty.arg_ty}\n"
                 f"  found domain = {self.arg_ty}"
             )
+        if self.implicit != expected_ty.implicit:
+            raise TypeError(
+                "Lambda implicitness mismatch:\n"
+                f"  term = {self}\n"
+                f"  expected implicit = {expected_ty.implicit}\n"
+                f"  found implicit = {self.implicit}"
+            )
         self.body.type_check(expected_ty.return_ty, env.push_binder(self.arg_ty))
 
 
@@ -291,6 +299,7 @@ class Pi(Term):
 
     arg_ty: Term
     return_ty: Term = field(metadata={"": TermFieldMeta(binder_count=1)})
+    implicit: bool = False
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, env: Env) -> Term:
@@ -305,13 +314,14 @@ class App(Term):
 
     func: Term
     arg: Term
+    implicit: bool = False
 
     # Reduction ----------------------------------------------------------------
     def _whnf_step(self, env: Env) -> Term:
         f_whnf = self.func.whnf(env)
-        if isinstance(f_whnf, Lam):
+        if isinstance(f_whnf, Lam) and f_whnf.implicit == self.implicit:
             return f_whnf.body.subst(self.arg)
-        return App(f_whnf, self.arg)
+        return App(f_whnf, self.arg, implicit=self.implicit)
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, env: Env) -> Term:
@@ -322,6 +332,13 @@ class App(Term):
                 f"  term = {self}\n"
                 f"  function = {self.func}\n"
                 f"  inferred f_ty = {f_ty}"
+            )
+        if self.implicit != f_ty.implicit:
+            raise TypeError(
+                "Application implicitness mismatch:\n"
+                f"  term = {self}\n"
+                f"  expected implicit = {f_ty.implicit}\n"
+                f"  found implicit = {self.implicit}"
             )
         self.arg.type_check(f_ty.arg_ty, env)
         return f_ty.return_ty.subst(self.arg)

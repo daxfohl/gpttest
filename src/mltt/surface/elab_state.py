@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from mltt.kernel.ast import MetaVar, Term, Var
+from mltt.kernel.ast import App, MetaVar, Pi, Term, Var
 from mltt.kernel.environment import Env
 from mltt.surface.sast import Span, SurfaceError
 
@@ -15,6 +15,7 @@ class Meta:
     ty: Term
     solution: Term | None = None
     span: Span | None = None
+    kind: str = "hole"
 
 
 @dataclass
@@ -31,10 +32,14 @@ class ElabState:
     constraints: list[Constraint] = field(default_factory=list)
     next_id: int = 0
 
-    def fresh_meta(self, env: Env, expected: Term, span: Span | None) -> MetaVar:
+    def fresh_meta(
+        self, env: Env, expected: Term, span: Span | None, *, kind: str
+    ) -> MetaVar:
         mid = self.next_id
         self.next_id += 1
-        self.metas[mid] = Meta(ctx_len=len(env.binders), ty=expected, span=span)
+        self.metas[mid] = Meta(
+            ctx_len=len(env.binders), ty=expected, span=span, kind=kind
+        )
         return MetaVar(mid)
 
     def add_constraint(self, env: Env, lhs: Term, rhs: Term, span: Span | None) -> None:
@@ -69,9 +74,11 @@ class ElabState:
         mid, meta = unsolved[0]
         ty = self.zonk(meta.ty)
         span = meta.span or Span(0, 0)
-        raise SurfaceError(
-            f"Cannot synthesize value for hole ?m{mid}; expected type {ty}", span
-        )
+        if meta.kind == "implicit":
+            message = f"Cannot infer implicit argument ?m{mid}; expected type {ty}"
+        else:
+            message = f"Cannot synthesize value for hole ?m{mid}; expected type {ty}"
+        raise SurfaceError(message, span)
 
     def _solve_constraint(self, env: Env, constraint: Constraint) -> bool:
         lhs = self.zonk(constraint.lhs)
@@ -81,6 +88,31 @@ class ElabState:
         if isinstance(lhs, MetaVar) and self._try_solve(lhs.mid, rhs):
             return True
         if isinstance(rhs, MetaVar) and self._try_solve(rhs.mid, lhs):
+            return True
+        if isinstance(lhs, Pi) and isinstance(rhs, Pi) and lhs.implicit == rhs.implicit:
+            self.constraints.append(
+                Constraint(constraint.ctx_len, lhs.arg_ty, rhs.arg_ty, constraint.span)
+            )
+            self.constraints.append(
+                Constraint(
+                    constraint.ctx_len + 1,
+                    lhs.return_ty,
+                    rhs.return_ty,
+                    constraint.span,
+                )
+            )
+            return True
+        if (
+            isinstance(lhs, App)
+            and isinstance(rhs, App)
+            and lhs.implicit == rhs.implicit
+        ):
+            self.constraints.append(
+                Constraint(constraint.ctx_len, lhs.func, rhs.func, constraint.span)
+            )
+            self.constraints.append(
+                Constraint(constraint.ctx_len, lhs.arg, rhs.arg, constraint.span)
+            )
             return True
         return False
 

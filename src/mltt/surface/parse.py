@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from typing import cast
 
-import ply.lex as lex  # type: ignore[import-not-found]
-import ply.yacc as yacc  # type: ignore[import-not-found]
+import ply.lex as lex  # type: ignore[import-untyped]
+import ply.yacc as yacc  # type: ignore[import-untyped]
 
 from mltt.surface.sast import (
     Span,
     SurfaceError,
     SurfaceTerm,
     SBinder,
+    SArg,
     SVar,
     SConst,
     SUniv,
@@ -145,7 +146,7 @@ def p_pi_arrow(p: yacc.YaccProduction) -> None:
     "pi : app ARROW term"
     left = p[1]
     right = p[3]
-    binder = SBinder("_", left, Span(left.span.start, left.span.end))
+    binder = SBinder("_", left, Span(left.span.start, left.span.end), implicit=False)
     span = Span(left.span.start, right.span.end)
     p[0] = SPi(span=span, binders=(binder,), body=right)
 
@@ -183,33 +184,51 @@ def p_lam_binder_annotated(p: yacc.YaccProduction) -> None:
 def p_lam_binder_ident(p: yacc.YaccProduction) -> None:
     "lam_binder : IDENT"
     span = _span(p, 1, 1)
-    p[0] = SBinder(p[1], None, span)
+    p[0] = SBinder(p[1], None, span, implicit=False)
 
 
 def p_lam_binder_hole(p: yacc.YaccProduction) -> None:
     "lam_binder : HOLE"
     span = _span(p, 1, 1)
-    p[0] = SBinder("_", None, span)
+    p[0] = SBinder("_", None, span, implicit=False)
 
 
 def p_binder(p: yacc.YaccProduction) -> None:
     "binder : LPAREN IDENT COLON term RPAREN"
     span = _span(p, 1, 5)
-    p[0] = SBinder(p[2], p[4], span)
+    p[0] = SBinder(p[2], p[4], span, implicit=False)
 
 
-def p_app_chain(p: yacc.YaccProduction) -> None:
-    "app : app atom"
-    left = p[1]
-    right = p[2]
+def p_binder_implicit(p: yacc.YaccProduction) -> None:
+    "binder : LBRACE IDENT COLON term RBRACE"
+    span = _span(p, 1, 5)
+    p[0] = SBinder(p[2], p[4], span, implicit=True)
+
+
+def p_binder_implicit_hole(p: yacc.YaccProduction) -> None:
+    "binder : LBRACE HOLE COLON term RBRACE"
+    span = _span(p, 1, 5)
+    p[0] = SBinder("_", p[4], span, implicit=True)
+
+
+def _append_app(left: SurfaceTerm, arg: SArg) -> SApp:
     if isinstance(left, SApp):
         fn = left.fn
-        args = left.args + (right,)
-    else:
-        fn = left
-        args = (right,)
-    span = Span(left.span.start, right.span.end)
-    p[0] = SApp(span=span, fn=fn, args=args)
+        args = left.args + (arg,)
+        span = Span(left.span.start, arg.term.span.end)
+        return SApp(span=span, fn=fn, args=args)
+    span = Span(left.span.start, arg.term.span.end)
+    return SApp(span=span, fn=left, args=(arg,))
+
+
+def p_app_chain_explicit(p: yacc.YaccProduction) -> None:
+    "app : app atom"
+    p[0] = _append_app(p[1], SArg(p[2], implicit=False))
+
+
+def p_app_chain_implicit(p: yacc.YaccProduction) -> None:
+    "app : app implicit_arg"
+    p[0] = _append_app(p[1], p[2])
 
 
 def p_app_atom(p: yacc.YaccProduction) -> None:
@@ -226,6 +245,11 @@ def p_atom_uapp(p: yacc.YaccProduction) -> None:
 def p_atom_base(p: yacc.YaccProduction) -> None:
     "atom : atom_base"
     p[0] = p[1]
+
+
+def p_implicit_arg(p: yacc.YaccProduction) -> None:
+    "implicit_arg : LBRACE term RBRACE"
+    p[0] = SArg(p[2], implicit=True)
 
 
 def p_level_list_single(p: yacc.YaccProduction) -> None:
