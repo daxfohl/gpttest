@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var
+from mltt.kernel.levels import LevelConst
 from mltt.kernel.telescope import mk_app, mk_pis, mk_lams, Telescope
 from mltt.kernel.ind import Elim, Ctor, Ind
 
@@ -12,7 +13,7 @@ Sigma = Ind(
         Univ(0),  # A : Type
         Pi(Var(0), Univ(0)),  # B : A -> Type
     ),
-    level=0,
+    level=LevelConst(0),
 )
 PairCtor = Ctor(
     name="Pair",

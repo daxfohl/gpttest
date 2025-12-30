@@ -6,24 +6,26 @@ from functools import cache
 
 from mltt.inductive.list import ConsCtorAt, ListAt, NilCtorAt
 from mltt.kernel.ast import App, Pi, Term, Univ, Var
+from mltt.kernel.levels import LevelExpr, coerce_level
 from mltt.kernel.telescope import mk_app, Telescope, ArgList
 from mltt.kernel.ind import Elim, Ctor, Ind
 
 
 @cache
-def _sorted_family(level: int) -> tuple[Ind, Ctor, Ctor, Ctor]:
-    list_ind = ListAt(level)
-    nil_ctor = NilCtorAt(level)
-    cons_ctor = ConsCtorAt(level)
+def _sorted_family(level: LevelExpr | int) -> tuple[Ind, Ctor, Ctor, Ctor]:
+    level_expr = coerce_level(level)
+    list_ind = ListAt(level_expr)
+    nil_ctor = NilCtorAt(level_expr)
+    cons_ctor = ConsCtorAt(level_expr)
 
     sorted_ind = Ind(
         name="Sorted",
         param_types=Telescope.of(
-            Univ(level),  # A : Type
-            Pi(Var(0), Pi(Var(1), Univ(level))),  # R : A -> A -> Type
+            Univ(level_expr),  # A : Type
+            Pi(Var(0), Pi(Var(1), Univ(level_expr))),  # R : A -> A -> Type
         ),
         index_types=Telescope.of(App(list_ind, Var(1))),  # xs : List A
-        level=level,
+        level=level_expr,
     )
 
     sorted_nil_ctor = Ctor(
@@ -75,31 +77,31 @@ def _sorted_family(level: int) -> tuple[Ind, Ctor, Ctor, Ctor]:
 Sorted, SortedNilCtor, SortedOneCtor, SortedConsCtor = _sorted_family(0)
 
 
-def SortedAt(level: int = 0) -> Ind:
+def SortedAt(level: int | LevelExpr = 0) -> Ind:
     return _sorted_family(level)[0]
 
 
-def SortedNilCtorAt(level: int = 0) -> Ctor:
+def SortedNilCtorAt(level: int | LevelExpr = 0) -> Ctor:
     return _sorted_family(level)[1]
 
 
-def SortedOneCtorAt(level: int = 0) -> Ctor:
+def SortedOneCtorAt(level: int | LevelExpr = 0) -> Ctor:
     return _sorted_family(level)[2]
 
 
-def SortedConsCtorAt(level: int = 0) -> Ctor:
+def SortedConsCtorAt(level: int | LevelExpr = 0) -> Ctor:
     return _sorted_family(level)[3]
 
 
-def SortedType(A: Term, R: Term, xs: Term, *, level: int = 0) -> Term:
+def SortedType(A: Term, R: Term, xs: Term, *, level: int | LevelExpr = 0) -> Term:
     return mk_app(SortedAt(level), A, R, xs)
 
 
-def SortedNil(A: Term, R: Term, *, level: int = 0) -> Term:
+def SortedNil(A: Term, R: Term, *, level: int | LevelExpr = 0) -> Term:
     return mk_app(SortedNilCtorAt(level), A, R)
 
 
-def SortedOne(A: Term, R: Term, x: Term, *, level: int = 0) -> Term:
+def SortedOne(A: Term, R: Term, x: Term, *, level: int | LevelExpr = 0) -> Term:
     return mk_app(SortedOneCtorAt(level), A, R, x)
 
 
@@ -112,7 +114,7 @@ def SortedCons(
     rel: Term,
     ih: Term,
     *,
-    level: int = 0,
+    level: int | LevelExpr = 0,
 ) -> Term:
     return mk_app(SortedConsCtorAt(level), A, R, xs, x, y, rel, ih)
 
@@ -124,7 +126,7 @@ def SortedRec(
     cons_case: Term,
     proof: Term,
     *,
-    level: int = 0,
+    level: int | LevelExpr = 0,
 ) -> Elim:
     return Elim(
         inductive=SortedAt(level),

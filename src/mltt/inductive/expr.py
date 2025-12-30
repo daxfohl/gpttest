@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from mltt.inductive.sigma import Sigma
 from mltt.kernel.ast import Lam, Term, Univ, Var
+from mltt.kernel.levels import LevelConst
 from mltt.kernel.telescope import mk_app, Telescope, ArgList
 from mltt.kernel.ind import Elim, Ctor, Ind
 
@@ -12,7 +13,7 @@ Expr = Ind(
     name="Expr",
     param_types=Telescope.of(Univ(1)),
     index_types=Telescope.of(Var(0)),
-    level=1,
+    level=LevelConst(1),
 )
 
 ConstCtor = Ctor(

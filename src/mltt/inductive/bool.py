@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from mltt.kernel.ast import App, Lam, Term, Univ, Var
+from mltt.kernel.levels import LevelConst
 from mltt.kernel.telescope import mk_app, mk_lams
 from mltt.kernel.ind import Elim, Ctor, Ind
 
-Bool = Ind(name="Bool", level=0)
+Bool = Ind(name="Bool", level=LevelConst(0))
 FalseCtor = Ctor(name="False", inductive=Bool)
 TrueCtor = Ctor(name="True", inductive=Bool)
 object.__setattr__(Bool, "constructors", (FalseCtor, TrueCtor))

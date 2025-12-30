@@ -7,24 +7,25 @@ from functools import cache
 from mltt.inductive.nat import NatType, Succ, Zero
 from mltt.inductive.vec import ConsCtorAt, NilCtorAt, VecType
 from mltt.kernel.ast import App, Pi, Term, Univ, Var
+from mltt.kernel.levels import LevelExpr, coerce_level
 from mltt.kernel.telescope import mk_app, Telescope, ArgList
 from mltt.kernel.ind import Ctor, Elim, Ind
 
 
 @cache
-def _allvec_family(level: int) -> tuple[Ind, Ctor, Ctor]:
-    nil_ctor = NilCtorAt(level)
-    cons_ctor = ConsCtorAt(level)
-
+def _allvec_family(level: LevelExpr | int) -> tuple[Ind, Ctor, Ctor]:
+    level_expr = coerce_level(level)
+    nil_ctor = NilCtorAt(level_expr)
+    cons_ctor = ConsCtorAt(level_expr)
     allvec_ind = Ind(
         name="AllVec",
         param_types=Telescope.of(
-            Univ(level), Pi(Var(0), Univ(level))
+            Univ(level_expr), Pi(Var(0), Univ(level_expr))
         ),  # A : Type, P : A -> Type
         index_types=Telescope.of(
-            NatType(), VecType(Var(2), Var(0), level=level)
+            NatType(), VecType(Var(2), Var(0), level=level_expr)
         ),  # n : Nat, xs : Vec A n
-        level=level,
+        level=level_expr,
     )
 
     all_nil_ctor = Ctor(
@@ -42,7 +43,9 @@ def _allvec_family(level: int) -> tuple[Ind, Ctor, Ctor]:
         field_schemas=Telescope.of(
             NatType(),  # n : Nat
             Var(2),  # x : A (context: (A,P,n))
-            VecType(Var(3), Var(1), level=level),  # xs : Vec A n (context: (A,P,n,x))
+            VecType(
+                Var(3), Var(1), level=level_expr
+            ),  # xs : Vec A n (context: (A,P,n,x))
             App(Var(3), Var(1)),  # px : P x (context: (A,P,n,x,xs))
             mk_app(allvec_ind, Var(5), Var(4), Var(3), Var(1)),  # ih : AllVec A P n xs
         ),
@@ -59,23 +62,25 @@ def _allvec_family(level: int) -> tuple[Ind, Ctor, Ctor]:
 AllVec, AllNilCtor, AllConsCtor = _allvec_family(0)
 
 
-def AllVecAt(level: int = 0) -> Ind:
+def AllVecAt(level: int | LevelExpr = 0) -> Ind:
     return _allvec_family(level)[0]
 
 
-def AllNilCtorAt(level: int = 0) -> Ctor:
+def AllNilCtorAt(level: int | LevelExpr = 0) -> Ctor:
     return _allvec_family(level)[1]
 
 
-def AllConsCtorAt(level: int = 0) -> Ctor:
+def AllConsCtorAt(level: int | LevelExpr = 0) -> Ctor:
     return _allvec_family(level)[2]
 
 
-def AllVecType(A: Term, P: Term, n: Term, xs: Term, *, level: int = 0) -> Term:
+def AllVecType(
+    A: Term, P: Term, n: Term, xs: Term, *, level: int | LevelExpr = 0
+) -> Term:
     return mk_app(AllVecAt(level), A, P, n, xs)
 
 
-def AllNil(A: Term, P: Term, *, level: int = 0) -> Term:
+def AllNil(A: Term, P: Term, *, level: int | LevelExpr = 0) -> Term:
     return mk_app(AllNilCtorAt(level), A, P)
 
 
@@ -88,13 +93,18 @@ def AllCons(
     px: Term,
     ih: Term,
     *,
-    level: int = 0,
+    level: int | LevelExpr = 0,
 ) -> Term:
     return mk_app(AllConsCtorAt(level), A, P, n, x, xs, px, ih)
 
 
 def AllVecElim(
-    motive: Term, all_nil: Term, all_cons: Term, scrutinee: Term, *, level: int = 0
+    motive: Term,
+    all_nil: Term,
+    all_cons: Term,
+    scrutinee: Term,
+    *,
+    level: int | LevelExpr = 0,
 ) -> Elim:
     return Elim(
         inductive=AllVecAt(level),

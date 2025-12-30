@@ -8,10 +8,15 @@ from mltt.kernel.ast import (
     Term,
     Var,
 )
+from mltt.kernel.levels import LevelConst
 from mltt.kernel.telescope import mk_app, mk_lams, Telescope, ArgList
 from mltt.kernel.ind import Elim, Ctor, Ind
 
-Fin = Ind(name="Fin", index_types=Telescope.of(NatType()), level=0)
+Fin = Ind(
+    name="Fin",
+    index_types=Telescope.of(NatType()),
+    level=LevelConst(0),
+)
 FZCtor = Ctor(
     name="FZ",
     inductive=Fin,

@@ -7,17 +7,19 @@ from functools import cache
 from mltt.inductive.fin import FinType, FZ, FS
 from mltt.inductive.nat import NatType, Succ, Zero
 from mltt.kernel.ast import Term, Univ, Var
+from mltt.kernel.levels import LevelExpr, coerce_level
 from mltt.kernel.telescope import mk_app, mk_lams, Telescope, ArgList
 from mltt.kernel.ind import Elim, Ctor, Ind
 
 
 @cache
-def _vec_family(level: int) -> tuple[Ind, Ctor, Ctor]:
+def _vec_family(level: LevelExpr | int) -> tuple[Ind, Ctor, Ctor]:
+    level_expr = coerce_level(level)
     vec_ind = Ind(
         name="Vec",
-        param_types=Telescope.of(Univ(level)),
+        param_types=Telescope.of(Univ(level_expr)),
         index_types=Telescope.of(NatType()),
-        level=level,
+        level=level_expr,
     )
     nil_ctor = Ctor(
         name="Nil",
@@ -41,31 +43,40 @@ def _vec_family(level: int) -> tuple[Ind, Ctor, Ctor]:
 Vec, NilCtor, ConsCtor = _vec_family(0)
 
 
-def VecAt(level: int = 0) -> Ind:
+def VecAt(level: int | LevelExpr = 0) -> Ind:
     return _vec_family(level)[0]
 
 
-def NilCtorAt(level: int = 0) -> Ctor:
+def NilCtorAt(level: int | LevelExpr = 0) -> Ctor:
     return _vec_family(level)[1]
 
 
-def ConsCtorAt(level: int = 0) -> Ctor:
+def ConsCtorAt(level: int | LevelExpr = 0) -> Ctor:
     return _vec_family(level)[2]
 
 
-def VecType(elem_ty: Term, length: Term, *, level: int = 0) -> Term:
+def VecType(elem_ty: Term, length: Term, *, level: int | LevelExpr = 0) -> Term:
     return mk_app(VecAt(level), elem_ty, length)
 
 
-def Nil(elem_ty: Term, *, level: int = 0) -> Term:
+def Nil(elem_ty: Term, *, level: int | LevelExpr = 0) -> Term:
     return mk_app(NilCtorAt(level), elem_ty)
 
 
-def Cons(elem_ty: Term, n: Term, head: Term, tail: Term, *, level: int = 0) -> Term:
+def Cons(
+    elem_ty: Term,
+    n: Term,
+    head: Term,
+    tail: Term,
+    *,
+    level: int | LevelExpr = 0,
+) -> Term:
     return mk_app(ConsCtorAt(level), elem_ty, n, head, tail)
 
 
-def VecElim(P: Term, base: Term, step: Term, xs: Term, *, level: int = 0) -> Elim:
+def VecElim(
+    P: Term, base: Term, step: Term, xs: Term, *, level: int | LevelExpr = 0
+) -> Elim:
     """Recursor for vectors."""
 
     return Elim(

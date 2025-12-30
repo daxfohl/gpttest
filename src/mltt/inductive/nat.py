@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from mltt.inductive.maybe import MaybeType, Nothing, Just
 from mltt.kernel.ast import App, Lam, Term, Var
+from mltt.kernel.levels import LevelConst
 from mltt.kernel.telescope import mk_lams, Telescope
 from mltt.kernel.ind import Elim, Ctor, Ind
 
-Nat = Ind(name="Nat", level=0)
+Nat = Ind(name="Nat", level=LevelConst(0))
 ZeroCtor = Ctor(name="Zero", inductive=Nat)
 SuccCtor = Ctor(name="Succ", inductive=Nat, field_schemas=Telescope.of(Nat))
 object.__setattr__(Nat, "constructors", (ZeroCtor, SuccCtor))

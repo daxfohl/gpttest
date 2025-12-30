@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from mltt.kernel.ast import Term
+from mltt.kernel.levels import LevelConst
 from mltt.kernel.ind import Elim, Ctor, Ind
 
 # Top (unit) has a single inhabitant.
-Top = Ind(name="Top", level=0)
+Top = Ind(name="Top", level=LevelConst(0))
 TtCtor = Ctor(name="tt", inductive=Top)
 object.__setattr__(Top, "constructors", (TtCtor,))
 
@@ -26,7 +27,7 @@ def TopRec(motive: Term, case: Term, scrutinee: Term) -> Elim:
 
 
 # Bottom (empty) has no constructors.
-Bot = Ind(name="Bottom", level=0)
+Bot = Ind(name="Bottom", level=LevelConst(0))
 object.__setattr__(Bot, "constructors", ())
 
 

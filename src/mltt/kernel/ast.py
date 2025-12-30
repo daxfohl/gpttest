@@ -11,6 +11,15 @@ if TYPE_CHECKING:
     from mltt.kernel.telescope import ArgList
     from mltt.kernel.environment import Env
 
+from mltt.kernel.levels import (
+    LevelConst,
+    LevelExpr,
+    coerce_level,
+    level_max,
+    level_succ,
+    level_leq,
+)
+
 
 def _map_term_values(value: Any, f: Callable[[Term], Term]) -> Any:
     if isinstance(value, Term):
@@ -147,13 +156,13 @@ class Term:
     def _type_check(self, expected_ty: Term, env: Env) -> None:
         self._check_against_inferred(expected_ty, env)
 
-    def expect_universe(self, env: Env | None = None) -> int:
+    def expect_universe(self, env: Env | None = None) -> LevelExpr:
         ty = self.infer_type(env).whnf(env)
         if not isinstance(ty, Univ):
             raise TypeError(
                 "Expected a universe:\n" f"  term = {self}\n" f"  inferred = {ty}"
             )
-        return ty.level
+        return coerce_level(ty.level)
 
     def _type_equal(self, other: Term, env: Env) -> bool:
         self_whnf = self.whnf(env)
@@ -279,7 +288,7 @@ class Pi(Term):
     def _infer_type(self, env: Env) -> Term:
         arg_level = self.arg_ty.expect_universe(env)
         body_level = self.return_ty.expect_universe(env.push_binder(self.arg_ty))
-        return Univ(max(arg_level, body_level))
+        return Univ(level_max(arg_level, body_level))
 
 
 @dataclass(frozen=True)
@@ -329,20 +338,19 @@ class App(Term):
             )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class Univ(Term):
     """A universe ``Type(level)``."""
 
-    level: int = 0
+    level: LevelExpr = field(default_factory=lambda: LevelConst(0))
     is_terminal: ClassVar[bool] = True
 
-    def __post_init__(self) -> None:
-        if self.level < 0:
-            raise ValueError("Universe level must be non-negative")
+    def __init__(self, level: LevelExpr | int = 0) -> None:
+        object.__setattr__(self, "level", coerce_level(level))
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, env: Env) -> Term:
-        return Univ(self.level + 1)
+        return Univ(level_succ(self.level))
 
     def _type_check(self, expected_ty: Term, env: Env) -> None:
         if not isinstance(expected_ty, Univ):
@@ -351,8 +359,8 @@ class Univ(Term):
                 f"  term = {self}\n"
                 f"  expected = {expected_ty}"
             )
-        min_level = self.level + 1
-        if expected_ty.level < min_level:
+        min_level = level_succ(self.level)
+        if not level_leq(min_level, expected_ty.level):
             raise TypeError(
                 "Universe level mismatch:\n"
                 f"  term = {self}\n"

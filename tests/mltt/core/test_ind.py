@@ -2,6 +2,7 @@ import pytest
 
 import mltt.inductive.vec as vec
 from mltt.kernel.ast import Univ, Var
+from mltt.kernel.levels import LevelConst
 from mltt.kernel.telescope import (
     mk_app,
     mk_pis,
@@ -14,7 +15,7 @@ from mltt.inductive.nat import NatType, Succ, Zero
 
 
 def test_infer_ind_type_rejects_too_small_universe_level() -> None:
-    ind = Ind(name="Bad", param_types=Telescope.of(Univ(1)), level=0)
+    ind = Ind(name="Bad", param_types=Telescope.of(Univ(1)), level=LevelConst(0))
     with pytest.raises(TypeError, match="declared at Type\\(0\\)"):
         ind.infer_type()
 
@@ -56,7 +57,7 @@ def test_instantiate_ctor_arg_types_shifts_params_by_fields() -> None:
 
 
 def test_iota_reduce_detects_whnf_recursive_fields() -> None:
-    wrap = Ind(name="Wrap", level=0)
+    wrap = Ind(name="Wrap", level=LevelConst(0))
     base_ctor = Ctor(name="Base", inductive=wrap)
     wrap_ctor = Ctor(
         name="Wrap",
@@ -83,7 +84,7 @@ def test_iota_reduce_detects_whnf_recursive_fields() -> None:
 
 
 def test_iota_reduce_shares_instantiation_with_typing() -> None:
-    wrap = Ind(name="WrapRec", level=0)
+    wrap = Ind(name="WrapRec", level=LevelConst(0))
     z_ctor = Ctor(name="Z", inductive=wrap)
     s_ctor = Ctor(
         name="S",

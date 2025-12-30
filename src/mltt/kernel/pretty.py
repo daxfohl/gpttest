@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var
 from mltt.kernel.environment import Const
+from mltt.kernel.levels import LevelConst, format_level
 from mltt.kernel.ind import Elim, Ctor, Ind
 
 ATOM_PREC = 3
@@ -90,7 +91,11 @@ def pretty(term: Term) -> str:
                 return name, ATOM_PREC
 
             case Univ(level):
-                return ("Type" if level == 0 else f"Type{level}"), ATOM_PREC
+                if isinstance(level, LevelConst):
+                    return ("Type" if level.value == 0 else f"Type{level.value}"), (
+                        ATOM_PREC
+                    )
+                return f"Type({format_level(level)})", ATOM_PREC
 
             case Ind() as inductive:
                 return _inductive_label(inductive), ATOM_PREC

@@ -7,6 +7,13 @@ from functools import cached_property
 from typing import ClassVar
 
 from mltt.kernel.ast import Term, Pi, Univ, App, TermFieldMeta
+from mltt.kernel.levels import (
+    LevelConst,
+    LevelExpr,
+    coerce_level,
+    level_leq,
+    level_succ,
+)
 from mltt.kernel.telescope import mk_app, mk_pis, decompose_app, Telescope, ArgList
 from mltt.kernel.environment import Env
 
@@ -21,7 +28,7 @@ def infer_ind_type(env: Env, ind: Ind) -> Term:
     binders = ind.param_types + ind.index_types
     for b in binders:
         level = b.expect_universe(env)
-        if ind.level < level - 1:
+        if not level_leq(level, level_succ(ind.level)):
             raise TypeError(
                 f"Inductive {ind.name} declared at Type({ind.level}) "
                 f"but has binder {b} of type Type({level})."
@@ -167,7 +174,7 @@ def infer_elim_type(elim: Elim, env: Env) -> Term:
     # sanity check target_ty really is a type in Type u (or ≤ u with cumulativity)
     _ = target_ty.infer_type(env).expect_universe(env)
 
-    if u < ind.level:
+    if not level_leq(ind.level, u):
         raise TypeError(
             "Eliminator motive returns too small a universe:\n"
             f"  motive level = {u}\n"
@@ -200,7 +207,7 @@ class Ind(Term):
         default=(),
         metadata={"": TermFieldMeta(unchecked=True)},
     )
-    level: int = 0
+    level: LevelExpr = field(default_factory=lambda: LevelConst(0))
     is_terminal: ClassVar[bool] = True
 
     # Typing -------------------------------------------------------------------

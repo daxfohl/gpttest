@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from mltt.kernel.ast import Pi, Term, Univ, Var
+from mltt.kernel.levels import LevelConst
 from mltt.kernel.telescope import mk_app, Telescope, ArgList
 from mltt.kernel.ind import Elim, Ctor, Ind
 
@@ -16,7 +17,7 @@ RTC = Ind(
         Var(1),  # x : A
         Var(2),  # z : A
     ),
-    level=0,
+    level=LevelConst(0),
 )
 
 RTCReflCtor = Ctor(

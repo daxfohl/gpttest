@@ -2,6 +2,7 @@ import pytest
 
 import mltt.inductive.vec as vec
 from mltt.kernel.ast import Term, Univ, Var
+from mltt.kernel.levels import LevelConst
 from mltt.kernel.telescope import mk_app, mk_pis, mk_lams, Telescope
 from mltt.kernel.ind import Elim, Ctor, Ind
 from mltt.inductive import list as lst
@@ -212,7 +213,7 @@ def test_vec_len_recursor_reduces_with_open_param() -> None:
 
 
 def test_recursive_detection_whnfs_field_head() -> None:
-    lazy = Ind(name="Lazy", level=0)
+    lazy = Ind(name="Lazy", level=LevelConst(0))
     lazy_ctor = Ctor(
         name="Thunk",
         inductive=lazy,

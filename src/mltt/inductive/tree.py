@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from mltt.kernel.ast import Term, Univ, Var
+from mltt.kernel.levels import LevelConst
 from mltt.kernel.telescope import mk_app, Telescope
 from mltt.kernel.ind import Elim, Ctor, Ind
 
@@ -12,7 +13,7 @@ Tree = Ind(
         Univ(0),  # A : Type
         Univ(0),  # B : Type
     ),
-    level=0,
+    level=LevelConst(0),
 )
 LeafCtor = Ctor(
     name="Leaf",

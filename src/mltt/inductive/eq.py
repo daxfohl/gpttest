@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from mltt.kernel.ast import App, Lam, Term, Univ, Var
+from mltt.kernel.levels import LevelConst
 from mltt.kernel.telescope import mk_app, mk_lams, Telescope, ArgList
 from mltt.kernel.ind import Elim, Ctor, Ind
 
@@ -10,7 +11,7 @@ IdType = Ind(
     name="Id",
     param_types=Telescope.of(Univ(0), Var(0)),
     index_types=Telescope.of(Var(1)),
-    level=0,
+    level=LevelConst(0),
 )
 ReflCtor = Ctor(
     name="Refl",
