@@ -7,7 +7,7 @@ from functools import cache
 from operator import methodcaller
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
-from mltt.kernel.levels import LevelExpr, LConst, _level_geq, _level_max, _level_succ
+from mltt.kernel.levels import LevelExpr, LConst
 
 if TYPE_CHECKING:
     from mltt.kernel.telescope import ArgList
@@ -285,7 +285,7 @@ class Pi(Term):
     def _infer_type(self, env: Env) -> Term:
         arg_level = self.arg_ty.expect_universe(env)
         body_level = self.return_ty.expect_universe(env.push_binder(self.arg_ty))
-        return Univ(_level_max(arg_level, body_level))
+        return Univ(arg_level.max(body_level))
 
 
 @dataclass(frozen=True)
@@ -412,7 +412,7 @@ class Univ(Term):
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, env: Env) -> Term:
-        return Univ(_level_succ(self.level))
+        return Univ(self.level.succ())
 
     def inst_levels(self, actuals: tuple[LevelExpr, ...]) -> Term:
         return Univ(self.level.instantiate(actuals))
@@ -424,8 +424,8 @@ class Univ(Term):
                 f"  term = {self}\n"
                 f"  expected = {expected_ty}"
             )
-        min_level = _level_succ(self.level)
-        if not _level_geq(expected_ty.level, min_level):
+        min_level = self.level.succ()
+        if not expected_ty.level >= min_level:
             raise TypeError(
                 "Universe level mismatch:\n"
                 f"  term = {self}\n"

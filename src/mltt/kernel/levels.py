@@ -29,6 +29,73 @@ class LevelExpr:
             e = e.subst(a.shift(index), index)
         return e
 
+    def eval(self) -> int | None:
+        match self:
+            case LConst(k):
+                return k
+            case LSucc(e):
+                inner = e.eval()
+                if inner is None:
+                    return None
+                return inner + 1
+            case LMax(a, b):
+                left = a.eval()
+                right = b.eval()
+                if left is None or right is None:
+                    return None
+                return max(left, right)
+            case LVar():
+                return None
+            case _:
+                return None
+
+    def succ(self) -> LevelExpr:
+        value = self.eval()
+        if value is not None:
+            return LConst(value + 1)
+        return LSucc(self)
+
+    def max(self, other: LevelExpr) -> LevelExpr:
+        a_value = self.eval()
+        b_value = other.eval()
+        if a_value is not None and b_value is not None:
+            return LConst(max(a_value, b_value))
+        if self == other:
+            return self
+        return LMax(self, other)
+
+    def __ge__(self, other: LevelExpr) -> bool:
+        if self == other:
+            return True
+        a_eval = self.eval()
+        b_eval = other.eval()
+        if a_eval is not None and b_eval is not None:
+            return a_eval >= b_eval
+        match (self, other):
+            case (LMax(a1, a2), _):
+                return a1 >= other or a2 >= other
+            case (_, LMax(b1, b2)):
+                return self >= b1 and self >= b2
+            case (LSucc(a1), LSucc(b1)):
+                return a1 >= b1
+            case (LSucc(a1), _):
+                return a1 >= other
+        if a_eval is None or b_eval is None:
+            return True
+        return False
+
+    def __str__(self) -> str:
+        match self:
+            case LConst(k):
+                return str(k)
+            case LVar(k):
+                return f"u{k}"
+            case LSucc(e):
+                return f"{e}+1"
+            case LMax(a, b):
+                return f"max({a}, {b})"
+        return repr(self)
+
 
 @dataclass(frozen=True)
 class LConst(LevelExpr):
@@ -81,75 +148,3 @@ class LMax(LevelExpr):
 
     def subst(self, sub: LevelExpr, j: int = 0) -> LevelExpr:
         return LMax(self.a.subst(sub, j), self.b.subst(sub, j))
-
-
-def _level_eval(level: LevelExpr) -> int | None:
-    match level:
-        case LConst(k):
-            return k
-        case LSucc(e):
-            inner = _level_eval(e)
-            if inner is None:
-                return None
-            return inner + 1
-        case LMax(a, b):
-            left = _level_eval(a)
-            right = _level_eval(b)
-            if left is None or right is None:
-                return None
-            return max(left, right)
-        case LVar():
-            return None
-        case _:
-            return None
-
-
-def _level_succ(level: LevelExpr) -> LevelExpr:
-    value = _level_eval(level)
-    if value is not None:
-        return LConst(value + 1)
-    return LSucc(level)
-
-
-def _level_max(a: LevelExpr, b: LevelExpr) -> LevelExpr:
-    a_value = _level_eval(a)
-    b_value = _level_eval(b)
-    if a_value is not None and b_value is not None:
-        return LConst(max(a_value, b_value))
-    if a == b:
-        return a
-    return LMax(a, b)
-
-
-def _level_geq(a: LevelExpr, b: LevelExpr) -> bool:
-    if a == b:
-        return True
-    a_eval = _level_eval(a)
-    b_eval = _level_eval(b)
-    if a_eval is not None and b_eval is not None:
-        return a_eval >= b_eval
-    match (a, b):
-        case (LMax(a1, a2), _):
-            return _level_geq(a1, b) or _level_geq(a2, b)
-        case (_, LMax(b1, b2)):
-            return _level_geq(a, b1) and _level_geq(a, b2)
-        case (LSucc(a1), LSucc(b1)):
-            return _level_geq(a1, b1)
-        case (LSucc(a1), _):
-            return _level_geq(a1, b)
-    if a_eval is None or b_eval is None:
-        return True
-    return False
-
-
-def format_level(level: LevelExpr) -> str:
-    match level:
-        case LConst(k):
-            return str(k)
-        case LVar(k):
-            return f"u{k}"
-        case LSucc(e):
-            return f"{format_level(e)}+1"
-        case LMax(a, b):
-            return f"max({format_level(a)}, {format_level(b)})"
-    return repr(level)

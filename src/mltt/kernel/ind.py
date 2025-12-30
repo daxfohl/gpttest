@@ -8,7 +8,7 @@ from typing import ClassVar
 
 from mltt.kernel.ast import Term, Pi, Univ, App, TermFieldMeta
 from mltt.kernel.environment import Env
-from mltt.kernel.levels import LConst, LevelExpr, LVar, LSucc, _level_geq, format_level
+from mltt.kernel.levels import LConst, LevelExpr, LVar, LSucc
 from mltt.kernel.telescope import (
     mk_app,
     mk_pis,
@@ -29,10 +29,10 @@ def infer_ind_type(env: Env, ind: Ind) -> Term:
     binders = ind.param_types + ind.index_types
     for b in binders:
         level = b.expect_universe(env)
-        if not _level_geq(LSucc(ind.level), level):
+        if not ind.level.succ() >= level:
             raise TypeError(
-                f"Inductive {ind.name} declared at Type({format_level(ind.level)}) "
-                f"but has binder {b} of type Type({format_level(level)})."
+                f"Inductive {ind.name} declared at Type({ind.level}) "
+                f"but has binder {b} of type Type({level})."
             )
         env = env.push_binder(b)
 
@@ -188,11 +188,11 @@ def infer_elim_type(elim: Elim, env: Env) -> Term:
     # sanity check target_ty really is a type in Type u (or ≤ u with cumulativity)
     _ = target_ty.infer_type(env).expect_universe(env)
 
-    if not _level_geq(u, ind.level.instantiate(level_actuals)):
+    if not u >= ind.level.instantiate(level_actuals):
         raise TypeError(
             "Eliminator motive returns too small a universe:\n"
-            f"  motive level = {format_level(u)}\n"
-            f"  inductive level = {format_level(ind.level)}"
+            f"  motive level = {u}\n"
+            f"  inductive level = {ind.level}"
         )
 
     return target_ty
