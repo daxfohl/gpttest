@@ -80,8 +80,8 @@ class LevelExpr:
                 return a1 >= b1
             case (LSucc(a1), _):
                 return a1 >= other
-        if a_eval is None or b_eval is None:
-            return True
+            case (_, LConst(k)) if k == 0:
+                return True
         return False
 
     def __str__(self) -> str:
