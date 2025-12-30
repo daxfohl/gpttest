@@ -102,7 +102,7 @@ def infer_elim_type(elim: Elim, env: Env) -> Term:
 
     # 2.3 The scrutinee binder domain must match the scrutinee type
     scrut_dom = motive_applied_ty.arg_ty
-    if not scrut_dom._type_equal(scrut_ty, env):
+    if not scrut_dom.type_equal(scrut_ty, env):
         raise TypeError(
             "InductiveElim motive scrutinee domain mismatch:\n"
             f"  expected scrut_ty = {scrut_ty}\n"
@@ -188,7 +188,7 @@ def infer_elim_type(elim: Elim, env: Env) -> Term:
     # sanity check target_ty really is a type in Type u (or ≤ u with cumulativity)
     _ = target_ty.infer_type(env).expect_universe(env)
 
-    if not _level_geq(u, ind.level):
+    if not _level_geq(u, ind.level.instantiate(level_actuals)):
         raise TypeError(
             "Eliminator motive returns too small a universe:\n"
             f"  motive level = {format_level(u)}\n"
