@@ -1,7 +1,7 @@
 from mltt.kernel.ast import Lam, Pi, Var
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Zero
-from mltt.inductive.top_bottom import BotRec, BotType, TopRec, TopType, Tt
+from mltt.inductive.top_bottom import BotElim, BotType, TopElim, TopType, Tt
 
 
 def test_top_has_canonical_inhabitant() -> None:
@@ -11,7 +11,7 @@ def test_top_has_canonical_inhabitant() -> None:
 def test_toprec_eliminates_to_motive() -> None:
     motive = Lam(TopType(), NatType())
     case = Zero()
-    term = TopRec(motive, case, Tt())
+    term = TopElim(motive, case, Tt())
 
     term.type_check(NatType())
     assert term.infer_type().type_equal(NatType())
@@ -19,7 +19,7 @@ def test_toprec_eliminates_to_motive() -> None:
 
 def test_botrec_ex_falso() -> None:
     motive = Lam(BotType(), NatType())
-    lam = Lam(BotType(), BotRec(motive, Var(0)))
+    lam = Lam(BotType(), BotElim(motive, Var(0)))
     expected_ty = Pi(BotType(), NatType())
 
     lam.type_check(expected_ty)
@@ -29,7 +29,7 @@ def test_botrec_ex_falso() -> None:
 def test_toprec_dependent_motive() -> None:
     motive = Lam(TopType(), Id(TopType(), Var(0), Var(0)))
     case = Refl(TopType(), Tt())
-    term = TopRec(motive, case, Tt())
+    term = TopElim(motive, case, Tt())
     expected = Id(TopType(), Tt(), Tt())
 
     term.type_check(expected)

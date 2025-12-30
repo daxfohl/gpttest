@@ -125,7 +125,7 @@ def SortedCons(
     return mk_app(SortedConsCtorAt(level), A, R, xs, x, y, rel, ih)
 
 
-def SortedRec(
+def SortedElim(
     motive: Term, nil_case: Term, one_case: Term, cons_case: Term, proof: Term
 ) -> Elim:
     return Elim(

@@ -75,8 +75,6 @@ def Cons(
 
 
 def VecElim(P: Term, base: Term, step: Term, xs: Term) -> Elim:
-    """Recursor for vectors."""
-
     return Elim(
         inductive=Vec_U,
         motive=P,

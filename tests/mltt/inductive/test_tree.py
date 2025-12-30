@@ -45,7 +45,7 @@ def test_treerec_counts_leaves() -> None:
         leaf_ty=leaf_ty, node_ty=node_ty, label=Zero(), left=left, right=right
     )
 
-    count = treem.TreeRec(P, leaf_case, node_case, tree)
+    count = treem.TreeElim(P, leaf_case, node_case, tree)
 
     assert count.normalize() == Succ(Succ(Zero()))
     count.type_check(NatType())

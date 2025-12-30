@@ -19,7 +19,7 @@ def Tt() -> Term:
     return TtCtor
 
 
-def TopRec(motive: Term, case: Term, scrutinee: Term) -> Elim:
+def TopElim(motive: Term, case: Term, scrutinee: Term) -> Elim:
     """Eliminate Top by providing the single branch for ``tt``."""
 
     return Elim(inductive=Top, motive=motive, cases=(case,), scrutinee=scrutinee)
@@ -34,7 +34,7 @@ def BotType() -> Ind:
     return Bot
 
 
-def BotRec(motive: Term, scrutinee: Term) -> Elim:
+def BotElim(motive: Term, scrutinee: Term) -> Elim:
     """Ex falso eliminator for Bottom."""
 
     return Elim(inductive=Bot, motive=motive, cases=(), scrutinee=scrutinee)

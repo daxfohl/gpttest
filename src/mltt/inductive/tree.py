@@ -43,13 +43,13 @@ def Node(leaf_ty: Term, node_ty: Term, label: Term, left: Term, right: Term) -> 
     return mk_app(NodeCtor, leaf_ty, node_ty, label, left, right)
 
 
-def TreeRec(
+def TreeElim(
     P: Term,
     leaf_case: Term,
     node_case: Term,
     tree: Term,
 ) -> Elim:
-    """Recursor for ``Tree leaf_ty node_ty`` using the generic eliminator."""
+    """Eliminator for ``Tree leaf_ty node_ty``."""
 
     return Elim(
         inductive=Tree,

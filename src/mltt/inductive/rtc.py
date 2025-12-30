@@ -60,7 +60,7 @@ def RTCStep(A: Term, R: Term, x: Term, z: Term, y: Term, step: Term, ih: Term) -
     return mk_app(RTCStepCtor, A, R, x, z, y, step, ih)
 
 
-def RTCRec(motive: Term, refl_case: Term, step_case: Term, proof: Term) -> Elim:
+def RTCElim(motive: Term, refl_case: Term, step_case: Term, proof: Term) -> Elim:
     return Elim(
         inductive=RTC, motive=motive, cases=(refl_case, step_case), scrutinee=proof
     )

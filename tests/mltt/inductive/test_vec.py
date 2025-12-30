@@ -143,7 +143,7 @@ def test_scrut_type() -> None:
 
 
 def _vec_len_recursor() -> Term:
-    """Length via ``VecRec`` with IH bound to the recursive tail."""
+    """Length via ``VecElim`` with IH bound to the recursive tail."""
 
     motive = mk_lams(
         NatType(),  # n

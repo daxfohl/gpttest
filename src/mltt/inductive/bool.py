@@ -24,7 +24,7 @@ def True_() -> Term:
     return TrueCtor
 
 
-def BoolRec(motive: Term, false_case: Term, true_case: Term, scrutinee: Term) -> Elim:
+def BoolElim(motive: Term, false_case: Term, true_case: Term, scrutinee: Term) -> Elim:
     """Eliminate Bool by providing branches for ``False`` and ``True``."""
 
     return Elim(
@@ -38,7 +38,7 @@ def BoolRec(motive: Term, false_case: Term, true_case: Term, scrutinee: Term) ->
 def if_term() -> Term:
     """
     If : Π A : Type0. Bool -> A -> A -> A
-    If A b t f := BoolRec (λ _ : Bool. A) f t b
+    If A b t f := BoolElim (λ _ : Bool. A) f t b
     """
 
     return Lam(
@@ -49,7 +49,7 @@ def if_term() -> Term:
                 Var(1),  # t : A   (A is Var(1) here)
                 Lam(
                     Var(2),  # f : A (A is Var(2) here)
-                    body=BoolRec(
+                    body=BoolElim(
                         motive=Lam(BoolType(), Var(4)),  # env = [Bool, f, t, b, A]
                         false_case=Var(0),  # f
                         true_case=Var(1),  # t
@@ -70,7 +70,7 @@ def not_term() -> Term:
 
     return mk_lams(
         BoolType(),
-        body=BoolRec(Lam(BoolType(), BoolType()), True_(), False_(), Var(0)),
+        body=BoolElim(Lam(BoolType(), BoolType()), True_(), False_(), Var(0)),
     )
 
 
@@ -84,7 +84,7 @@ def and_term() -> Term:
     return mk_lams(
         BoolType(),
         BoolType(),
-        body=BoolRec(Lam(BoolType(), BoolType()), False_(), Var(0), scrutinee=Var(1)),
+        body=BoolElim(Lam(BoolType(), BoolType()), False_(), Var(0), scrutinee=Var(1)),
     )
 
 
@@ -98,7 +98,7 @@ def or_term() -> Term:
     return mk_lams(
         BoolType(),
         BoolType(),
-        body=BoolRec(Lam(BoolType(), BoolType()), Var(0), True_(), scrutinee=Var(1)),
+        body=BoolElim(Lam(BoolType(), BoolType()), Var(0), True_(), scrutinee=Var(1)),
     )
 
 

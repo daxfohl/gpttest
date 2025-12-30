@@ -58,7 +58,7 @@ def Pair(Ty: Term, A: Term, B: Term, lhs: Term, rhs: Term) -> Term:
     return mk_app(PairCtor, Ty, A, B, lhs, rhs)
 
 
-def ExprRec(motive: Term, const_case: Term, pair_case: Term, scrutinee: Term) -> Elim:
+def ExprElim(motive: Term, const_case: Term, pair_case: Term, scrutinee: Term) -> Elim:
     return Elim(
         inductive=Expr,
         motive=motive,

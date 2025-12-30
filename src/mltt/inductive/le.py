@@ -44,8 +44,8 @@ def LeStep(n: Term, m: Term, p: Term) -> Term:
     return mk_app(LeStepCtor, n, m, p)
 
 
-def LeRec(motive: Term, refl_case: Term, step_case: Term, proof: Term) -> Elim:
-    """Recursor for ``Le``."""
+def LeElim(motive: Term, refl_case: Term, step_case: Term, proof: Term) -> Elim:
+    """Eliminator for ``Le``."""
 
     return Elim(
         inductive=Le, motive=motive, cases=(refl_case, step_case), scrutinee=proof

@@ -90,7 +90,7 @@ def AllCons(
     return mk_app(AllConsCtorAt(level), A, P, xs, x, px, ih)
 
 
-def AllRec(motive: Term, nil_case: Term, cons_case: Term, proof: Term) -> Elim:
+def AllElim(motive: Term, nil_case: Term, cons_case: Term, proof: Term) -> Elim:
     return Elim(
         inductive=All_U,
         motive=motive,
