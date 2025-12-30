@@ -88,7 +88,7 @@ class Env:
                 env = env.push_binder(b)
         return env
 
-    def push_let(self, name: str | None, ty: Term, value: Term) -> Env:
+    def push_let(self, ty: Term, value: Term, name: str | None = None) -> Env:
         """
         Push a let-bound variable at index 0 with its type and definitional value.
 
@@ -141,8 +141,10 @@ class Env:
         return self.binders[k].ty.shift(k + 1)
 
     def local_value(self, k: int) -> Term | None:
-        if k < 0 or k >= len(self.binders):
+        if k < 0:
             raise IndexError(f"Unbound variable {k}")
+        if k >= len(self.binders):
+            return None
         return self.binders[k].value
 
     def names(self) -> tuple[str | None, ...]:
@@ -171,6 +173,6 @@ class Const(Term):
 
     def _whnf_step(self, env: Env) -> Term:
         decl = env.globals[self.name]
-        if decl is None or decl.value is None or not decl.reducible:
+        if decl.value is None or not decl.reducible:
             return self
-        return decl.value.whnf(env)
+        return decl.value

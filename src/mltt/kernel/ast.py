@@ -232,6 +232,12 @@ class Var(Term):
                 f"  found = {found_ty}"
             )
 
+    def _whnf_step(self, env: Env) -> Term:
+        v = env.local_value(self.k)
+        if v is None:
+            return self
+        return v.shift(self.k + 1)
+
 
 @dataclass(frozen=True)
 class Lam(Term):
@@ -352,3 +358,30 @@ class Univ(Term):
                 f"  term = {self}\n"
                 f"  expected = {expected_ty}"
             )
+
+
+@dataclass(frozen=True)
+class Let(Term):
+    """
+    let x : arg_ty := value; body
+
+    `body` is under one binder (x at Var(0)).
+    """
+
+    arg_ty: Term
+    value: Term
+    body: Term = field(metadata={"": TermFieldMeta(binder_count=1)})
+
+    def _infer_type(self, env: Env) -> Term:
+        # require annotation for now (no elaboration)
+        _ = self.arg_ty.expect_universe(
+            env
+        )  # or self.arg_ty.infer_type(env).expect_universe(...)
+        self.value.type_check(self.arg_ty, env)
+        return self.body.infer_type(env.push_let(self.arg_ty, self.value))
+
+    def _whnf_step(self, env: Env) -> Term:
+        v1 = self.value.whnf(env)
+        if v1 != self.value:
+            return Let(arg_ty=self.arg_ty, value=v1, body=self.body)
+        return self
