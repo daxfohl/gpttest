@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Generic, TypeVar, overload, Self, Sequence, Iterable, Callable
 
-from mltt.kernel.ast import Term, App, Lam, Pi, Var
+from mltt.kernel.ast import Term, App, Lam, Pi, Var, UApp
+from mltt.kernel.levels import LevelExpr
 
 T = TypeVar("T")
 
@@ -65,6 +66,9 @@ class ArgList(SeqBase[Term]):
     def shift(self, i: int) -> Self:
         return self._map(lambda e: e.shift(i))
 
+    def inst_levels(self, actuals: tuple[LevelExpr, ...]) -> Self:
+        return self._map(lambda e: e.inst_levels(actuals))
+
 
 class Telescope(SeqBase[Term]):
     @classmethod
@@ -80,6 +84,9 @@ class Telescope(SeqBase[Term]):
 
     def instantiate(self, actuals: ArgList, depth_above: int = 0) -> Self:
         return self._mapi(lambda i, t: t.instantiate(actuals, depth_above + i).whnf())
+
+    def inst_levels(self, actuals: tuple[LevelExpr, ...]) -> Self:
+        return self._map(lambda t: t.inst_levels(actuals))
 
 
 def mk_app(fn: Term, *args: Term | ArgList) -> Term:
@@ -105,6 +112,12 @@ def mk_app(fn: Term, *args: Term | ArgList) -> Term:
         else:
             result = App(result, arg)
     return result
+
+
+def mk_uapp(head: Term, levels: tuple[LevelExpr, ...], *args: Term | ArgList) -> Term:
+    """Apply universe levels to ``head`` and then apply term arguments."""
+    applied = UApp(head, levels) if levels else head
+    return mk_app(applied, *args)
 
 
 def mk_lams(*param_tys: Term | Telescope, body: Term) -> Term:
@@ -179,3 +192,11 @@ def decompose_app(term: Term) -> tuple[Term, ArgList]:
         args.append(term.arg)
         term = term.func
     return term, ArgList.of(*reversed(args))
+
+
+def decompose_uapp(term: Term) -> tuple[Term, tuple[LevelExpr, ...], ArgList]:
+    """Split an application into head, universe levels, and term arguments."""
+    head, args = decompose_app(term)
+    if isinstance(head, UApp):
+        return head.head, head.levels, args
+    return head, (), args

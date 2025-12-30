@@ -1,7 +1,10 @@
 import pytest
 
 import mltt.inductive.vec as vec
+from mltt.inductive.nat import NatType, Succ, Zero
 from mltt.kernel.ast import Univ, Var
+from mltt.kernel.ind import Ctor, Elim, Ind
+from mltt.kernel.levels import LVar
 from mltt.kernel.telescope import (
     mk_app,
     mk_pis,
@@ -9,8 +12,6 @@ from mltt.kernel.telescope import (
     Telescope,
     ArgList,
 )
-from mltt.kernel.ind import Ctor, Elim, Ind
-from mltt.inductive.nat import NatType, Succ, Zero
 
 
 def test_infer_ind_type_rejects_too_small_universe_level() -> None:
@@ -24,14 +25,14 @@ def test_instantiate_ctor_arg_types_shifts_params_by_fields() -> None:
 
     inst = tuple(
         schema.instantiate(params, depth_above=i)
-        for i, schema in enumerate(vec.ConsCtor.field_schemas)
+        for i, schema in enumerate(vec.Cons_U.field_schemas)
     )
     # n : Nat
     assert inst[0] == vec.NatType()
     # head : A at depth 1 (under previous field n)
     assert inst[1] == Var(1)
     # tail : Vec A n with A at depth 2 (under n, head)
-    assert inst[2] == mk_app(vec.Vec, Var(2), Var(1))
+    assert inst[2] == mk_app(vec.VecAt(LVar(0)), Var(2), Var(1))
 
 
 # def test_ih_types_shift_indices_under_remaining_fields() -> None:

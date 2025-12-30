@@ -1,13 +1,16 @@
-from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var
-from mltt.kernel.telescope import mk_pis, mk_lams, ArgList
-from mltt.kernel.ind import Elim
-from mltt.inductive.allvec import AllConsCtor, AllVecType
+import mltt.inductive.allvec as allvec
+import mltt.inductive.vec as vec
+from mltt.inductive.allvec import AllCons_U
 from mltt.inductive.bool import BoolType
 from mltt.inductive.eq import Id, IdElim, ReflCtor
 from mltt.inductive.fin import FZCtor
 from mltt.inductive.nat import NatRec, Succ, Zero, NatType
 from mltt.inductive.sigma import PairCtor
-from mltt.inductive.vec import Cons, ConsCtor, VecType
+from mltt.inductive.vec import ConsCtorAt, Cons_U
+from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var, UApp
+from mltt.kernel.ind import Elim
+from mltt.kernel.levels import LVar
+from mltt.kernel.telescope import mk_pis, mk_lams, mk_app, ArgList
 
 
 # ------------- Shift: basic behavior -------------
@@ -671,9 +674,9 @@ def test_vec_cons_tail_type_instantiates_param_A_but_keeps_n_and_head() -> None:
         VecType(A0, Var(1))   but note: after discharge, Var(1) still refers to n.
     """
     A0 = NatType()
-    schema_tail_ty = ConsCtor.field_schemas[2]  # Vec A n  under (A,n,head)
+    schema_tail_ty = Cons_U.field_schemas[2]  # Vec A n  under (A,n,head)
     out = schema_tail_ty.instantiate(ArgList.of(A0), depth_above=2)
-    assert out == VecType(A0, Var(1))
+    assert out == mk_app(vec.VecAt(LVar(0)), A0, Var(1))
 
 
 def test_vec_cons_result_index_instantiates_param_A_keeps_fields_n_head_tail() -> None:
@@ -694,7 +697,7 @@ def test_vec_cons_result_index_instantiates_param_A_keeps_fields_n_head_tail() -
     Expected: Succ(Var(2)) is unchanged except A is removed (it wasn't referenced anyway).
     """
     A0 = NatType()
-    schema_idx = ConsCtor.result_indices[0]  # Succ(Var(2))
+    schema_idx = Cons_U.result_indices[0]  # Succ(Var(2))
     out = schema_idx.instantiate(ArgList.of(A0), depth_above=3)
     assert out == Succ(Var(2))
 
@@ -731,10 +734,10 @@ def test_allvec_allcons_ih_type_instantiates_params_keeps_prior_fields() -> None
     """
     A0 = NatType()
     P0 = Lam(NatType(), Univ(0))  # arbitrary family over A0
-    schema_ih = AllConsCtor.field_schemas[4]
+    schema_ih = AllCons_U.field_schemas[4]
     out = schema_ih.instantiate(ArgList.of(A0, P0), depth_above=4)
 
-    assert out == AllVecType(A0, P0, Var(3), Var(1))
+    assert out == mk_app(UApp(allvec.AllVec_U, LVar(0)), A0, P0, Var(3), Var(1))
 
 
 def test_allvec_allcons_result_indices_instantiates_params_keeps_all_fields() -> None:
@@ -763,13 +766,13 @@ def test_allvec_allcons_result_indices_instantiates_params_keeps_all_fields() ->
     """
     A0 = NatType()
     P0 = Lam(NatType(), Univ(0))
-    idx0, idx1 = AllConsCtor.result_indices
+    idx0, idx1 = AllCons_U.result_indices
 
     out0 = idx0.instantiate(ArgList.of(A0, P0), depth_above=5)
     out1 = idx1.instantiate(ArgList.of(A0, P0), depth_above=5)
 
     assert out0 == Succ(Var(4))
-    assert out1 == Cons(A0, Var(4), Var(3), Var(2))
+    assert out1 == mk_app(ConsCtorAt(LVar(0)), A0, Var(4), Var(3), Var(2))
 
 
 # -----------------------

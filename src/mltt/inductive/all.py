@@ -2,34 +2,34 @@
 
 from __future__ import annotations
 
-from functools import cache
-
 from mltt.inductive.list import ConsCtorAt, ListAt, NilCtorAt
-from mltt.kernel.ast import App, Pi, Term, Univ, Var
-from mltt.kernel.telescope import mk_app, Telescope, ArgList
+from mltt.kernel.ast import App, Pi, Term, Univ, Var, UApp
 from mltt.kernel.ind import Elim, Ctor, Ind
+from mltt.kernel.levels import LVar, LevelExpr
+from mltt.kernel.telescope import mk_app, Telescope, ArgList
 
 
-@cache
-def _all_family(level: int) -> tuple[Ind, Ctor, Ctor]:
-    list_ind = ListAt(level)
-    nil_ctor = NilCtorAt(level)
-    cons_ctor = ConsCtorAt(level)
-
+def _all() -> tuple[Ind, Ctor, Ctor]:
+    u = LVar(0)
+    list_ind = ListAt(u)
+    nil_ctor = NilCtorAt(u)
+    cons_ctor = ConsCtorAt(u)
     all_ind = Ind(
         name="All",
+        uarity=1,
         param_types=Telescope.of(
-            Univ(level),  # A : Type
-            Pi(Var(0), Univ(level)),  # P : A -> Type
+            Univ(u),  # A : Type
+            Pi(Var(0), Univ(u)),  # P : A -> Type
         ),
         index_types=Telescope.of(App(list_ind, Var(1))),  # xs : List A
-        level=level,
+        level=u,
     )
 
     all_nil_ctor = Ctor(
         name="all_nil",
         inductive=all_ind,
         result_indices=ArgList.of(App(nil_ctor, Var(1))),
+        uarity=1,
     )
 
     all_cons_ctor = Ctor(
@@ -39,49 +39,60 @@ def _all_family(level: int) -> tuple[Ind, Ctor, Ctor]:
             mk_app(list_ind, Var(1)),  # xs : List A
             Var(2),  # x : A
             mk_app(Var(2), Var(0)),  # px : P x
-            mk_app(all_ind, Var(4), Var(3), Var(2)),  # ih : All A P xs
+            mk_app(UApp(all_ind, u), Var(4), Var(3), Var(2)),  # ih : All A P xs
         ),
         result_indices=ArgList.of(mk_app(cons_ctor, Var(5), Var(2), Var(3))),  # x :: xs
+        uarity=1,
     )
 
     object.__setattr__(all_ind, "constructors", (all_nil_ctor, all_cons_ctor))
     return all_ind, all_nil_ctor, all_cons_ctor
 
 
-All, AllNilCtor, AllConsCtor = _all_family(0)
+All_U, AllNil_U, AllCons_U = _all()
 
 
-def AllAt(level: int = 0) -> Ind:
-    return _all_family(level)[0]
+def AllAt(level: LevelExpr | int = 0) -> Term:
+    return UApp(All_U, level)
 
 
-def AllNilCtorAt(level: int = 0) -> Ctor:
-    return _all_family(level)[1]
+def AllNilCtorAt(level: LevelExpr | int = 0) -> Term:
+    return UApp(AllNil_U, level)
 
 
-def AllConsCtorAt(level: int = 0) -> Ctor:
-    return _all_family(level)[2]
+def AllConsCtorAt(level: LevelExpr | int = 0) -> Term:
+    return UApp(AllCons_U, level)
 
 
-def AllType(A: Term, P: Term, xs: Term, *, level: int = 0) -> Term:
+All = AllAt()
+AllNilCtor = AllNilCtorAt()
+AllConsCtor = AllConsCtorAt()
+
+
+def AllType(A: Term, P: Term, xs: Term, *, level: LevelExpr | int = 0) -> Term:
     return mk_app(AllAt(level), A, P, xs)
 
 
-def AllNil(A: Term, P: Term, *, level: int = 0) -> Term:
+def AllNil(A: Term, P: Term, *, level: LevelExpr | int = 0) -> Term:
     return mk_app(AllNilCtorAt(level), A, P)
 
 
 def AllCons(
-    A: Term, P: Term, xs: Term, x: Term, px: Term, ih: Term, *, level: int = 0
+    A: Term,
+    P: Term,
+    xs: Term,
+    x: Term,
+    px: Term,
+    ih: Term,
+    *,
+    level: LevelExpr | int = 0,
 ) -> Term:
     return mk_app(AllConsCtorAt(level), A, P, xs, x, px, ih)
 
 
-def AllRec(
-    motive: Term, nil_case: Term, cons_case: Term, proof: Term, *, level: int = 0
-) -> Elim:
+def AllRec(motive: Term, nil_case: Term, cons_case: Term, proof: Term) -> Elim:
     return Elim(
-        inductive=AllAt(level),
+        inductive=All_U,
         motive=motive,
         cases=(nil_case, cons_case),
         scrutinee=proof,

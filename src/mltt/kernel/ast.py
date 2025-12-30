@@ -7,6 +7,8 @@ from functools import cache
 from operator import methodcaller
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
+from mltt.kernel.levels import LevelExpr, LConst, _level_geq, _level_max, _level_succ
+
 if TYPE_CHECKING:
     from mltt.kernel.telescope import ArgList
     from mltt.kernel.environment import Env
@@ -85,6 +87,10 @@ class Term:
             t = t.subst(a.shift(index), index)
         return t
 
+    def inst_levels(self, actuals: tuple[LevelExpr, ...]) -> Term:
+        """Instantiate universe levels in the term."""
+        return self._replace_terms(lambda t, _m: t.inst_levels(actuals))
+
     # --- Reduction ------------------------------------------------------------
     def _whnf_step(self, env: Env) -> Term:
         """Weak head normal form."""
@@ -147,7 +153,7 @@ class Term:
     def _type_check(self, expected_ty: Term, env: Env) -> None:
         self._check_against_inferred(expected_ty, env)
 
-    def expect_universe(self, env: Env | None = None) -> int:
+    def expect_universe(self, env: Env | None = None) -> LevelExpr:
         ty = self.infer_type(env).whnf(env)
         if not isinstance(ty, Univ):
             raise TypeError(
@@ -279,7 +285,7 @@ class Pi(Term):
     def _infer_type(self, env: Env) -> Term:
         arg_level = self.arg_ty.expect_universe(env)
         body_level = self.return_ty.expect_universe(env.push_binder(self.arg_ty))
-        return Univ(max(arg_level, body_level))
+        return Univ(_level_max(arg_level, body_level))
 
 
 @dataclass(frozen=True)
@@ -329,20 +335,87 @@ class App(Term):
             )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
+class UApp(Term):
+    """Universe application for a polymorphic head."""
+
+    head: Term
+    levels: tuple[LevelExpr, ...]
+    is_terminal: ClassVar[bool] = True
+
+    def __init__(
+        self, head: Term, levels: tuple[LevelExpr | int, ...] | LevelExpr | int
+    ) -> None:
+        if isinstance(levels, tuple):
+            level_items = tuple(LevelExpr.of(level) for level in levels)
+        else:
+            level_items = (LevelExpr.of(levels),)
+        object.__setattr__(self, "head", head)
+        object.__setattr__(self, "levels", level_items)
+
+    def inst_levels(self, actuals: tuple[LevelExpr, ...]) -> Term:
+        return UApp(
+            head=self.head,
+            levels=tuple(level.instantiate(actuals) for level in self.levels),
+        )
+
+    # Reduction ----------------------------------------------------------------
+    def _whnf_step(self, env: Env) -> Term:
+        from mltt.kernel.environment import Const
+
+        if isinstance(self.head, Const):
+            decl = env.globals[self.head.name]
+            if decl.value is not None and decl.reducible:
+                return decl.value.inst_levels(self.levels)
+        return self
+
+    # Typing -------------------------------------------------------------------
+    def _infer_type(self, env: Env) -> Term:
+        from mltt.kernel.environment import Const
+        from mltt.kernel.ind import Ind, Ctor
+
+        match self.head:
+            case Ind() as ind:
+                uarity = ind.uarity
+            case Ctor() as ctor:
+                uarity = ctor.uarity
+            case Const(name):
+                uarity = env.globals[name].uarity
+            case _:
+                raise TypeError(
+                    "Universe application head must be a constant, inductive, or constructor:\n"
+                    f"  head = {self.head}"
+                )
+        if len(self.levels) != uarity:
+            raise TypeError(
+                "Universe application arity mismatch:\n"
+                f"  head = {self.head}\n"
+                f"  expected uarity = {uarity}\n"
+                f"  found = {len(self.levels)}"
+            )
+        head_ty = self.head.infer_type(env)
+        return head_ty.inst_levels(self.levels)
+
+
+@dataclass(frozen=True, init=False)
 class Univ(Term):
     """A universe ``Type(level)``."""
 
-    level: int = 0
+    level: LevelExpr = field(default_factory=lambda: LConst(0))
     is_terminal: ClassVar[bool] = True
 
-    def __post_init__(self) -> None:
-        if self.level < 0:
+    def __init__(self, level: LevelExpr | int = 0) -> None:
+        level_expr = LevelExpr.of(level)
+        object.__setattr__(self, "level", level_expr)
+        if isinstance(level_expr, LConst) and level_expr.k < 0:
             raise ValueError("Universe level must be non-negative")
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, env: Env) -> Term:
-        return Univ(self.level + 1)
+        return Univ(_level_succ(self.level))
+
+    def inst_levels(self, actuals: tuple[LevelExpr, ...]) -> Term:
+        return Univ(self.level.instantiate(actuals))
 
     def _type_check(self, expected_ty: Term, env: Env) -> None:
         if not isinstance(expected_ty, Univ):
@@ -351,8 +424,8 @@ class Univ(Term):
                 f"  term = {self}\n"
                 f"  expected = {expected_ty}"
             )
-        min_level = self.level + 1
-        if expected_ty.level < min_level:
+        min_level = _level_succ(self.level)
+        if not _level_geq(expected_ty.level, min_level):
             raise TypeError(
                 "Universe level mismatch:\n"
                 f"  term = {self}\n"

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var
+from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp
 from mltt.kernel.environment import Const
 from mltt.kernel.ind import Elim, Ctor, Ind
+from mltt.kernel.levels import LevelExpr, LConst, LVar, LSucc, LMax
 
 ATOM_PREC = 3
 APP_PREC = 2
@@ -39,6 +40,8 @@ def _uses_var(term: Term, target: int, depth: int = 0) -> bool:
             )
         case App(f, a):
             return _uses_var(f, target, depth) or _uses_var(a, target, depth)
+        case UApp(head, _levels):
+            return _uses_var(head, target, depth)
         case Elim(inductive, motive, cases, scrutinee):
             return (
                 _uses_var(inductive, target, depth)
@@ -80,6 +83,19 @@ def _render_app_like(head: str, args: list[tuple[str, int]]) -> tuple[str, int]:
     return " ".join(parts), APP_PREC
 
 
+def _pretty_level(level: LevelExpr) -> str:
+    match level:
+        case LConst(k):
+            return str(k)
+        case LVar(k):
+            return f"u{k}"
+        case LSucc(e):
+            return f"{_pretty_level(e)}+1"
+        case LMax(a, b):
+            return f"max({_pretty_level(a)}, {_pretty_level(b)})"
+    return repr(level)
+
+
 def pretty(term: Term) -> str:
     """Return a human-friendly string for ``term``."""
 
@@ -90,7 +106,9 @@ def pretty(term: Term) -> str:
                 return name, ATOM_PREC
 
             case Univ(level):
-                return ("Type" if level == 0 else f"Type{level}"), ATOM_PREC
+                if isinstance(level, LConst):
+                    return ("Type" if level.k == 0 else f"Type{level.k}"), ATOM_PREC
+                return f"Type({_pretty_level(level)})", ATOM_PREC
 
             case Ind() as inductive:
                 return _inductive_label(inductive), ATOM_PREC
@@ -109,6 +127,11 @@ def pretty(term: Term) -> str:
                 )
                 arg_disp = _maybe_paren(arg_text, arg_prec, APP_PREC, allow_equal=False)
                 return f"{func_disp} {arg_disp}", APP_PREC
+
+            case UApp(head, levels):
+                head_text, _ = fmt(head, env)
+                level_texts = ", ".join(_pretty_level(level) for level in levels)
+                return f"{head_text}@{{{level_texts}}}", ATOM_PREC
 
             case Lam(arg_ty, body):
                 binder = _fresh_name(env)

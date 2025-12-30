@@ -7,8 +7,16 @@ from functools import cached_property
 from typing import ClassVar
 
 from mltt.kernel.ast import Term, Pi, Univ, App, TermFieldMeta
-from mltt.kernel.telescope import mk_app, mk_pis, decompose_app, Telescope, ArgList
 from mltt.kernel.environment import Env
+from mltt.kernel.levels import LConst, LevelExpr, LVar, LSucc, _level_geq, format_level
+from mltt.kernel.telescope import (
+    mk_app,
+    mk_pis,
+    mk_uapp,
+    decompose_uapp,
+    Telescope,
+    ArgList,
+)
 
 
 def infer_ind_type(env: Env, ind: Ind) -> Term:
@@ -21,10 +29,10 @@ def infer_ind_type(env: Env, ind: Ind) -> Term:
     binders = ind.param_types + ind.index_types
     for b in binders:
         level = b.expect_universe(env)
-        if ind.level < level - 1:
+        if not _level_geq(LSucc(ind.level), level):
             raise TypeError(
-                f"Inductive {ind.name} declared at Type({ind.level}) "
-                f"but has binder {b} of type Type({level})."
+                f"Inductive {ind.name} declared at Type({format_level(ind.level)}) "
+                f"but has binder {b} of type Type({format_level(level)})."
             )
         env = env.push_binder(b)
 
@@ -50,10 +58,11 @@ def infer_ctor_type(ctor: Ctor) -> Term:
     #   [params][args] from outermost to innermost.
     offset = len(ctor.field_schemas)
     param_vars = ArgList.vars(len(ind.param_types), offset)
+    level_vars = tuple(LVar(i) for i in reversed(range(ind.uarity)))
     return mk_pis(
         ind.param_types,
         ctor.field_schemas,
-        return_ty=mk_app(ctor.inductive, param_vars, ctor.result_indices),
+        return_ty=mk_uapp(ind, level_vars, param_vars, ctor.result_indices),
     )
 
 
@@ -64,13 +73,13 @@ def infer_elim_type(elim: Elim, env: Env) -> Term:
     scrut = elim.scrutinee
     ind = elim.inductive
     scrut_ty = scrut.infer_type(env).whnf(env)
-    scrut_ty_head, scrut_ty_bindings = decompose_app(scrut_ty)
-    if scrut_ty_head != ind:
+    scrut_head, level_actuals, scrut_ty_bindings = decompose_uapp(scrut_ty)
+    if scrut_head != ind:
         raise TypeError(
             "Eliminator scrutinee not of the right inductive type:\n"
             f"  scrutinee = {scrut}\n"
             f"  expected head = {ind}\n"
-            f"  found head = {scrut_ty_head}"
+            f"  found head = {scrut_head}"
         )
 
     # 2.1 Partially apply motive to the actual indices
@@ -123,7 +132,9 @@ def infer_elim_type(elim: Elim, env: Env) -> Term:
         # variables.
 
         # 3.1 Instantiate ctor field types with the actual parameters.
-        ctor_field_types = ctor.field_schemas.instantiate(params_actual)
+        ctor_field_types = ctor.field_schemas.inst_levels(level_actuals).instantiate(
+            params_actual
+        )
         m = len(ctor_field_types)
 
         # 3.2 Work in context Γ,fields: shift Γ-level params and motive by m.
@@ -133,18 +144,28 @@ def infer_elim_type(elim: Elim, env: Env) -> Term:
         # Build a scrutinee-shaped term: C params field_vars.
         # field_vars are Var(m-1) .. Var(0) in the Γ,fields context.
         field_vars = ArgList.vars(m)
-        scrut_like = mk_app(ctor, params_in_fields_ctx, field_vars)
+        scrut_like = mk_uapp(ctor, level_actuals, params_in_fields_ctx, field_vars)
 
         # 3.3 Instantiate ctor result indices under fields.
-        result_indices = ctor.result_indices.instantiate(params_actual, m)
+        result_indices = ctor.result_indices.inst_levels(level_actuals).instantiate(
+            params_actual, m
+        )
 
         # 3.4 Build IH types for recursive fields.
         # Each IH is in context Γ,fields,ihs_so_far, so shift by m + ri.
         r = len(ctor.rps)
         ihs: list[Term] = []
         for ri, j in enumerate(ctor.rps):
-            h, rec_field_args = decompose_app(ctor_field_types[j].shift(m - j))
-            assert h == ind
+            rec_head, rec_levels, rec_field_args = decompose_uapp(
+                ctor_field_types[j].shift(m - j)
+            )
+            assert rec_head == ind
+            if level_actuals and rec_levels and rec_levels != level_actuals:
+                raise TypeError(
+                    "Recursive field uses mismatched universe levels:\n"
+                    f"  expected = {level_actuals}\n"
+                    f"  found = {rec_levels}"
+                )
             rec_params = rec_field_args[:p]
             rec_indices = rec_field_args[p : p + q]
             assert rec_params == params_in_fields_ctx, f"{rec_params} != {rec_params}"
@@ -167,17 +188,17 @@ def infer_elim_type(elim: Elim, env: Env) -> Term:
     # sanity check target_ty really is a type in Type u (or ≤ u with cumulativity)
     _ = target_ty.infer_type(env).expect_universe(env)
 
-    if u < ind.level:
+    if not _level_geq(u, ind.level):
         raise TypeError(
             "Eliminator motive returns too small a universe:\n"
-            f"  motive level = {u}\n"
-            f"  inductive level = {ind.level}"
+            f"  motive level = {format_level(u)}\n"
+            f"  inductive level = {format_level(ind.level)}"
         )
 
     return target_ty
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, kw_only=True, init=False)
 class Ind(Term):
     """A generalized inductive type with constructors."""
 
@@ -200,8 +221,27 @@ class Ind(Term):
         default=(),
         metadata={"": TermFieldMeta(unchecked=True)},
     )
-    level: int = 0
+    level: LevelExpr = field(default_factory=lambda: LConst(0))
+    uarity: int = 0
     is_terminal: ClassVar[bool] = True
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        param_types: Telescope = Telescope.empty(),
+        index_types: Telescope = Telescope.empty(),
+        constructors: tuple[Ctor, ...] = (),
+        level: LevelExpr | int = 0,
+        uarity: int = 0,
+    ) -> None:
+        level_expr = LevelExpr.of(level)
+        object.__setattr__(self, "name", name)
+        object.__setattr__(self, "param_types", param_types)
+        object.__setattr__(self, "index_types", index_types)
+        object.__setattr__(self, "constructors", constructors)
+        object.__setattr__(self, "level", level_expr)
+        object.__setattr__(self, "uarity", uarity)
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, env: Env) -> Term:
@@ -229,6 +269,7 @@ class Ctor(Term):
         default=ArgList.empty(),
         metadata={"": TermFieldMeta(unchecked=True)},
     )
+    uarity: int = 0
     is_terminal: ClassVar[bool] = True
 
     @cached_property
@@ -243,7 +284,7 @@ class Ctor(Term):
         return tuple(
             j
             for j, s in enumerate(self.field_schemas)
-            if decompose_app(s.whnf())[0] == self.inductive
+            if decompose_uapp(s.whnf())[0] == self.inductive
         )
 
     def iota_reduce(self, cases: tuple[Term, ...], args: ArgList, motive: Term) -> Term:
@@ -274,7 +315,7 @@ class Elim(Term):
     # Reduction ----------------------------------------------------------------
     def _whnf_step(self, env: Env) -> Term:
         scrutinee_whnf = self.scrutinee.whnf(env)
-        head, args = decompose_app(scrutinee_whnf)
+        head, _, args = decompose_uapp(scrutinee_whnf)
         if isinstance(head, Ctor) and head.inductive == self.inductive:
             expected_args = len(self.inductive.param_types) + len(head.field_schemas)
             if len(args) != expected_args:

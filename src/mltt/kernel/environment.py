@@ -14,11 +14,13 @@ class GlobalDecl:
 
     - ty: type of the constant/definition
     - value: definitional body (None for axioms/constructors if you don't unfold them)
+    - uarity: number of universe binders in the declaration
     """
 
     ty: Term
     value: Term | None = None
     reducible: bool = True
+    uarity: int = 0
 
 
 @dataclass(frozen=True)

@@ -9,7 +9,8 @@ def register_value(g: dict[str, GlobalDecl], name: str, value: Term) -> None:
     if name in g:
         raise ValueError("dup")
     ty = value.infer_type(Env(globals=MappingProxyType(g)))
-    g[name] = GlobalDecl(ty=ty, value=value, reducible=True)
+    uarity = getattr(value, "uarity", 0)
+    g[name] = GlobalDecl(ty=ty, value=value, reducible=True, uarity=uarity)
 
 
 def prelude_globals() -> dict[str, GlobalDecl]:

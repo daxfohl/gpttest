@@ -2,27 +2,28 @@
 
 from __future__ import annotations
 
-from functools import cache
-
 from mltt.inductive.fin import FinType, FZ, FS
 from mltt.inductive.nat import NatType, Succ, Zero
-from mltt.kernel.ast import Term, Univ, Var
-from mltt.kernel.telescope import mk_app, mk_lams, Telescope, ArgList
+from mltt.kernel.ast import Term, Univ, Var, UApp
 from mltt.kernel.ind import Elim, Ctor, Ind
+from mltt.kernel.levels import LVar, LevelExpr
+from mltt.kernel.telescope import mk_app, mk_lams, Telescope, ArgList
 
 
-@cache
-def _vec_family(level: int) -> tuple[Ind, Ctor, Ctor]:
+def _vec() -> tuple[Ind, Ctor, Ctor]:
+    u = LVar(0)
     vec_ind = Ind(
         name="Vec",
-        param_types=Telescope.of(Univ(level)),
+        uarity=1,
+        param_types=Telescope.of(Univ(u)),
         index_types=Telescope.of(NatType()),
-        level=level,
+        level=u,
     )
     nil_ctor = Ctor(
         name="Nil",
         inductive=vec_ind,
         result_indices=ArgList.of(Zero()),
+        uarity=1,
     )
     cons_ctor = Ctor(
         name="Cons",
@@ -30,46 +31,54 @@ def _vec_family(level: int) -> tuple[Ind, Ctor, Ctor]:
         field_schemas=Telescope.of(
             NatType(),  # n : Nat
             Var(1),  # head : A
-            mk_app(vec_ind, Var(2), Var(1)),  # tail : Vec A n
+            mk_app(UApp(vec_ind, u), Var(2), Var(1)),  # tail : Vec A n
         ),
         result_indices=ArgList.of(Succ(Var(2))),  # result index = Succ n
+        uarity=1,
     )
     object.__setattr__(vec_ind, "constructors", (nil_ctor, cons_ctor))
     return vec_ind, nil_ctor, cons_ctor
 
 
-Vec, NilCtor, ConsCtor = _vec_family(0)
+Vec_U, Nil_U, Cons_U = _vec()
 
 
-def VecAt(level: int = 0) -> Ind:
-    return _vec_family(level)[0]
+def VecAt(level: LevelExpr | int = 0) -> Term:
+    return UApp(Vec_U, level)
 
 
-def NilCtorAt(level: int = 0) -> Ctor:
-    return _vec_family(level)[1]
+def NilCtorAt(level: LevelExpr | int = 0) -> Term:
+    return UApp(Nil_U, level)
 
 
-def ConsCtorAt(level: int = 0) -> Ctor:
-    return _vec_family(level)[2]
+def ConsCtorAt(level: LevelExpr | int = 0) -> Term:
+    return UApp(Cons_U, level)
 
 
-def VecType(elem_ty: Term, length: Term, *, level: int = 0) -> Term:
+Vec = VecAt()
+NilCtor = NilCtorAt()
+ConsCtor = ConsCtorAt()
+
+
+def VecType(elem_ty: Term, length: Term, *, level: LevelExpr | int = 0) -> Term:
     return mk_app(VecAt(level), elem_ty, length)
 
 
-def Nil(elem_ty: Term, *, level: int = 0) -> Term:
+def Nil(elem_ty: Term, *, level: LevelExpr | int = 0) -> Term:
     return mk_app(NilCtorAt(level), elem_ty)
 
 
-def Cons(elem_ty: Term, n: Term, head: Term, tail: Term, *, level: int = 0) -> Term:
+def Cons(
+    elem_ty: Term, n: Term, head: Term, tail: Term, *, level: LevelExpr | int = 0
+) -> Term:
     return mk_app(ConsCtorAt(level), elem_ty, n, head, tail)
 
 
-def VecElim(P: Term, base: Term, step: Term, xs: Term, *, level: int = 0) -> Elim:
+def VecElim(P: Term, base: Term, step: Term, xs: Term) -> Elim:
     """Recursor for vectors."""
 
     return Elim(
-        inductive=VecAt(level),
+        inductive=Vec_U,
         motive=P,
         cases=(base, step),
         scrutinee=xs,

@@ -2,34 +2,34 @@
 
 from __future__ import annotations
 
-from functools import cache
-
 from mltt.inductive.list import ConsCtorAt, ListAt, NilCtorAt
-from mltt.kernel.ast import App, Pi, Term, Univ, Var
-from mltt.kernel.telescope import mk_app, Telescope, ArgList
+from mltt.kernel.ast import App, Pi, Term, Univ, Var, UApp
 from mltt.kernel.ind import Elim, Ctor, Ind
+from mltt.kernel.levels import LVar, LevelExpr
+from mltt.kernel.telescope import mk_app, Telescope, ArgList
 
 
-@cache
-def _sorted_family(level: int) -> tuple[Ind, Ctor, Ctor, Ctor]:
-    list_ind = ListAt(level)
-    nil_ctor = NilCtorAt(level)
-    cons_ctor = ConsCtorAt(level)
-
+def _sorted() -> tuple[Ind, Ctor, Ctor, Ctor]:
+    u = LVar(0)
+    list_ind = ListAt(u)
+    nil_ctor = NilCtorAt(u)
+    cons_ctor = ConsCtorAt(u)
     sorted_ind = Ind(
         name="Sorted",
+        uarity=1,
         param_types=Telescope.of(
-            Univ(level),  # A : Type
-            Pi(Var(0), Pi(Var(1), Univ(level))),  # R : A -> A -> Type
+            Univ(u),  # A : Type
+            Pi(Var(0), Pi(Var(1), Univ(u))),  # R : A -> A -> Type
         ),
         index_types=Telescope.of(App(list_ind, Var(1))),  # xs : List A
-        level=level,
+        level=u,
     )
 
     sorted_nil_ctor = Ctor(
         name="sorted_nil",
         inductive=sorted_ind,
         result_indices=ArgList.of(App(nil_ctor, Var(1))),
+        uarity=1,
     )
 
     sorted_one_ctor = Ctor(
@@ -39,6 +39,7 @@ def _sorted_family(level: int) -> tuple[Ind, Ctor, Ctor, Ctor]:
         result_indices=ArgList.of(
             mk_app(cons_ctor, Var(2), Var(0), App(nil_ctor, Var(2)))
         ),  # [x]
+        uarity=1,
     )
 
     sorted_cons_ctor = Ctor(
@@ -50,7 +51,7 @@ def _sorted_family(level: int) -> tuple[Ind, Ctor, Ctor, Ctor]:
             Var(3),  # y : A
             mk_app(Var(3), Var(1), Var(0)),  # R x y
             mk_app(  # ih : Sorted A R (y :: xs)
-                sorted_ind,
+                UApp(sorted_ind, u),
                 Var(5),
                 Var(4),
                 mk_app(cons_ctor, Var(5), Var(1), Var(3)),
@@ -64,6 +65,7 @@ def _sorted_family(level: int) -> tuple[Ind, Ctor, Ctor, Ctor]:
                 mk_app(cons_ctor, Var(6), Var(2), Var(4)),
             ),
         ),
+        uarity=1,
     )
 
     object.__setattr__(
@@ -72,34 +74,40 @@ def _sorted_family(level: int) -> tuple[Ind, Ctor, Ctor, Ctor]:
     return sorted_ind, sorted_nil_ctor, sorted_one_ctor, sorted_cons_ctor
 
 
-Sorted, SortedNilCtor, SortedOneCtor, SortedConsCtor = _sorted_family(0)
+Sorted_U, SortedNil_U, SortedOne_U, SortedCons_U = _sorted()
 
 
-def SortedAt(level: int = 0) -> Ind:
-    return _sorted_family(level)[0]
+def SortedAt(level: LevelExpr | int = 0) -> Term:
+    return UApp(Sorted_U, level)
 
 
-def SortedNilCtorAt(level: int = 0) -> Ctor:
-    return _sorted_family(level)[1]
+def SortedNilCtorAt(level: LevelExpr | int = 0) -> Term:
+    return UApp(SortedNil_U, level)
 
 
-def SortedOneCtorAt(level: int = 0) -> Ctor:
-    return _sorted_family(level)[2]
+def SortedOneCtorAt(level: LevelExpr | int = 0) -> Term:
+    return UApp(SortedOne_U, level)
 
 
-def SortedConsCtorAt(level: int = 0) -> Ctor:
-    return _sorted_family(level)[3]
+def SortedConsCtorAt(level: LevelExpr | int = 0) -> Term:
+    return UApp(SortedCons_U, level)
 
 
-def SortedType(A: Term, R: Term, xs: Term, *, level: int = 0) -> Term:
+Sorted = SortedAt()
+SortedNilCtor = SortedNilCtorAt()
+SortedOneCtor = SortedOneCtorAt()
+SortedConsCtor = SortedConsCtorAt()
+
+
+def SortedType(A: Term, R: Term, xs: Term, *, level: LevelExpr | int = 0) -> Term:
     return mk_app(SortedAt(level), A, R, xs)
 
 
-def SortedNil(A: Term, R: Term, *, level: int = 0) -> Term:
+def SortedNil(A: Term, R: Term, *, level: LevelExpr | int = 0) -> Term:
     return mk_app(SortedNilCtorAt(level), A, R)
 
 
-def SortedOne(A: Term, R: Term, x: Term, *, level: int = 0) -> Term:
+def SortedOne(A: Term, R: Term, x: Term, *, level: LevelExpr | int = 0) -> Term:
     return mk_app(SortedOneCtorAt(level), A, R, x)
 
 
@@ -112,22 +120,16 @@ def SortedCons(
     rel: Term,
     ih: Term,
     *,
-    level: int = 0,
+    level: LevelExpr | int = 0,
 ) -> Term:
     return mk_app(SortedConsCtorAt(level), A, R, xs, x, y, rel, ih)
 
 
 def SortedRec(
-    motive: Term,
-    nil_case: Term,
-    one_case: Term,
-    cons_case: Term,
-    proof: Term,
-    *,
-    level: int = 0,
+    motive: Term, nil_case: Term, one_case: Term, cons_case: Term, proof: Term
 ) -> Elim:
     return Elim(
-        inductive=SortedAt(level),
+        inductive=Sorted_U,
         motive=motive,
         cases=(nil_case, one_case, cons_case),
         scrutinee=proof,
