@@ -1,8 +1,21 @@
 import pytest
 
+from mltt.surface.elab_state import ElabState
 from mltt.surface.parse import parse_term
 from mltt.surface.sast import SurfaceError
 from mltt.surface.prelude import prelude_env
+
+
+def elab_ok(src: str) -> None:
+    env = prelude_env()
+    state = ElabState()
+    term = parse_term(src)
+    term_k, ty_k = term.elab_infer(env, state)
+    state.solve(env)
+    term_k = state.zonk(term_k)
+    ty_k = state.zonk(ty_k)
+    state.ensure_solved()
+    _ = (term_k, ty_k)
 
 
 def test_explicit_id() -> None:
@@ -11,9 +24,7 @@ def test_explicit_id() -> None:
       fun (A : Type 0) => fun (x : A) => x;
     id
     """
-    term = parse_term(src)
-    env = prelude_env()
-    term.elab_infer(env)
+    elab_ok(src)
 
 
 def test_arrow_sugar() -> None:
@@ -22,9 +33,7 @@ def test_arrow_sugar() -> None:
       fun (A : Type 0) (B : Type 0) => fun (a : A) (b : B) => a;
     k
     """
-    term = parse_term(src)
-    env = prelude_env()
-    term.elab_infer(env)
+    elab_ok(src)
 
 
 def test_check_mode_unannotated_lambda() -> None:
@@ -33,38 +42,31 @@ def test_check_mode_unannotated_lambda() -> None:
       fun (A : Type 0) => fun x => x;
     id2
     """
-    term = parse_term(src)
-    env = prelude_env()
-    term.elab_infer(env)
+    elab_ok(src)
 
 
 def test_reject_infer_mode_unannotated_lambda() -> None:
     src = "fun x => x"
     term = parse_term(src)
     env = prelude_env()
+    state = ElabState()
     with pytest.raises(SurfaceError, match="Cannot infer unannotated lambda"):
-        term.elab_infer(env)
+        term.elab_infer(env, state)
 
 
 def test_typed_let() -> None:
     src = "let A : Type 1 := Type 0; A"
-    term = parse_term(src)
-    env = prelude_env()
-    term.elab_infer(env)
+    elab_ok(src)
 
 
 def test_const_syntax() -> None:
-    term = parse_term("const Nat")
-    env = prelude_env()
-    term.elab_infer(env)
+    elab_ok("const Nat")
 
 
 def test_ind_ctor_syntax() -> None:
-    env = prelude_env()
-    parse_term("ind Nat").elab_infer(env)
-    parse_term("ctor Nat.Zero").elab_infer(env)
+    elab_ok("ind Nat")
+    elab_ok("ctor Nat.Zero")
 
 
 def test_uapp_syntax() -> None:
-    env = prelude_env()
-    parse_term("Vec_U@{0}").elab_infer(env)
+    elab_ok("Vec_U@{0}")

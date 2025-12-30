@@ -17,6 +17,7 @@ from mltt.surface.sast import (
     SPi,
     SApp,
     SUApp,
+    SHole,
     SLet,
 )
 from mltt.surface.sind import SInd, SCtor
@@ -237,8 +238,9 @@ class Parser:
             )
         if tok.kind == "IDENT":
             self.pos += 1
-            term: SurfaceTerm = SVar(span=tok.span, name=tok.value)
-            return self._parse_uapp_suffix(term)
+            if tok.value == "_":
+                return self._parse_uapp_suffix(SHole(span=tok.span))
+            return self._parse_uapp_suffix(SVar(span=tok.span, name=tok.value))
         if tok.kind == "KW" and tok.value == "Type":
             type_tok = self._expect("KW", "Type")
             level_tok: Token | None
@@ -248,29 +250,25 @@ class Parser:
             else:
                 level_tok = self._expect("INT")
             span = Span(type_tok.span.start, level_tok.span.end)
-            term = SUniv(span=span, level=int(level_tok.value))
-            return self._parse_uapp_suffix(term)
+            return self._parse_uapp_suffix(SUniv(span=span, level=int(level_tok.value)))
         if tok.kind == "KW" and tok.value == "const":
             kw = self._expect("KW", "const")
             name_tok = self._expect("IDENT")
-            term = SConst(
-                span=Span(kw.span.start, name_tok.span.end), name=name_tok.value
+            return self._parse_uapp_suffix(
+                SConst(span=Span(kw.span.start, name_tok.span.end), name=name_tok.value)
             )
-            return self._parse_uapp_suffix(term)
         if tok.kind == "KW" and tok.value == "ind":
             kw = self._expect("KW", "ind")
             name_tok = self._expect("IDENT")
-            term = SInd(
-                span=Span(kw.span.start, name_tok.span.end), name=name_tok.value
+            return self._parse_uapp_suffix(
+                SInd(span=Span(kw.span.start, name_tok.span.end), name=name_tok.value)
             )
-            return self._parse_uapp_suffix(term)
         if tok.kind == "KW" and tok.value == "ctor":
             kw = self._expect("KW", "ctor")
             name_tok = self._expect("IDENT")
-            term = SCtor(
-                span=Span(kw.span.start, name_tok.span.end), name=name_tok.value
+            return self._parse_uapp_suffix(
+                SCtor(span=Span(kw.span.start, name_tok.span.end), name=name_tok.value)
             )
-            return self._parse_uapp_suffix(term)
         if tok.kind == "SYM" and tok.value == "(":
             lpar = self._expect("SYM", "(")
             inner = self.parse_term()

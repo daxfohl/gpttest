@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp
+from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp, MetaVar
 from mltt.kernel.environment import Const
 from mltt.kernel.ind import Elim, Ctor, Ind
 from mltt.kernel.levels import LevelExpr, LConst, LVar, LSucc, LMax
@@ -118,6 +118,9 @@ def pretty(term: Term) -> str:
 
             case Const(name):
                 return name, ATOM_PREC
+
+            case MetaVar(mid):
+                return f"?m{mid}", ATOM_PREC
 
             case App(f, a):
                 func_text, func_prec = fmt(f, env)

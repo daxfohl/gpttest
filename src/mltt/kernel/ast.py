@@ -246,6 +246,17 @@ class Var(Term):
 
 
 @dataclass(frozen=True)
+class MetaVar(Term):
+    """Metavariable introduced during elaboration."""
+
+    mid: int
+    is_terminal: ClassVar[bool] = True
+
+    def _infer_type(self, env: Env) -> Term:
+        raise TypeError("Cannot infer type for metavariable without elaboration state")
+
+
+@dataclass(frozen=True)
 class Lam(Term):
     """Dependent lambda term with an argument type and body."""
 
