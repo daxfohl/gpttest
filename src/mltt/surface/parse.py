@@ -193,6 +193,18 @@ def p_lam_binder_hole(p: yacc.YaccProduction) -> None:
     p[0] = SBinder("_", None, span, implicit=False)
 
 
+def p_lam_binder_implicit(p: yacc.YaccProduction) -> None:
+    "lam_binder : LBRACE IDENT RBRACE"
+    span = _span(p, 1, 3)
+    p[0] = SBinder(p[2], None, span, implicit=True)
+
+
+def p_lam_binder_implicit_hole(p: yacc.YaccProduction) -> None:
+    "lam_binder : LBRACE HOLE RBRACE"
+    span = _span(p, 1, 3)
+    p[0] = SBinder("_", None, span, implicit=True)
+
+
 def p_binder(p: yacc.YaccProduction) -> None:
     "binder : LPAREN IDENT COLON term RPAREN"
     span = _span(p, 1, 5)
