@@ -24,6 +24,9 @@ def prelude_globals() -> dict[str, GlobalDecl]:
     register_value(g, "Vec", vec.Vec)
     register_value(g, "Vec.Nil", vec.NilCtor)
     register_value(g, "Vec.Cons", vec.ConsCtor)
+    register_value(g, "Vec_U", vec.Vec_U)
+    register_value(g, "Vec.Nil_U", vec.Nil_U)
+    register_value(g, "Vec.Cons_U", vec.Cons_U)
     return g
 
 

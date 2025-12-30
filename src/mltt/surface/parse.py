@@ -4,19 +4,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from mltt.surface.syntax import (
+from mltt.surface.sast import (
     Span,
     SurfaceError,
     SurfaceTerm,
     SBinder,
     SVar,
-    SType,
+    SConst,
+    SUniv,
     SAnn,
     SLam,
     SPi,
     SApp,
+    SUApp,
     SLet,
 )
+from mltt.surface.sind import SInd, SCtor
 
 
 @dataclass(frozen=True)
@@ -48,7 +51,7 @@ def tokenize(source: str) -> list[Token]:
             tokens.append(Token("SYM", ":=", Span(i, i + 2)))
             i += 2
             continue
-        if ch in "():;":
+        if ch in "():;@{},":
             tokens.append(Token("SYM", ch, Span(i, i + 1)))
             i += 1
             continue
@@ -64,7 +67,11 @@ def tokenize(source: str) -> list[Token]:
             while j < n and (source[j].isalnum() or source[j] in "._"):
                 j += 1
             ident = source[i:j]
-            kind = "KW" if ident in {"fun", "let", "Type"} else "IDENT"
+            kind = (
+                "KW"
+                if ident in {"fun", "let", "Type", "const", "ind", "ctor"}
+                else "IDENT"
+            )
             tokens.append(Token(kind, ident, Span(i, j)))
             i = j
             continue
@@ -208,7 +215,7 @@ class Parser:
             if tok.kind == "IDENT":
                 args.append(self._parse_atom())
                 continue
-            if tok.kind == "KW" and tok.value == "Type":
+            if tok.kind == "KW" and tok.value in {"Type", "const", "ind", "ctor"}:
                 args.append(self._parse_atom())
                 continue
             if tok.kind == "SYM" and tok.value == "(":
@@ -230,7 +237,8 @@ class Parser:
             )
         if tok.kind == "IDENT":
             self.pos += 1
-            return SVar(span=tok.span, name=tok.value)
+            term: SurfaceTerm = SVar(span=tok.span, name=tok.value)
+            return self._parse_uapp_suffix(term)
         if tok.kind == "KW" and tok.value == "Type":
             type_tok = self._expect("KW", "Type")
             level_tok: Token | None
@@ -240,7 +248,29 @@ class Parser:
             else:
                 level_tok = self._expect("INT")
             span = Span(type_tok.span.start, level_tok.span.end)
-            return SType(span=span, level=int(level_tok.value))
+            term = SUniv(span=span, level=int(level_tok.value))
+            return self._parse_uapp_suffix(term)
+        if tok.kind == "KW" and tok.value == "const":
+            kw = self._expect("KW", "const")
+            name_tok = self._expect("IDENT")
+            term = SConst(
+                span=Span(kw.span.start, name_tok.span.end), name=name_tok.value
+            )
+            return self._parse_uapp_suffix(term)
+        if tok.kind == "KW" and tok.value == "ind":
+            kw = self._expect("KW", "ind")
+            name_tok = self._expect("IDENT")
+            term = SInd(
+                span=Span(kw.span.start, name_tok.span.end), name=name_tok.value
+            )
+            return self._parse_uapp_suffix(term)
+        if tok.kind == "KW" and tok.value == "ctor":
+            kw = self._expect("KW", "ctor")
+            name_tok = self._expect("IDENT")
+            term = SCtor(
+                span=Span(kw.span.start, name_tok.span.end), name=name_tok.value
+            )
+            return self._parse_uapp_suffix(term)
         if tok.kind == "SYM" and tok.value == "(":
             lpar = self._expect("SYM", "(")
             inner = self.parse_term()
@@ -248,10 +278,29 @@ class Parser:
                 ty = self.parse_term()
                 rpar = self._expect("SYM", ")")
                 span = Span(lpar.span.start, rpar.span.end)
-                return SAnn(span=span, term=inner, ty=ty)
+                return self._parse_uapp_suffix(SAnn(span=span, term=inner, ty=ty))
             self._expect("SYM", ")")
-            return inner
+            return self._parse_uapp_suffix(inner)
         raise SurfaceError("Expected term", tok.span, self.source)
+
+    def _parse_uapp_suffix(self, term: SurfaceTerm) -> SurfaceTerm:
+        tok = self._peek()
+        if tok is None or tok.kind != "SYM" or tok.value != "@":
+            return term
+        at_tok = self._expect("SYM", "@")
+        self._expect("SYM", "{")
+        levels: list[int] = []
+        while True:
+            level_tok = self._expect("INT")
+            levels.append(int(level_tok.value))
+            if not self._match("SYM", ","):
+                break
+        rbrace = self._expect("SYM", "}")
+        span = Span(term.span.start, rbrace.span.end)
+        uapp = SUApp(span=span, head=term, levels=tuple(levels))
+        if at_tok:
+            return uapp
+        return uapp
 
 
 def parse_term(source: str) -> SurfaceTerm:
