@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from typing import cast
+
+import ply.lex as lex  # type: ignore[import-not-found]
+import ply.yacc as yacc  # type: ignore[import-not-found]
 
 from mltt.surface.sast import (
     Span,
@@ -22,289 +25,291 @@ from mltt.surface.sast import (
 )
 from mltt.surface.sind import SInd, SCtor
 
+_SOURCE: str = ""
 
-@dataclass(frozen=True)
-class Token:
-    kind: str
-    value: str
-    span: Span
+reserved = {
+    "fun": "FUN",
+    "let": "LET",
+    "Type": "TYPE",
+    "const": "CONST",
+    "ind": "IND",
+    "ctor": "CTOR",
+}
 
+tokens = (
+    "IDENT",
+    "INT",
+    "HOLE",
+    "ARROW",
+    "DARROW",
+    "DEFINE",
+    "COLON",
+    "LPAREN",
+    "RPAREN",
+    "SEMI",
+    "AT",
+    "LBRACE",
+    "RBRACE",
+    "COMMA",
+    *tuple(reserved.values()),
+)
 
-def tokenize(source: str) -> list[Token]:
-    tokens: list[Token] = []
-    i = 0
-    n = len(source)
-    while i < n:
-        ch = source[i]
-        if ch.isspace():
-            i += 1
-            continue
-        start = i
-        if source.startswith("->", i):
-            tokens.append(Token("SYM", "->", Span(i, i + 2)))
-            i += 2
-            continue
-        if source.startswith("=>", i):
-            tokens.append(Token("SYM", "=>", Span(i, i + 2)))
-            i += 2
-            continue
-        if source.startswith(":=", i):
-            tokens.append(Token("SYM", ":=", Span(i, i + 2)))
-            i += 2
-            continue
-        if ch in "():;@{},":
-            tokens.append(Token("SYM", ch, Span(i, i + 1)))
-            i += 1
-            continue
-        if ch.isdigit():
-            j = i + 1
-            while j < n and source[j].isdigit():
-                j += 1
-            tokens.append(Token("INT", source[i:j], Span(i, j)))
-            i = j
-            continue
-        if ch.isalpha() or ch == "_":
-            j = i + 1
-            while j < n and (source[j].isalnum() or source[j] in "._"):
-                j += 1
-            ident = source[i:j]
-            kind = (
-                "KW"
-                if ident in {"fun", "let", "Type", "const", "ind", "ctor"}
-                else "IDENT"
-            )
-            tokens.append(Token(kind, ident, Span(i, j)))
-            i = j
-            continue
-        raise SurfaceError(f"Unexpected character {ch!r}", Span(i, i + 1), source)
-    return tokens
+t_ARROW = r"->"
+t_DARROW = r"=>"
+t_DEFINE = r":="
+t_COLON = r":"
+t_LPAREN = r"\("
+t_RPAREN = r"\)"
+t_SEMI = r";"
+t_AT = r"@"
+t_LBRACE = r"\{"
+t_RBRACE = r"\}"
+t_COMMA = r","
+
+t_ignore = " \t"
 
 
-class Parser:
-    def __init__(self, source: str) -> None:
-        self.source = source
-        self.tokens = tokenize(source)
-        self.pos = 0
+def t_newline(t: lex.LexToken) -> None:
+    r"\n+"
+    t.lexer.lineno += len(t.value)
 
-    def _peek(self) -> Token | None:
-        if self.pos >= len(self.tokens):
-            return None
-        return self.tokens[self.pos]
 
-    def _match(self, kind: str, value: str | None = None) -> Token | None:
-        tok = self._peek()
-        if tok is None or tok.kind != kind:
-            return None
-        if value is not None and tok.value != value:
-            return None
-        self.pos += 1
-        return tok
+def t_INT(t: lex.LexToken) -> lex.LexToken:
+    r"\d+"
+    t.end = t.lexpos + len(t.value)
+    t.value = int(t.value)
+    return t
 
-    def _expect(self, kind: str, value: str | None = None) -> Token:
-        tok = self._match(kind, value)
-        if tok is not None:
-            return tok
-        expected = f"{kind} {value!r}" if value is not None else kind
-        next_tok = self._peek()
-        span = (
-            next_tok.span
-            if next_tok is not None
-            else Span(len(self.source), len(self.source))
-        )
-        raise SurfaceError(f"Expected {expected}", span, self.source)
 
-    def parse_term(self) -> SurfaceTerm:
-        let_tok = self._match("KW", "let")
-        if let_tok:
-            name_tok = self._expect("IDENT")
-            self._expect("SYM", ":")
-            ty = self.parse_term()
-            self._expect("SYM", ":=")
-            val = self.parse_term()
-            self._expect("SYM", ";")
-            body = self.parse_term()
-            span = Span(let_tok.span.start, body.span.end)
-            return SLet(span=span, name=name_tok.value, ty=ty, val=val, body=body)
-        fun_tok = self._match("KW", "fun")
-        if fun_tok:
-            binders = self._parse_lambda_binders()
-            arrow = self._expect("SYM", "=>")
-            body = self.parse_term()
-            span = Span(fun_tok.span.start, body.span.end)
-            return SLam(span=span, binders=binders, body=body)
-        return self._parse_pi()
+def t_IDENT(t: lex.LexToken) -> lex.LexToken:
+    r"[A-Za-z_][A-Za-z0-9_\.]*"
+    if t.value == "_":
+        t.type = "HOLE"
+    else:
+        t.type = reserved.get(t.value, "IDENT")
+    t.end = t.lexpos + len(t.value)
+    return t
 
-    def _parse_lambda_binders(self) -> tuple[SBinder, ...]:
-        binders: list[SBinder] = []
-        while True:
-            tok = self._peek()
-            if tok is None:
-                break
-            if tok.kind == "SYM" and tok.value == "(":
-                binders.append(self._parse_annotated_binder())
-                continue
-            if tok.kind == "IDENT":
-                self.pos += 1
-                binders.append(SBinder(tok.value, None, tok.span))
-                continue
-            break
-        if not binders:
-            next_tok = self._peek()
-            span = (
-                next_tok.span
-                if next_tok is not None
-                else Span(len(self.source), len(self.source))
-            )
-            raise SurfaceError("Expected lambda binder", span, self.source)
-        return tuple(binders)
 
-    def _parse_annotated_binder(self) -> SBinder:
-        lpar = self._expect("SYM", "(")
-        name_tok = self._expect("IDENT")
-        self._expect("SYM", ":")
-        ty = self.parse_term()
-        rpar = self._expect("SYM", ")")
-        span = Span(lpar.span.start, rpar.span.end)
-        return SBinder(name_tok.value, ty, span)
+def t_error(t: lex.LexToken) -> None:
+    span = Span(t.lexpos, t.lexpos + 1)
+    raise SurfaceError(f"Unexpected character {t.value[0]!r}", span, _SOURCE)
 
-    def _parse_pi(self) -> SurfaceTerm:
-        tok = self._peek()
-        if tok is not None and tok.kind == "SYM" and tok.value == "(":
-            save = self.pos
-            try:
-                binders = []
-                while True:
-                    tok = self._peek()
-                    if tok is None or tok.kind != "SYM" or tok.value != "(":
-                        break
-                    if not self._looks_like_binder():
-                        break
-                    binders.append(self._parse_annotated_binder())
-                if binders and self._match("SYM", "->"):
-                    body = self._parse_pi()
-                    span = Span(binders[0].span.start, body.span.end)
-                    return SPi(span=span, binders=tuple(binders), body=body)
-            except SurfaceError:
-                self.pos = save
-            self.pos = save
-        left = self._parse_app()
-        if self._match("SYM", "->"):
-            right = self._parse_pi()
-            binder = SBinder("_", left, Span(left.span.start, left.span.end))
-            span = Span(left.span.start, right.span.end)
-            return SPi(span=span, binders=(binder,), body=right)
-        return left
 
-    def _looks_like_binder(self) -> bool:
-        if self.pos + 2 >= len(self.tokens):
-            return False
-        if self.tokens[self.pos].value != "(":
-            return False
-        return (
-            self.tokens[self.pos + 1].kind == "IDENT"
-            and self.tokens[self.pos + 2].kind == "SYM"
-            and self.tokens[self.pos + 2].value == ":"
-        )
+precedence = (("right", "ARROW"),)
 
-    def _parse_app(self) -> SurfaceTerm:
-        term = self._parse_atom()
-        args: list[SurfaceTerm] = []
-        while True:
-            tok = self._peek()
-            if tok is None:
-                break
-            if tok.kind == "IDENT":
-                args.append(self._parse_atom())
-                continue
-            if tok.kind == "KW" and tok.value in {"Type", "const", "ind", "ctor"}:
-                args.append(self._parse_atom())
-                continue
-            if tok.kind == "SYM" and tok.value == "(":
-                args.append(self._parse_atom())
-                continue
-            break
-        if not args:
-            return term
-        span = Span(term.span.start, args[-1].span.end)
-        return SApp(span=span, fn=term, args=tuple(args))
 
-    def _parse_atom(self) -> SurfaceTerm:
-        tok = self._peek()
-        if tok is None:
-            raise SurfaceError(
-                "Unexpected end of input",
-                Span(len(self.source), len(self.source)),
-                self.source,
-            )
-        if tok.kind == "IDENT":
-            self.pos += 1
-            if tok.value == "_":
-                return self._parse_uapp_suffix(SHole(span=tok.span))
-            return self._parse_uapp_suffix(SVar(span=tok.span, name=tok.value))
-        if tok.kind == "KW" and tok.value == "Type":
-            type_tok = self._expect("KW", "Type")
-            level_tok: Token | None
-            if self._match("SYM", "("):
-                level_tok = self._expect("INT")
-                self._expect("SYM", ")")
-            else:
-                level_tok = self._expect("INT")
-            span = Span(type_tok.span.start, level_tok.span.end)
-            return self._parse_uapp_suffix(SUniv(span=span, level=int(level_tok.value)))
-        if tok.kind == "KW" and tok.value == "const":
-            kw = self._expect("KW", "const")
-            name_tok = self._expect("IDENT")
-            return self._parse_uapp_suffix(
-                SConst(span=Span(kw.span.start, name_tok.span.end), name=name_tok.value)
-            )
-        if tok.kind == "KW" and tok.value == "ind":
-            kw = self._expect("KW", "ind")
-            name_tok = self._expect("IDENT")
-            return self._parse_uapp_suffix(
-                SInd(span=Span(kw.span.start, name_tok.span.end), name=name_tok.value)
-            )
-        if tok.kind == "KW" and tok.value == "ctor":
-            kw = self._expect("KW", "ctor")
-            name_tok = self._expect("IDENT")
-            return self._parse_uapp_suffix(
-                SCtor(span=Span(kw.span.start, name_tok.span.end), name=name_tok.value)
-            )
-        if tok.kind == "SYM" and tok.value == "(":
-            lpar = self._expect("SYM", "(")
-            inner = self.parse_term()
-            if self._match("SYM", ":"):
-                ty = self.parse_term()
-                rpar = self._expect("SYM", ")")
-                span = Span(lpar.span.start, rpar.span.end)
-                return self._parse_uapp_suffix(SAnn(span=span, term=inner, ty=ty))
-            self._expect("SYM", ")")
-            return self._parse_uapp_suffix(inner)
-        raise SurfaceError("Expected term", tok.span, self.source)
+def _tok_span(tok: lex.LexToken) -> Span:
+    end = getattr(tok, "end", tok.lexpos + len(str(tok.value)))
+    return Span(tok.lexpos, end)
 
-    def _parse_uapp_suffix(self, term: SurfaceTerm) -> SurfaceTerm:
-        tok = self._peek()
-        if tok is None or tok.kind != "SYM" or tok.value != "@":
-            return term
-        at_tok = self._expect("SYM", "@")
-        self._expect("SYM", "{")
-        levels: list[int] = []
-        while True:
-            level_tok = self._expect("INT")
-            levels.append(int(level_tok.value))
-            if not self._match("SYM", ","):
-                break
-        rbrace = self._expect("SYM", "}")
-        span = Span(term.span.start, rbrace.span.end)
-        uapp = SUApp(span=span, head=term, levels=tuple(levels))
-        if at_tok:
-            return uapp
-        return uapp
+
+def _item_span(p: yacc.YaccProduction, index: int) -> Span:
+    value = p[index]
+    if isinstance(value, SurfaceTerm):
+        return value.span
+    tok = cast(lex.LexToken, p.slice[index])
+    return _tok_span(tok)
+
+
+def _span(p: yacc.YaccProduction, start: int, end: int) -> Span:
+    start_span = _item_span(p, start)
+    end_span = _item_span(p, end)
+    return Span(start_span.start, end_span.end)
+
+
+def p_term_let(p: yacc.YaccProduction) -> None:
+    "term : LET IDENT COLON term DEFINE term SEMI term"
+    span = _span(p, 1, 8)
+    p[0] = SLet(span=span, name=p[2], ty=p[4], val=p[6], body=p[8])
+
+
+def p_term_fun(p: yacc.YaccProduction) -> None:
+    "term : FUN lam_binders DARROW term"
+    span = _span(p, 1, 4)
+    p[0] = SLam(span=span, binders=p[2], body=p[4])
+
+
+def p_term_pi(p: yacc.YaccProduction) -> None:
+    "term : pi"
+    p[0] = p[1]
+
+
+def p_pi_binders(p: yacc.YaccProduction) -> None:
+    "pi : pi_binders ARROW term"
+    span = Span(p[1][0].span.start, p[3].span.end)
+    p[0] = SPi(span=span, binders=p[1], body=p[3])
+
+
+def p_pi_arrow(p: yacc.YaccProduction) -> None:
+    "pi : app ARROW term"
+    left = p[1]
+    right = p[3]
+    binder = SBinder("_", left, Span(left.span.start, left.span.end))
+    span = Span(left.span.start, right.span.end)
+    p[0] = SPi(span=span, binders=(binder,), body=right)
+
+
+def p_pi_app(p: yacc.YaccProduction) -> None:
+    "pi : app"
+    p[0] = p[1]
+
+
+def p_pi_binders_multi(p: yacc.YaccProduction) -> None:
+    "pi_binders : pi_binders binder"
+    p[0] = p[1] + (p[2],)
+
+
+def p_pi_binders_single(p: yacc.YaccProduction) -> None:
+    "pi_binders : binder"
+    p[0] = (p[1],)
+
+
+def p_lam_binders_multi(p: yacc.YaccProduction) -> None:
+    "lam_binders : lam_binders lam_binder"
+    p[0] = p[1] + (p[2],)
+
+
+def p_lam_binders_single(p: yacc.YaccProduction) -> None:
+    "lam_binders : lam_binder"
+    p[0] = (p[1],)
+
+
+def p_lam_binder_annotated(p: yacc.YaccProduction) -> None:
+    "lam_binder : binder"
+    p[0] = p[1]
+
+
+def p_lam_binder_ident(p: yacc.YaccProduction) -> None:
+    "lam_binder : IDENT"
+    span = _span(p, 1, 1)
+    p[0] = SBinder(p[1], None, span)
+
+
+def p_lam_binder_hole(p: yacc.YaccProduction) -> None:
+    "lam_binder : HOLE"
+    span = _span(p, 1, 1)
+    p[0] = SBinder("_", None, span)
+
+
+def p_binder(p: yacc.YaccProduction) -> None:
+    "binder : LPAREN IDENT COLON term RPAREN"
+    span = _span(p, 1, 5)
+    p[0] = SBinder(p[2], p[4], span)
+
+
+def p_app_chain(p: yacc.YaccProduction) -> None:
+    "app : app atom"
+    left = p[1]
+    right = p[2]
+    if isinstance(left, SApp):
+        fn = left.fn
+        args = left.args + (right,)
+    else:
+        fn = left
+        args = (right,)
+    span = Span(left.span.start, right.span.end)
+    p[0] = SApp(span=span, fn=fn, args=args)
+
+
+def p_app_atom(p: yacc.YaccProduction) -> None:
+    "app : atom"
+    p[0] = p[1]
+
+
+def p_atom_uapp(p: yacc.YaccProduction) -> None:
+    "atom : atom_base AT LBRACE level_list RBRACE"
+    span = _span(p, 1, 5)
+    p[0] = SUApp(span=span, head=p[1], levels=tuple(p[4]))
+
+
+def p_atom_base(p: yacc.YaccProduction) -> None:
+    "atom : atom_base"
+    p[0] = p[1]
+
+
+def p_level_list_single(p: yacc.YaccProduction) -> None:
+    "level_list : INT"
+    p[0] = [p[1]]
+
+
+def p_level_list_multi(p: yacc.YaccProduction) -> None:
+    "level_list : level_list COMMA INT"
+    p[0] = p[1] + [p[3]]
+
+
+def p_atom_base_ident(p: yacc.YaccProduction) -> None:
+    "atom_base : IDENT"
+    span = _span(p, 1, 1)
+    p[0] = SVar(span=span, name=p[1])
+
+
+def p_atom_base_hole(p: yacc.YaccProduction) -> None:
+    "atom_base : HOLE"
+    span = _span(p, 1, 1)
+    p[0] = SHole(span=span)
+
+
+def p_atom_base_univ(p: yacc.YaccProduction) -> None:
+    "atom_base : TYPE INT"
+    span = _span(p, 1, 2)
+    p[0] = SUniv(span=span, level=p[2])
+
+
+def p_atom_base_univ_paren(p: yacc.YaccProduction) -> None:
+    "atom_base : TYPE LPAREN INT RPAREN"
+    span = _span(p, 1, 4)
+    p[0] = SUniv(span=span, level=p[3])
+
+
+def p_atom_base_const(p: yacc.YaccProduction) -> None:
+    "atom_base : CONST IDENT"
+    span = _span(p, 1, 2)
+    p[0] = SConst(span=span, name=p[2])
+
+
+def p_atom_base_ind(p: yacc.YaccProduction) -> None:
+    "atom_base : IND IDENT"
+    span = _span(p, 1, 2)
+    p[0] = SInd(span=span, name=p[2])
+
+
+def p_atom_base_ctor(p: yacc.YaccProduction) -> None:
+    "atom_base : CTOR IDENT"
+    span = _span(p, 1, 2)
+    p[0] = SCtor(span=span, name=p[2])
+
+
+def p_atom_base_paren(p: yacc.YaccProduction) -> None:
+    "atom_base : LPAREN term RPAREN"
+    p[0] = p[2]
+
+
+def p_atom_base_ann(p: yacc.YaccProduction) -> None:
+    "atom_base : LPAREN term COLON term RPAREN"
+    span = _span(p, 1, 5)
+    p[0] = SAnn(span=span, term=p[2], ty=p[4])
+
+
+def p_error(p: lex.LexToken | None) -> None:
+    if p is None:
+        span = Span(len(_SOURCE), len(_SOURCE))
+        raise SurfaceError("Unexpected end of input", span, _SOURCE)
+    span = _tok_span(cast(lex.LexToken, p))
+    raise SurfaceError("Unexpected token", span, _SOURCE)
+
+
+_PARSER = None
 
 
 def parse_term(source: str) -> SurfaceTerm:
-    parser = Parser(source)
-    term = parser.parse_term()
-    tok = parser._peek()
-    if tok is not None:
-        raise SurfaceError("Unexpected token", tok.span, source)
+    global _SOURCE, _PARSER
+    _SOURCE = source
+    lexer = lex.lex()
+    if _PARSER is None:
+        _PARSER = yacc.yacc(start="term", debug=False, write_tables=False)
+    term = cast(SurfaceTerm, _PARSER.parse(source, lexer=lexer))
+    if term is None:
+        span = Span(len(source), len(source))
+        raise SurfaceError("Unexpected end of input", span, source)
     return term

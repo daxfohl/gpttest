@@ -36,7 +36,7 @@ This repository contains a small Python library that models fragments of Martin-
    cd gpttest
    ```
 
-4. Ask uv to install Python 3.14 and create a project-local virtual environment populated with the development dependencies:
+4. Ask uv to install Python 3.14 and create a project-local virtual environment populated with the runtime and development dependencies (including `ply` for the surface parser):
 
    ```bash
    uv python install 3.14
@@ -49,7 +49,7 @@ This repository contains a small Python library that models fragments of Martin-
    source .venv/bin/activate
    ```
 
-The code targets Python 3.14+ and has no third-party dependencies beyond the development tooling.  Run the test suite from the repository root:
+The code targets Python 3.14+ and depends on `ply` for the surface parser, in addition to the development tooling. Run the test suite from the repository root:
 
 ```bash
 pytest
