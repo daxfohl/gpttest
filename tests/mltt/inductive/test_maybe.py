@@ -1,7 +1,5 @@
 import pytest
 
-from mltt.kernel.ast import Lam, Pi, Univ, Var, Term
-from mltt.kernel.telescope import mk_pis
 from mltt.inductive.maybe import (
     Just,
     JustCtor,
@@ -13,6 +11,8 @@ from mltt.inductive.maybe import (
     NothingCtor,
 )
 from mltt.inductive.nat import NatType, Succ, Zero
+from mltt.kernel.ast import Lam, Pi, Univ, Var, Term
+from mltt.kernel.telescope import mk_pis
 
 
 def test_infer_maybe_type_constructor() -> None:

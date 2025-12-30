@@ -1,13 +1,13 @@
 import pytest
 
 import mltt.inductive.vec as vec
-from mltt.kernel.ast import Term, Univ, Var
-from mltt.kernel.telescope import mk_app, mk_pis, mk_lams, Telescope
-from mltt.kernel.ind import Elim, Ctor, Ind
 from mltt.inductive import list as lst
 from mltt.inductive.fin import FinType, FZ, FS
 from mltt.inductive.nat import NatType, Succ, Zero, add, numeral
 from mltt.inductive.vec import VecType
+from mltt.kernel.ast import Term, Univ, Var
+from mltt.kernel.ind import Elim, Ctor, Ind
+from mltt.kernel.telescope import mk_app, mk_pis, mk_lams, Telescope
 
 
 def test_infer_vec_type() -> None:

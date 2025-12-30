@@ -1,10 +1,10 @@
 import pytest
 
 import mltt.inductive.list as listm
-from mltt.kernel.ast import Lam, Pi, Univ, Var, Term
-from mltt.kernel.telescope import mk_app, mk_pis, mk_lams
 from mltt.inductive.list import ConsCtor, NilCtor
 from mltt.inductive.nat import NatType, Succ, Zero
+from mltt.kernel.ast import Lam, Pi, Univ, Var, Term
+from mltt.kernel.telescope import mk_app, mk_pis, mk_lams
 
 
 def test_infer_list_type_constructor() -> None:

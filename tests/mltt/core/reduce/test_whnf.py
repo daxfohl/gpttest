@@ -1,7 +1,7 @@
-from mltt.kernel.ast import App, Var
-from mltt.kernel.telescope import mk_lams
 from mltt.inductive.eq import IdElim, Refl
 from mltt.inductive.nat import NatRec, NatType, Zero, Succ
+from mltt.kernel.ast import App, Var
+from mltt.kernel.telescope import mk_lams
 
 
 def test_whnf_unfolds_natrec_on_successor() -> None:

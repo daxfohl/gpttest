@@ -6,7 +6,7 @@ from mltt.inductive.list import ConsCtorAt, ListAt, NilCtorAt
 from mltt.kernel.ast import App, Pi, Term, Univ, Var, UApp
 from mltt.kernel.ind import Elim, Ctor, Ind
 from mltt.kernel.levels import LVar, LevelExpr
-from mltt.kernel.telescope import mk_app, Telescope, ArgList
+from mltt.kernel.telescope import mk_app, mk_uapp, Telescope, ArgList
 
 
 def _all() -> tuple[Ind, Ctor, Ctor]:
@@ -39,7 +39,7 @@ def _all() -> tuple[Ind, Ctor, Ctor]:
             mk_app(list_ind, Var(1)),  # xs : List A
             Var(2),  # x : A
             mk_app(Var(2), Var(0)),  # px : P x
-            mk_app(UApp(all_ind, u), Var(4), Var(3), Var(2)),  # ih : All A P xs
+            mk_uapp(all_ind, (u,), Var(4), Var(3), Var(2)),
         ),
         result_indices=ArgList.of(mk_app(cons_ctor, Var(5), Var(2), Var(3))),  # x :: xs
         uarity=1,

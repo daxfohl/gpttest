@@ -1,7 +1,7 @@
-from mltt.kernel.ast import Lam, Var
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Succ, Zero
 from mltt.inductive.rtc import RTCRefl, RTCStep, RTCType
+from mltt.kernel.ast import Lam, Var
 
 
 def nat_relation() -> Lam:

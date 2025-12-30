@@ -1,8 +1,6 @@
 import pytest
 
 import mltt.inductive.fin as fin
-from mltt.kernel.ast import Pi, Univ, Var
-from mltt.kernel.telescope import mk_app, mk_pis, mk_lams
 from mltt.inductive.fin import (
     FZCtor,
     FSCtor,
@@ -10,6 +8,8 @@ from mltt.inductive.fin import (
     fin_to_nat,
 )
 from mltt.inductive.nat import NatType, Succ, Zero, numeral
+from mltt.kernel.ast import Pi, Univ, Var
+from mltt.kernel.telescope import mk_app, mk_pis, mk_lams
 
 
 def test_infer_fin_type() -> None:

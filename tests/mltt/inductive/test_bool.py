@@ -1,7 +1,5 @@
 import pytest
 
-from mltt.kernel.ast import Univ, Var
-from mltt.kernel.telescope import mk_app, mk_pis
 from mltt.inductive.bool import (
     BoolType,
     False_,
@@ -18,6 +16,8 @@ from mltt.inductive.bool import (
     or_,
 )
 from mltt.inductive.nat import NatType, Succ, Zero, numeral
+from mltt.kernel.ast import Univ, Var
+from mltt.kernel.telescope import mk_app, mk_pis
 
 
 def test_ctor_types() -> None:

@@ -1,7 +1,7 @@
-from mltt.kernel.ast import Lam, Pi, Var
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Zero
 from mltt.inductive.top_bottom import BotElim, BotType, TopElim, TopType, Tt
+from mltt.kernel.ast import Lam, Pi, Var
 
 
 def test_top_has_canonical_inhabitant() -> None:

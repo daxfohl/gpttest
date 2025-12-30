@@ -1,7 +1,7 @@
 import mltt.inductive.tree as treem
+from mltt.inductive.nat import NatType, Succ, Zero, add
 from mltt.kernel.ast import Lam, Univ, Var
 from mltt.kernel.telescope import mk_app, mk_pis, mk_lams
-from mltt.inductive.nat import NatType, Succ, Zero, add
 
 
 def test_infer_tree_type_constructor() -> None:

@@ -1,8 +1,5 @@
 import pytest
 
-from mltt.kernel.ast import Pi
-from mltt.kernel.environment import Const
-from mltt.kernel.telescope import mk_pis
 from mltt.inductive.maybe import MaybeType, Nothing, Just
 from mltt.inductive.nat import (
     NatType,
@@ -15,6 +12,9 @@ from mltt.inductive.nat import (
     SuccCtor,
     pred_maybe,
 )
+from mltt.kernel.ast import Pi
+from mltt.kernel.environment import Const
+from mltt.kernel.telescope import mk_pis
 from mltt.surface.prelude import prelude_env
 
 

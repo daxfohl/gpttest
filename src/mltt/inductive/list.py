@@ -5,7 +5,7 @@ from __future__ import annotations
 from mltt.kernel.ast import App, Term, Univ, Var, UApp
 from mltt.kernel.ind import Elim, Ctor, Ind
 from mltt.kernel.levels import LVar, LevelExpr
-from mltt.kernel.telescope import mk_app, Telescope
+from mltt.kernel.telescope import mk_app, mk_uapp, Telescope
 
 
 def _list() -> tuple[Ind, Ctor, Ctor]:
@@ -22,7 +22,7 @@ def _list() -> tuple[Ind, Ctor, Ctor]:
         inductive=list_ind,
         field_schemas=Telescope.of(
             Var(0),
-            App(UApp(list_ind, u), Var(1)),
+            App(mk_uapp(list_ind, (u,)), Var(1)),
         ),
         uarity=1,
     )

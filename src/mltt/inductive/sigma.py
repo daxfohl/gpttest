@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var
-from mltt.kernel.telescope import mk_app, mk_pis, mk_lams, Telescope
 from mltt.kernel.ind import Elim, Ctor, Ind
+from mltt.kernel.telescope import mk_app, mk_pis, mk_lams, Telescope
 
 Sigma = Ind(
     name="Sigma",

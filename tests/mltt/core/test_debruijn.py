@@ -7,10 +7,10 @@ from mltt.inductive.fin import FZCtor
 from mltt.inductive.nat import NatRec, Succ, Zero, NatType
 from mltt.inductive.sigma import PairCtor
 from mltt.inductive.vec import ConsCtorAt, Cons_U
-from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var, UApp
+from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var
 from mltt.kernel.ind import Elim
 from mltt.kernel.levels import LVar
-from mltt.kernel.telescope import mk_pis, mk_lams, mk_app, ArgList
+from mltt.kernel.telescope import mk_pis, mk_lams, mk_app, mk_uapp, ArgList
 
 
 # ------------- Shift: basic behavior -------------
@@ -737,7 +737,7 @@ def test_allvec_allcons_ih_type_instantiates_params_keeps_prior_fields() -> None
     schema_ih = AllCons_U.field_schemas[4]
     out = schema_ih.instantiate(ArgList.of(A0, P0), depth_above=4)
 
-    assert out == mk_app(UApp(allvec.AllVec_U, LVar(0)), A0, P0, Var(3), Var(1))
+    assert out == mk_uapp(allvec.AllVec_U, (LVar(0),), A0, P0, Var(3), Var(1))
 
 
 def test_allvec_allcons_result_indices_instantiates_params_keeps_all_fields() -> None:

@@ -7,7 +7,7 @@ from mltt.inductive.nat import NatType, Succ, Zero
 from mltt.kernel.ast import Term, Univ, Var, UApp
 from mltt.kernel.ind import Elim, Ctor, Ind
 from mltt.kernel.levels import LVar, LevelExpr
-from mltt.kernel.telescope import mk_app, mk_lams, Telescope, ArgList
+from mltt.kernel.telescope import mk_app, mk_uapp, mk_lams, Telescope, ArgList
 
 
 def _vec() -> tuple[Ind, Ctor, Ctor]:
@@ -31,7 +31,7 @@ def _vec() -> tuple[Ind, Ctor, Ctor]:
         field_schemas=Telescope.of(
             NatType(),  # n : Nat
             Var(1),  # head : A
-            mk_app(UApp(vec_ind, u), Var(2), Var(1)),  # tail : Vec A n
+            mk_uapp(vec_ind, (u,), Var(2), Var(1)),  # tail : Vec A n
         ),
         result_indices=ArgList.of(Succ(Var(2))),  # result index = Succ n
         uarity=1,
