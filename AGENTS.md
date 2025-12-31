@@ -8,7 +8,9 @@
 - Run `source .venv/bin/activate && mypy` when type-safety is affected or after non-trivial Python changes.
 - Run `source .venv/bin/activate && black .` before sending changes that touch Python files.
 - Use `source .venv/bin/activate && python` when running repo-local Python scripts.
-- The `mltt` module implements a miniature Martin-Löf type theory with supporting modules for de Bruijn index manipulation (`debruijn.py`), normalization (`normalization.py`), typing (`typecheck.py`), equality helpers (`eq.py`), and structural predicates/utilities (`predicates.py`).
+- The `mltt.kernel` module implements a miniature Martin-Löf type theory.
+- The `mltt.ind` module implements several common inductives such as `Nat`, `Vec`, `Fin`, `Maybe`, `List`, `Bool`, `Sigma`, `Eq`, `Unit`, `Bottom`, and others.
+- The `mltt.surface` module implements a parser and elaborator for surface syntax.
 - De Bruijn strategy: binders push indices outward (0 = innermost). Context entries are stored relative to their tails and shifted on lookup; extending a context prepends new binders without rewriting existing entry types. Substitutions decrement indices above the target and shift the inserted term when descending under binders. Inductive parameters are outermost, followed by indices, then constructor arguments; utilities expect substitutions in that order and rely on consistent shifting.
 - `mltt.kernel.ast`:
   - `Term` is the base class for all kernel terms and owns shifting/substitution, normalization/whnf, and type-checking helpers. `TermFieldMeta.binder_count` drives correct shifting/substitution under binders; `unchecked=True` skips structural equality checks.
