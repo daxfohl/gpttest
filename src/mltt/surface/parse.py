@@ -24,13 +24,25 @@ from mltt.surface.sast import (
     SHole,
     SLet,
 )
-from mltt.surface.sind import SConstructorDecl, SInd, SCtor, SInductiveDef
+from mltt.surface.sind import (
+    SBranch,
+    SConstructorDecl,
+    SInd,
+    SCtor,
+    SInductiveDef,
+    SMatch,
+    SPatBinder,
+)
 
 _SOURCE: str = ""
 
 reserved = {
     "fun": "FUN",
     "let": "LET",
+    "match": "MATCH",
+    "with": "WITH",
+    "as": "AS",
+    "return": "RETURN",
     "Type": "TYPE",
     "const": "CONST",
     "ind": "IND",
@@ -135,6 +147,19 @@ def p_term_let(p: yacc.YaccProduction) -> None:
     )
 
 
+def p_term_match(p: yacc.YaccProduction) -> None:
+    "term : MATCH term match_tail"
+    as_name, motive, branches = p[3]
+    span = Span(_item_span(p, 1).start, branches[-1].span.end)
+    p[0] = SMatch(
+        span=span,
+        scrutinee=p[2],
+        as_name=as_name,
+        motive=motive,
+        branches=branches,
+    )
+
+
 def p_term_inductive(p: yacc.YaccProduction) -> None:
     "term : INDUCTIVE IDENT u_binders ind_binders COLON term DEFINE ctor_decls SEMI term"
     span = _span(p, 1, 10)
@@ -147,6 +172,16 @@ def p_term_inductive(p: yacc.YaccProduction) -> None:
         ctors=p[8],
         body=p[10],
     )
+
+
+def p_match_tail_with(p: yacc.YaccProduction) -> None:
+    "match_tail : WITH match_branches"
+    p[0] = (None, None, p[2])
+
+
+def p_match_tail_as_return(p: yacc.YaccProduction) -> None:
+    "match_tail : AS IDENT RETURN term WITH match_branches"
+    p[0] = (p[2], p[4], p[6])
 
 
 def p_term_fun(p: yacc.YaccProduction) -> None:
@@ -280,6 +315,52 @@ def p_ctor_decls_multi(p: yacc.YaccProduction) -> None:
 def p_ctor_decls_single(p: yacc.YaccProduction) -> None:
     "ctor_decls : ctor_decl"
     p[0] = (p[1],)
+
+
+def p_match_branches_multi(p: yacc.YaccProduction) -> None:
+    "match_branches : match_branches match_branch"
+    p[0] = p[1] + (p[2],)
+
+
+def p_match_branches_single(p: yacc.YaccProduction) -> None:
+    "match_branches : match_branch"
+    p[0] = (p[1],)
+
+
+def p_match_branch(p: yacc.YaccProduction) -> None:
+    "match_branch : PIPE IDENT pat_binders DARROW term"
+    pipe_tok = cast(lex.LexToken, p.slice[1])
+    span = Span(pipe_tok.lexpos, p[5].span.end)
+    p[0] = SBranch(ctor=p[2], binders=p[3], rhs=p[5], span=span)
+
+
+def p_match_branch_no_binders(p: yacc.YaccProduction) -> None:
+    "match_branch : PIPE IDENT DARROW term"
+    pipe_tok = cast(lex.LexToken, p.slice[1])
+    span = Span(pipe_tok.lexpos, p[4].span.end)
+    p[0] = SBranch(ctor=p[2], binders=(), rhs=p[4], span=span)
+
+
+def p_pat_binders_multi(p: yacc.YaccProduction) -> None:
+    "pat_binders : pat_binders pat_binder"
+    p[0] = p[1] + (p[2],)
+
+
+def p_pat_binders_single(p: yacc.YaccProduction) -> None:
+    "pat_binders : pat_binder"
+    p[0] = (p[1],)
+
+
+def p_pat_binder_ident(p: yacc.YaccProduction) -> None:
+    "pat_binder : IDENT"
+    span = _span(p, 1, 1)
+    p[0] = SPatBinder(name=p[1], span=span)
+
+
+def p_pat_binder_hole(p: yacc.YaccProduction) -> None:
+    "pat_binder : HOLE"
+    span = _span(p, 1, 1)
+    p[0] = SPatBinder(name=None, span=span)
 
 
 def p_ctor_decl(p: yacc.YaccProduction) -> None:

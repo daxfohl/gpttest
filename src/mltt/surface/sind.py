@@ -5,10 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from types import MappingProxyType
 
-from mltt.kernel.ast import Term, Univ, UApp
+from mltt.kernel.ast import Lam, Term, Univ, UApp
 from mltt.kernel.environment import Const, Env, GlobalDecl
-from mltt.kernel.ind import Ctor, Ind
-from mltt.kernel.telescope import Telescope
+from mltt.kernel.ind import Ctor, Elim, Ind
+from mltt.kernel.telescope import Telescope, decompose_uapp
 from mltt.surface.elab_state import Constraint, ElabState
 from mltt.surface.sast import (
     NameEnv,
@@ -65,6 +65,114 @@ class SCtor(SurfaceTerm):
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         raise SurfaceError("Constructor references require elaboration", self.span)
+
+
+@dataclass(frozen=True)
+class SPatBinder:
+    name: str | None
+    span: Span
+
+
+@dataclass(frozen=True)
+class SBranch:
+    ctor: str
+    binders: tuple[SPatBinder, ...]
+    rhs: SurfaceTerm
+    span: Span
+
+
+@dataclass(frozen=True)
+class SMatch(SurfaceTerm):
+    scrutinee: SurfaceTerm
+    as_name: str | None
+    motive: SurfaceTerm | None
+    branches: tuple[SBranch, ...]
+
+    def elab_infer(self, env: Env, state: ElabState) -> tuple[Term, Term]:
+        if self.motive is not None or self.as_name is not None:
+            raise SurfaceError("Dependent match not implemented", self.span)
+        raise SurfaceError("Cannot infer match result type; use check-mode", self.span)
+
+    def elab_check(self, env: Env, state: ElabState, expected: Term) -> Term:
+        if self.motive is not None or self.as_name is not None:
+            raise SurfaceError("Dependent match not implemented", self.span)
+        scrut_term, scrut_ty = self.scrutinee.elab_infer(env, state)
+        scrut_ty_whnf = scrut_ty.whnf(env)
+        head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
+        ind = self._resolve_inductive_head(env, head)
+        if ind is None:
+            raise SurfaceError("Match scrutinee is not an inductive type", self.span)
+        p = len(ind.param_types)
+        q = len(ind.index_types)
+        if len(args) != p + q:
+            raise SurfaceError("Match scrutinee has wrong arity", self.span)
+        params_actual = args[:p]
+        branch_map = self._branch_map(env, ind)
+        cases: list[Term] = []
+        for ctor in ind.constructors:
+            branch = branch_map.get(ctor)
+            if branch is None:
+                raise SurfaceError(
+                    f"Missing branch for constructor {ctor.name}", self.span
+                )
+            field_tys = ctor.field_schemas.inst_levels(level_actuals).instantiate(
+                params_actual
+            )
+            if len(branch.binders) != len(field_tys):
+                raise SurfaceError(
+                    f"Wrong number of binders for {ctor.name}", branch.span
+                )
+            env_branch = env
+            for binder, field_ty in zip(branch.binders, field_tys, strict=True):
+                env_branch = env_branch.push_binder(
+                    field_ty, name=binder.name if binder.name is not None else None
+                )
+            rhs_term = branch.rhs.elab_check(
+                env_branch, state, expected.shift(len(field_tys))
+            )
+            case_term = rhs_term
+            for field_ty in reversed(list(field_tys)):
+                case_term = Lam(field_ty, case_term)
+            cases.append(case_term)
+        motive = Lam(scrut_ty_whnf, expected.shift(1))
+        return Elim(ind, motive, tuple(cases), scrut_term)
+
+    def resolve(self, env: Env, names: NameEnv) -> Term:
+        raise SurfaceError("Match requires elaboration", self.span)
+
+    def _resolve_inductive_head(self, env: Env, head: Term) -> Ind | None:
+        if isinstance(head, Ind):
+            return head
+        if isinstance(head, Const):
+            decl = env.lookup_global(head.name)
+            if decl is not None and isinstance(decl.value, Ind):
+                return decl.value
+        return None
+
+    def _branch_map(self, env: Env, ind: Ind) -> dict[Ctor, SBranch]:
+        branches: dict[Ctor, SBranch] = {}
+        ctor_by_name = {ctor.name: ctor for ctor in ind.constructors}
+        ctor_by_qual = {f"{ind.name}.{ctor.name}": ctor for ctor in ind.constructors}
+        seen: set[Ctor] = set()
+        for branch in self.branches:
+            ctor = None
+            if branch.ctor in ctor_by_qual:
+                ctor = ctor_by_qual[branch.ctor]
+            elif branch.ctor in ctor_by_name:
+                ctor = ctor_by_name[branch.ctor]
+            else:
+                decl = env.lookup_global(branch.ctor)
+                if decl is not None and isinstance(decl.value, Ctor):
+                    ctor = decl.value
+            if ctor is None or ctor.inductive != ind:
+                raise SurfaceError(f"Unknown constructor {branch.ctor}", branch.span)
+            if ctor in seen:
+                raise SurfaceError(
+                    f"Duplicate branch for constructor {ctor.name}", branch.span
+                )
+            seen.add(ctor)
+            branches[ctor] = branch
+        return branches
 
 
 @dataclass(frozen=True)
