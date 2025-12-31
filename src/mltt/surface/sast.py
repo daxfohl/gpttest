@@ -416,17 +416,23 @@ class SUApp(SurfaceTerm):
 
 @dataclass(frozen=True)
 class SLet(SurfaceTerm):
+    uparams: tuple[str, ...]
     name: str
     ty: SurfaceTerm
     val: SurfaceTerm
     body: SurfaceTerm
 
     def elab_infer(self, env: Env, state: ElabState) -> tuple[Term, Term]:
+        if len(set(self.uparams)) != len(self.uparams):
+            raise SurfaceError("Duplicate universe binder", self.span)
+        old_level_names = state.level_names
+        state.level_names = list(reversed(self.uparams)) + state.level_names
         ty_term, ty_ty = self.ty.elab_infer(env, state)
         ty_ty_whnf = ty_ty.whnf(env)
         if not isinstance(ty_ty_whnf, Univ):
             raise SurfaceError("Let type must be a universe", self.span)
         val_term = self.val.elab_check(env, state, ty_term)
+        state.level_names = old_level_names
         uarity, ty_term, val_term = state.generalize_levels_for_let(ty_term, val_term)
         env1 = env.push_let(ty_term, val_term, name=self.name, uarity=uarity)
         body_term, body_ty = self.body.elab_infer(env1, state)

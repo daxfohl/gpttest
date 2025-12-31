@@ -123,9 +123,16 @@ def _span(p: yacc.YaccProduction, start: int, end: int) -> Span:
 
 
 def p_term_let(p: yacc.YaccProduction) -> None:
-    "term : LET IDENT COLON term DEFINE term SEMI term"
-    span = _span(p, 1, 8)
-    p[0] = SLet(span=span, name=p[2], ty=p[4], val=p[6], body=p[8])
+    "term : LET u_binders IDENT COLON term DEFINE term SEMI term"
+    span = _span(p, 1, 9)
+    p[0] = SLet(
+        span=span,
+        uparams=p[2],
+        name=p[3],
+        ty=p[5],
+        val=p[7],
+        body=p[9],
+    )
 
 
 def p_term_inductive(p: yacc.YaccProduction) -> None:

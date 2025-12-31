@@ -68,6 +68,17 @@ def test_local_universe_binders_with_id_implicit() -> None:
     elab_ok(src)
 
 
+def test_surface_let_universe_binders() -> None:
+    env = prelude_env()
+    src = """
+    let {u} id : (A : Type u) -> A -> A :=
+      fun (A : Type u) (x : A) => x;
+    let x : Nat := id Nat Nat.Zero;
+    id Type Type
+    """
+    elab_ok_in_env(src, env)
+
+
 def test_surface_inductive_maybe() -> None:
     g = prelude_globals()
     for name in (
