@@ -10,5 +10,31 @@
 - Use `source .venv/bin/activate && python` when running repo-local Python scripts.
 - The `mltt` module implements a miniature Martin-Löf type theory with supporting modules for de Bruijn index manipulation (`debruijn.py`), normalization (`normalization.py`), typing (`typecheck.py`), equality helpers (`eq.py`), and structural predicates/utilities (`predicates.py`).
 - De Bruijn strategy: binders push indices outward (0 = innermost). Context entries are stored relative to their tails and shifted on lookup; extending a context prepends new binders without rewriting existing entry types. Substitutions decrement indices above the target and shift the inserted term when descending under binders. Inductive parameters are outermost, followed by indices, then constructor arguments; utilities expect substitutions in that order and rely on consistent shifting.
+- `mltt.kernel.ast`:
+  - `Term` provides shifting/substitution, normalization/whnf, and type-checking helpers. `TermFieldMeta.binder_count` drives correct shifting/substitution under binders; `unchecked=True` skips structural equality checks.
+  - `Var(k)` is a de Bruijn variable (0 = innermost). `Var.subst` removes the binder (`k > j` decrements); `Var.shift` bumps indices at/above cutoff.
+  - `Lam`/`Pi` carry a binder in `body`/`return_ty` with `binder_count=1`. `Lam` type-checks against `Pi` with matching domain + implicitness.
+  - `App` reduces by beta if the head is a matching-implicit `Lam`; type inference checks `Pi` and substitutes the argument into the codomain.
+  - `UApp(head, levels)` is universe application. It only accepts heads that are `Const`, `Ind`, `Ctor`, or local `Var`; it validates `uarity` and instantiates universe levels in the head type.
+  - `Univ(level)` is `Type(level)` with `Type(l)` : `Type(l+1)` and level consistency checks.
+  - `Let` introduces a binder with a definitional value; `body` is under one binder at `Var(0)` and inference uses `Env.push_let`.
+  - `Term.instantiate(actuals, depth_above)` substitutes an outer binder block with `actuals` using the project order: higher indices first (outermost actuals map to larger indices).
+- `mltt.kernel.tel` (outermost-to-innermost ordering throughout):
+  - `ArgList` is an argument list in left-to-right application order; `decompose_app` returns args in that same order, and `mk_app` applies left-associatively.
+  - `Telescope` is a list of binder types ordered outermost → innermost. `mk_lams`/`mk_pis` take parameters in this order and build right-nested binders so the last parameter is closest to the body.
+  - `ArgList.vars(n, offset)` returns `Var(n-1)..Var(0)` (outermost → innermost) with an optional offset; this is used to reconstruct parameter/field variables.
+  - `instantiate` on `Telescope` shifts `depth_above` by the binder index, so each successive telescope entry is substituted with the correct de Bruijn depth.
+  - `mk_uapp` applies universe levels to a head before term arguments; `decompose_uapp` splits head/levels/args.
+- `mltt.kernel.env` (innermost-to-outermost for `Env.binders`):
+  - `Env.binders[0]` is the innermost binder; `push_binder`/`push_let` prepend without rewriting existing entry types.
+  - `push_binders` expects outermost → innermost input, so the last pushed binder ends up at index 0.
+  - `local_type(k)` shifts stored types by `k+1` because entries are scoped in the tail; `local_value(k)` returns let-bound definitions when present.
+  - `lookup_local` finds the nearest name (innermost first); `names()` returns binder names ordered by de Bruijn index.
+  - `GlobalDecl` includes `ty`, optional `value`, `reducible`, and `uarity` for universe parameters.
+- `mltt.kernel.ind` (parameters outermost, then indices, then fields/args):
+  - `Ind` stores `param_types`, `index_types`, `constructors`, `level`, and `uarity`; `infer_ind_type` builds a Pi-tower `params → indices → Type(level)` with universe checks.
+  - `Ctor` stores `field_schemas` and `result_indices`; `infer_ctor_type` builds a Pi-tower with parameters outermost, then ctor fields, returning the inductive head applied to params/indices.
+  - `Ctor.rps` tracks recursive field positions (fields whose WHNF head is the inductive).
+  - `Elim` performs iota-reduction when the scrutinee WHNF is a fully-applied constructor; `infer_elim_type` checks motive/cases and constructs expected branch types with fields then IHs.
 - This codebase is not a public library—feel free to make breaking changes when needed; no backwards compatibility shims are required.
 - Tests live under `tests/mltt/` and mirror the source tree—add or update the relevant modules when behaviour changes.
