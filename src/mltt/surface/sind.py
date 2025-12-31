@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 
 from mltt.kernel.ast import Term, Univ, UApp
-from mltt.kernel.environment import Const, Env, GlobalDecl
+from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
 from mltt.kernel.telescope import ArgList, Telescope, decompose_uapp
 from mltt.surface.elab_state import Constraint, ElabState

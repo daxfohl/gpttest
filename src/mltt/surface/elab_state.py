@@ -6,7 +6,7 @@ from collections import deque
 from dataclasses import dataclass, field
 
 from mltt.kernel.ast import App, Lam, MetaVar, Pi, Term, Univ, Var, UApp
-from mltt.kernel.environment import Env
+from mltt.kernel.env import Env
 from mltt.kernel.ind import Elim, Ind
 from mltt.kernel.levels import LConst, LMax, LMeta, LSucc, LVar, LevelExpr
 from mltt.surface.sast import Span, SurfaceError

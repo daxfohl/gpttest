@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from mltt.kernel.ast import App, Lam, Pi, Term, Univ, UApp
-from mltt.kernel.environment import Const, Env
+from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
 from mltt.kernel.telescope import (

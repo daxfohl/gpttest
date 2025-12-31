@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp, MetaVar
-from mltt.kernel.environment import Const
+from mltt.kernel.env import Const
 from mltt.kernel.ind import Elim, Ctor, Ind
 from mltt.kernel.levels import LevelExpr, LConst, LVar, LSucc, LMax, LMeta
 

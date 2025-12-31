@@ -10,7 +10,7 @@ from mltt.inductive import (
     sigma,
 )
 from mltt.kernel.ast import Term
-from mltt.kernel.environment import GlobalDecl, Env
+from mltt.kernel.env import GlobalDecl, Env
 
 
 def register_value(g: dict[str, GlobalDecl], name: str, value: Term) -> None:

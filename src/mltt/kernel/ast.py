@@ -11,7 +11,7 @@ from mltt.kernel.levels import LevelExpr, LConst
 
 if TYPE_CHECKING:
     from mltt.kernel.telescope import ArgList
-    from mltt.kernel.environment import Env
+    from mltt.kernel.env import Env
 
 
 def _map_term_values(value: Any, f: Callable[[Term], Term]) -> Any:
@@ -98,13 +98,13 @@ class Term:
 
     def whnf_step(self, env: Env | None = None) -> Term:
         """Weak head normal form."""
-        from mltt.kernel.environment import Env
+        from mltt.kernel.env import Env
 
         return self._whnf_step(env or Env())
 
     def whnf(self, env: Env | None = None) -> Term:
         """Weak head normal form."""
-        from mltt.kernel.environment import Env
+        from mltt.kernel.env import Env
 
         env = env or Env()
         reduced = self.whnf_step(env)
@@ -137,7 +137,7 @@ class Term:
 
     # --- Typing ---------------------------------------------------------------
     def infer_type(self, env: Env | None = None) -> Term:
-        from mltt.kernel.environment import Env
+        from mltt.kernel.env import Env
 
         return self._infer_type(env or Env())
 
@@ -145,7 +145,7 @@ class Term:
         raise TypeError(f"Unexpected term in infer_type:\n  term = {self!r}")
 
     def type_check(self, ty: Term, env: Env | None = None) -> None:
-        from mltt.kernel.environment import Env
+        from mltt.kernel.env import Env
 
         env = env or Env()
         self._type_check(ty.whnf(env), env)
@@ -179,7 +179,7 @@ class Term:
         return True
 
     def type_equal(self, other: Term, env: Env | None = None) -> bool:
-        from mltt.kernel.environment import Env
+        from mltt.kernel.env import Env
 
         env = env or Env()
         return self._type_equal(other, env)
@@ -389,7 +389,7 @@ class UApp(Term):
 
     # Reduction ----------------------------------------------------------------
     def _whnf_step(self, env: Env) -> Term:
-        from mltt.kernel.environment import Const
+        from mltt.kernel.env import Const
 
         if isinstance(self.head, Const):
             decl = env.globals[self.head.name]
@@ -403,7 +403,7 @@ class UApp(Term):
 
     # Typing -------------------------------------------------------------------
     def _infer_type(self, env: Env) -> Term:
-        from mltt.kernel.environment import Const
+        from mltt.kernel.env import Const
         from mltt.kernel.ind import Ind, Ctor
 
         match self.head:

@@ -13,7 +13,7 @@ from mltt.inductive.nat import (
     pred_maybe,
 )
 from mltt.kernel.ast import Pi
-from mltt.kernel.environment import Const
+from mltt.kernel.env import Const
 from mltt.kernel.telescope import mk_pis
 from mltt.surface.prelude import prelude_env
 

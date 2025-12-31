@@ -1,5 +1,5 @@
 from mltt.kernel.ast import App, Lam, Pi, Univ, Var
-from mltt.kernel.environment import Env
+from mltt.kernel.env import Env
 from mltt.surface.elab_state import ElabState
 from mltt.surface.sast import Span
 

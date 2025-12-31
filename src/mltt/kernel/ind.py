@@ -7,7 +7,7 @@ from functools import cached_property
 from typing import ClassVar
 
 from mltt.kernel.ast import Term, Pi, Univ, App, TermFieldMeta
-from mltt.kernel.environment import Env
+from mltt.kernel.env import Env
 from mltt.kernel.levels import LConst, LevelExpr, LVar
 from mltt.kernel.telescope import (
     mk_app,

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp
-from mltt.kernel.environment import Const, Env
+from mltt.kernel.env import Const, Env
 from mltt.kernel.levels import LConst, LevelExpr
 
 if TYPE_CHECKING:
