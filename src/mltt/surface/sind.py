@@ -20,6 +20,8 @@ from mltt.surface.sast import (
     SurfaceError,
     SurfaceTerm,
     _elab_binders,
+    _expect_universe,
+    _require_global_info,
 )
 
 
@@ -28,23 +30,16 @@ class SInd(SurfaceTerm):
     name: str
 
     def elab_infer(self, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
-        decl = env.lookup_global(self.name)
-        if decl is None or decl.value is None:
+        decl, gty = _require_global_info(
+            env, self.name, self.span, f"Unknown inductive {self.name}"
+        )
+        if decl.value is None:
             raise SurfaceError(f"Unknown inductive {self.name}", self.span)
         if not isinstance(decl.value, Ind):
             raise SurfaceError(f"{self.name} is not an inductive", self.span)
         ind = decl.value
-        if ind.uarity:
-            levels = tuple(
-                state.fresh_level_meta("implicit", self.span) for _ in range(ind.uarity)
-            )
-            term = UApp(ind, levels)
-            gty = env.global_type(self.name)
-            assert gty is not None
-            return term, ElabType(gty.term.inst_levels(levels), gty.implicit_spine)
-        gty = env.global_type(self.name)
-        assert gty is not None
-        return ind, gty
+        term, levels = state.apply_implicit_levels(ind, decl.uarity, self.span)
+        return term, gty.inst_levels(levels)
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         raise SurfaceError("Inductive references require elaboration", self.span)
@@ -55,24 +50,18 @@ class SCtor(SurfaceTerm):
     name: str
 
     def elab_infer(self, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
-        decl = env.lookup_global(self.name)
-        if decl is None or decl.value is None:
+        decl, gty = _require_global_info(
+            env, self.name, self.span, f"Unknown constructor {self.name}"
+        )
+        if decl.value is None:
             raise SurfaceError(f"Unknown constructor {self.name}", self.span)
         if isinstance(decl.value, UApp) and isinstance(decl.value.head, Ctor):
-            gty = env.global_type(self.name)
-            assert gty is not None
             return decl.value, gty
         if not isinstance(decl.value, Ctor):
             raise SurfaceError(f"{self.name} is not a constructor", self.span)
         ctor = decl.value
-        if ctor.uarity:
-            levels = tuple(
-                state.fresh_level_meta("implicit", self.span)
-                for _ in range(ctor.uarity)
-            )
-            term = UApp(ctor, levels)
-            return term, ElabType(ctor.infer_type(env.kenv).inst_levels(levels))
-        return ctor, ElabType(ctor.infer_type(env.kenv))
+        term, levels = state.apply_implicit_levels(ctor, decl.uarity, self.span)
+        return term, gty.inst_levels(levels)
 
     def elab_check(self, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
         term, term_ty = self.elab_infer(env, state)
@@ -137,9 +126,7 @@ class SInductiveDef(SurfaceTerm):
             env_params, state, index_binders
         )
         level_term, level_ty = level_body.elab_infer(env_indices, state)
-        level_ty_whnf = level_ty.term.whnf(env_indices.kenv)
-        if not isinstance(level_ty_whnf, Univ):
-            raise SurfaceError("Inductive level must be a universe", level_body.span)
+        _expect_universe(level_ty.term, env_indices.kenv, level_body.span)
         if not isinstance(level_term, Univ):
             raise SurfaceError("Inductive level must be a Type", level_body.span)
         ind = Ind(
@@ -165,7 +152,9 @@ class SInductiveDef(SurfaceTerm):
             eglobals={**env.eglobals, self.name: ElabType(ind_ty, param_impls)},
         )
         env_params_with_ind = ElabEnv(
-            kenv=Env(binders=env_params.kenv.binders, globals=env_with_ind.kenv.globals),
+            kenv=Env(
+                binders=env_params.kenv.binders, globals=env_with_ind.kenv.globals
+            ),
             locals=env_params.locals,
             eglobals=env_with_ind.eglobals,
         )
@@ -185,11 +174,7 @@ class SInductiveDef(SurfaceTerm):
                 )
             if ctor_decl.result is not None:
                 result_term, result_ty = ctor_decl.result.elab_infer(env_fields, state)
-                result_ty_whnf = result_ty.term.whnf(env_fields.kenv)
-                if not isinstance(result_ty_whnf, Univ):
-                    raise SurfaceError(
-                        "Constructor result must be a universe", ctor_decl.span
-                    )
+                _expect_universe(result_ty.term, env_fields.kenv, ctor_decl.span)
                 head, _levels, args = decompose_uapp(result_term)
                 ind_head = _resolve_inductive_head(env_with_ind.kenv, head)
                 if ind_head != ind:

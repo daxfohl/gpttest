@@ -15,6 +15,14 @@ class ElabType:
     term: Term
     implicit_spine: tuple[bool, ...] = ()
 
+    def whnf(self, env: Env) -> Term:
+        return self.term.whnf(env)
+
+    def inst_levels(self, levels: tuple) -> "ElabType":
+        if not levels:
+            return self
+        return ElabType(self.term.inst_levels(levels), self.implicit_spine)
+
 
 @dataclass(frozen=True)
 class ElabEnv:
@@ -41,6 +49,14 @@ class ElabEnv:
 
     def global_type(self, name: str) -> ElabType | None:
         return self.eglobals.get(name)
+
+    def global_info(self, name: str) -> tuple[GlobalDecl, ElabType] | None:
+        decl = self.lookup_global(name)
+        if decl is None:
+            return None
+        gty = self.global_type(name)
+        assert gty is not None
+        return decl, gty
 
     def local_type(self, k: int) -> ElabType:
         if k < 0 or k >= len(self.locals):

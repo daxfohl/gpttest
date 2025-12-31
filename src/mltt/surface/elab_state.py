@@ -80,6 +80,14 @@ class ElabState:
         self.level_metas[mid] = LMetaInfo(span=span, origin=origin)
         return LMeta(mid)
 
+    def apply_implicit_levels(
+        self, head: Term, uarity: int, span: Span
+    ) -> tuple[Term, tuple[LevelExpr, ...]]:
+        if uarity <= 0:
+            return head, ()
+        levels = tuple(self.fresh_level_meta("implicit", span) for _ in range(uarity))
+        return UApp(head, levels), levels
+
     def add_constraint(self, env: Env, lhs: Term, rhs: Term, span: Span | None) -> None:
         self.constraints.append(Constraint(len(env.binders), lhs, rhs, span))
 

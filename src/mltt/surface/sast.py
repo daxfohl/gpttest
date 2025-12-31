@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp
-from mltt.kernel.env import Const, Env
+from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.levels import LConst, LevelExpr
 from mltt.surface.etype import ElabEnv, ElabType
 
@@ -52,6 +52,22 @@ class SurfaceTerm:
         raise SurfaceError("Unsupported surface term", self.span)
 
 
+def _expect_universe(term: Term, env: Env, span: Span) -> Univ:
+    ty_whnf = term.whnf(env)
+    if not isinstance(ty_whnf, Univ):
+        raise SurfaceError(f"{type(term).__name__} must be a universe", span)
+    return ty_whnf
+
+
+def _require_global_info(
+    env: ElabEnv, name: str, span: Span, message: str
+) -> tuple[GlobalDecl, ElabType]:
+    info = env.global_info(name)
+    if info is None:
+        raise SurfaceError(message, span)
+    return info
+
+
 @dataclass(frozen=True)
 class SBinder:
     name: str
@@ -63,9 +79,7 @@ class SBinder:
         if self.ty is None:
             raise SurfaceError("Missing binder type", self.span)
         ty_term, ty_ty = self.ty.elab_infer(env, state)
-        ty_ty_whnf = ty_ty.term.whnf(env.kenv)
-        if not isinstance(ty_ty_whnf, Univ):
-            raise SurfaceError("Binder type must be a universe", self.span)
+        _expect_universe(ty_ty.term, env.kenv, self.span)
         implicit_spine = _implicit_spine(self.ty)
         return ty_term, env.push_binder(
             ElabType(ty_term, implicit_spine), name=self.name
@@ -107,32 +121,17 @@ class SVar(SurfaceTerm):
         idx = env.lookup_local(self.name)
         if idx is not None:
             binder = env.binders[idx]
-            if binder.uarity:
-                levels = tuple(
-                    state.fresh_level_meta("implicit", self.span)
-                    for _ in range(binder.uarity)
-                )
-                term = UApp(Var(idx), levels)
-                return term, ElabType(
-                    env.local_type(idx).term.inst_levels(levels),
-                    env.local_type(idx).implicit_spine,
-                )
-            return Var(idx), env.local_type(idx)
-        decl = env.lookup_global(self.name)
-        if decl is not None:
-            if decl.uarity:
-                levels = tuple(
-                    state.fresh_level_meta("implicit", self.span)
-                    for _ in range(decl.uarity)
-                )
-                term = UApp(Const(self.name), levels)
-                gty = env.global_type(self.name)
-                assert gty is not None
-                return term, ElabType(gty.term.inst_levels(levels), gty.implicit_spine)
-            gty = env.global_type(self.name)
-            assert gty is not None
-            return Const(self.name), gty
-        raise SurfaceError(f"Unknown identifier {self.name}", self.span)
+            term, levels = state.apply_implicit_levels(
+                Var(idx), binder.uarity, self.span
+            )
+            return term, env.local_type(idx).inst_levels(levels)
+        decl, gty = _require_global_info(
+            env, self.name, self.span, f"Unknown identifier {self.name}"
+        )
+        term, levels = state.apply_implicit_levels(
+            Const(self.name), decl.uarity, self.span
+        )
+        return term, gty.inst_levels(levels)
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         idx = names.lookup(self.name)
@@ -148,21 +147,13 @@ class SConst(SurfaceTerm):
     name: str
 
     def elab_infer(self, env: ElabEnv, state: "ElabState") -> tuple[Term, ElabType]:
-        decl = env.lookup_global(self.name)
-        if decl is None:
-            raise SurfaceError(f"Unknown constant {self.name}", self.span)
-        if decl.uarity:
-            levels = tuple(
-                state.fresh_level_meta("implicit", self.span)
-                for _ in range(decl.uarity)
-            )
-            term = UApp(Const(self.name), levels)
-            gty = env.global_type(self.name)
-            assert gty is not None
-            return term, ElabType(gty.term.inst_levels(levels), gty.implicit_spine)
-        gty = env.global_type(self.name)
-        assert gty is not None
-        return Const(self.name), gty
+        decl, gty = _require_global_info(
+            env, self.name, self.span, f"Unknown constant {self.name}"
+        )
+        term, levels = state.apply_implicit_levels(
+            Const(self.name), decl.uarity, self.span
+        )
+        return term, gty.inst_levels(levels)
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         if env.lookup_global(self.name) is None:
@@ -200,9 +191,7 @@ class SAnn(SurfaceTerm):
 
     def elab_infer(self, env: ElabEnv, state: "ElabState") -> tuple[Term, ElabType]:
         ty_term, ty_ty = self.ty.elab_infer(env, state)
-        ty_ty_whnf = ty_ty.term.whnf(env.kenv)
-        if not isinstance(ty_ty_whnf, Univ):
-            raise SurfaceError("Annotation must be a universe", self.span)
+        _expect_universe(ty_ty.term, env.kenv, self.span)
         term = self.term.elab_check(env, state, ElabType(ty_term))
         return term, ElabType(ty_term)
 
@@ -257,9 +246,7 @@ class SLam(SurfaceTerm):
                 binder_ty = pi_ty.arg_ty
             else:
                 binder_ty, binder_ty_ty = binder.ty.elab_infer(env1, state)
-                binder_ty_ty_whnf = binder_ty_ty.term.whnf(env1.kenv)
-                if not isinstance(binder_ty_ty_whnf, Univ):
-                    raise SurfaceError("Binder type must be a universe", binder.span)
+                _expect_universe(binder_ty_ty.term, env1.kenv, binder.span)
                 state.add_constraint(env1.kenv, binder_ty, pi_ty.arg_ty, binder.span)
             binder_tys.append(binder_ty)
             binder_impls.append(binder.implicit)
@@ -296,17 +283,13 @@ class SPi(SurfaceTerm):
     def elab_infer(self, env: ElabEnv, state: "ElabState") -> tuple[Term, ElabType]:
         binder_tys, binder_impls, env1 = _elab_binders(env, state, self.binders)
         body_term, body_ty = self.body.elab_infer(env1, state)
-        body_ty_whnf = body_ty.term.whnf(env1.kenv)
-        if not isinstance(body_ty_whnf, Univ):
-            raise SurfaceError("Pi body must be a universe", self.body.span)
+        body_ty_whnf = _expect_universe(body_ty.term, env1.kenv, self.body.span)
         body_level = body_ty_whnf.level
         pi_term: Term = body_term
         result_level: LevelExpr | None = None
         for ty in reversed(binder_tys):
-            arg_ty_ty = ty.infer_type(env.kenv).whnf(env.kenv)
-            if not isinstance(arg_ty_ty, Univ):
-                raise SurfaceError("Pi domain must be a universe", self.span)
-            arg_level = arg_ty_ty.level
+            arg_ty_whnf = _expect_universe(ty.infer_type(env.kenv), env.kenv, self.span)
+            arg_level = arg_ty_whnf.level
             if result_level is None:
                 result_level = state.fresh_level_meta("type", self.span)
             state.add_level_constraint(arg_level, result_level, self.span)
@@ -466,9 +449,7 @@ class SLet(SurfaceTerm):
         old_level_names = state.level_names
         state.level_names = list(reversed(self.uparams)) + state.level_names
         ty_term, ty_ty = self.ty.elab_infer(env, state)
-        ty_ty_whnf = ty_ty.term.whnf(env.kenv)
-        if not isinstance(ty_ty_whnf, Univ):
-            raise SurfaceError("Let type must be a universe", self.span)
+        _expect_universe(ty_ty.term, env.kenv, self.span)
         val_term = self.val.elab_check(env, state, ElabType(ty_term))
         state.level_names = old_level_names
         uarity, ty_term, val_term = state.generalize_levels_for_let(ty_term, val_term)

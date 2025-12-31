@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from mltt.kernel.ast import App, Lam, Pi, Term, Univ, UApp
+from mltt.kernel.ast import App, Lam, Pi, Term, Univ
 from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
@@ -18,7 +18,14 @@ from mltt.kernel.tel import (
 )
 from mltt.surface.elab_state import ElabState
 from mltt.surface.etype import ElabEnv, ElabType
-from mltt.surface.sast import NameEnv, SVar, Span, SurfaceError, SurfaceTerm
+from mltt.surface.sast import (
+    NameEnv,
+    SVar,
+    Span,
+    SurfaceError,
+    SurfaceTerm,
+    _expect_universe,
+)
 
 
 def _resolve_inductive_head(env: Env, head: Term) -> Ind | None:
@@ -181,9 +188,7 @@ class SMatch(SurfaceTerm):
         as_name = self.as_names[0] if self.as_names else None
         env_motive = env.push_binder(ElabType(scrut_ty_whnf), name=as_name or "_")
         motive_term, motive_ty = self.motive.elab_infer(env_motive, state)
-        motive_ty_whnf = motive_ty.term.whnf(env_motive.kenv)
-        if not isinstance(motive_ty_whnf, Univ):
-            raise SurfaceError("Match motive must be a universe", self.motive.span)
+        _expect_universe(motive_ty.term, env_motive.kenv, self.motive.span)
         motive = Lam(scrut_ty_whnf, motive_term)
         match_ty = App(motive, scrut_term)
         branch_map, default_branch = self._branch_map(env, ind)
@@ -712,11 +717,7 @@ class SElim(SurfaceTerm):
                 ElabType(scrut_in_indices_ctx), name=self.as_name
             )
             motive_term, motive_ty = self.motive.elab_infer(env_motive, state)
-            motive_ty_whnf = motive_ty.term.whnf(env_motive.kenv)
-            if not isinstance(motive_ty_whnf, Univ):
-                raise SurfaceError(
-                    "Eliminator motive must return a universe", self.motive.span
-                )
+            _expect_universe(motive_ty.term, env_motive.kenv, self.motive.span)
             body = motive_term.shift(q + 1)
             return mk_lams(*index_tys, scrut_in_indices_ctx, body=body)
         motive_term, motive_ty = self.motive.elab_infer(env, state)
