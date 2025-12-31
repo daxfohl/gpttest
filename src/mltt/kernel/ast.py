@@ -395,6 +395,10 @@ class UApp(Term):
             decl = env.globals[self.head.name]
             if decl.value is not None and decl.reducible:
                 return decl.value.inst_levels(self.levels)
+        if isinstance(self.head, Var):
+            value = env.local_value(self.head.k)
+            if value is not None:
+                return value.inst_levels(self.levels)
         return self
 
     # Typing -------------------------------------------------------------------
@@ -409,9 +413,11 @@ class UApp(Term):
                 uarity = ctor.uarity
             case Const(name):
                 uarity = env.globals[name].uarity
+            case Var(k):
+                uarity = env.binders[k].uarity
             case _:
                 raise TypeError(
-                    "Universe application head must be a constant, inductive, or constructor:\n"
+                    "Universe application head must be a constant, inductive, constructor, or local:\n"
                     f"  head = {self.head}"
                 )
         if len(self.levels) != uarity:

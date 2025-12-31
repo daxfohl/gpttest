@@ -30,6 +30,7 @@ class Binder:
     ty: Term
     name: str | None = None
     value: Term | None = None  # for let-bindings; None for ordinary binders
+    uarity: int = 0
 
     @overload
     @staticmethod
@@ -38,19 +39,25 @@ class Binder:
     @overload
     @staticmethod
     def of(
-        entry: Term, name: str | None = None, value: Term | None = None
+        entry: Term,
+        name: str | None = None,
+        value: Term | None = None,
+        uarity: int = 0,
     ) -> Binder: ...
 
     @staticmethod
     def of(
-        entry: Binder | Term, name: str | None = None, value: Term | None = None
+        entry: Binder | Term,
+        name: str | None = None,
+        value: Term | None = None,
+        uarity: int = 0,
     ) -> Binder:
         """Coerce an entry or term into a ``Binder``."""
 
         if isinstance(entry, Binder):
-            assert name is None and value is None
+            assert name is None and value is None and uarity == 0
             return entry
-        return Binder(entry, name, value)
+        return Binder(entry, name, value, uarity)
 
 
 @dataclass(frozen=True)
@@ -66,13 +73,13 @@ class Env:
     globals: MappingProxyType[str, GlobalDecl] = MappingProxyType({})
 
     # ---- extending the environment ----
-    def push_binder(self, ty: Term, name: str | None = None) -> Env:
+    def push_binder(self, ty: Term, name: str | None = None, uarity: int = 0) -> Env:
         """
         Push a new binder at de Bruijn index 0.
 
         This mirrors Ctx.push(ty) which does not rewrite existing entry types.
         """
-        binders = (Binder.of(ty, name),) + self.binders
+        binders = (Binder.of(ty, name, uarity=uarity),) + self.binders
         return replace(self, binders=binders)
 
     def push_binders(self, *binders: Term | tuple[Term, str]) -> Env:
@@ -90,7 +97,9 @@ class Env:
                 env = env.push_binder(b)
         return env
 
-    def push_let(self, ty: Term, value: Term, name: str | None = None) -> Env:
+    def push_let(
+        self, ty: Term, value: Term, name: str | None = None, uarity: int = 0
+    ) -> Env:
         """
         Push a let-bound variable at index 0 with its type and definitional value.
 
@@ -98,7 +107,7 @@ class Env:
         this is still useful for pretty-printing and optional unfolding.
         """
 
-        binders = (Binder.of(ty, name, value),) + self.binders
+        binders = (Binder.of(ty, name, value, uarity),) + self.binders
         return replace(self, binders=binders)
 
     # ---- name resolution (locals) ----
