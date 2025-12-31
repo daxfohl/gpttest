@@ -71,10 +71,10 @@ def test_local_universe_binders_with_id_implicit() -> None:
 def test_surface_let_universe_binders() -> None:
     env = prelude_env()
     src = """
-    let {u} id : (A : Type u) -> A -> A :=
-      fun (A : Type u) (x : A) => x;
+    let {u} id : (A : Type(u)) -> A -> A :=
+      fun (A : Type(u)) (x : A) => x;
     let x : Nat := id Nat Nat.Zero;
-    id Type Type
+    id Type Nat
     """
     elab_ok_in_env(src, env)
 
@@ -128,7 +128,7 @@ def test_surface_inductive_maybe_universe_poly() -> None:
         g.pop(name, None)
     env = Env(globals=MappingProxyType(g))
     src = """
-    inductive Maybe {u} (A : Type u) : Type u :=
+    inductive Maybe {u} (A : Type(u)) : Type(u) :=
     | Nothing
     | Just (x : A);
     let mk : (A : Type 0) -> Maybe@{0} A :=
@@ -151,7 +151,7 @@ def test_surface_inductive_maybe_universe_poly_infer() -> None:
         g.pop(name, None)
     env = Env(globals=MappingProxyType(g))
     src = """
-    inductive Maybe {u} (A : Type u) : Type u :=
+    inductive Maybe {u} (A : Type(u)) : Type(u) :=
     | Nothing
     | Just (x : A);
     let mk : (A : Type 0) -> const Maybe A :=
