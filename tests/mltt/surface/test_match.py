@@ -72,3 +72,58 @@ def test_match_missing_branch() -> None:
     drop
     """
     elab_fails(src)
+
+
+def test_let_destruct_sigma() -> None:
+    src = """
+    let p : Sigma Nat (fun (x : Nat) => Nat) := ctor Sigma.Pair Nat (fun (x : Nat) => Nat) Nat.Zero Nat.Zero;
+    let (a, b) := p;
+    a
+    """
+    elab_ok(src)
+
+
+def test_match_nested_pattern() -> None:
+    src = """
+    let xs : const List Nat := ctor List.Cons Nat Nat.Zero (ctor List.Cons Nat Nat.Zero (ctor List.Nil Nat));
+    let y : Nat :=
+      match xs with
+      | Cons x (Cons y ys) => y
+      | _ => Nat.Zero;
+    y
+    """
+    elab_ok(src)
+
+
+def test_match_multi_scrutinee() -> None:
+    src = """
+    let n : Nat := Nat.Zero;
+    let b : Bool := ctor Bool.True;
+    let m : Nat :=
+      match n, b with
+      | (Zero, True) => Nat.Zero
+      | _ => Nat.Succ Nat.Zero;
+    m
+    """
+    elab_ok(src)
+
+
+def test_match_duplicate_binder_error() -> None:
+    src = """
+    let xs : const List Nat := ctor List.Nil Nat;
+    let y : Nat :=
+      match xs with
+      | Cons x x => Nat.Zero
+      | _ => Nat.Zero;
+    y
+    """
+    elab_fails(src)
+
+
+def test_let_destruct_refutable_error() -> None:
+    src = """
+    let xs : const List Nat := ctor List.Nil Nat;
+    let Cons x ys := xs;
+    x
+    """
+    elab_fails(src)

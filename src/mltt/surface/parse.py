@@ -24,15 +24,17 @@ from mltt.surface.sast import (
     SHole,
     SLet,
 )
-from mltt.surface.sind import (
+from mltt.surface.match import (
+    Pat,
+    PatCtor,
+    PatTuple,
+    PatVar,
+    PatWild,
     SBranch,
-    SConstructorDecl,
-    SInd,
-    SCtor,
-    SInductiveDef,
+    SLetPat,
     SMatch,
-    SPatBinder,
 )
+from mltt.surface.sind import SConstructorDecl, SCtor, SInd, SInductiveDef
 
 _SOURCE: str = ""
 
@@ -135,7 +137,20 @@ def _span(p: yacc.YaccProduction, start: int, end: int) -> Span:
 
 
 def p_term_let(p: yacc.YaccProduction) -> None:
-    "term : LET u_binders IDENT COLON term DEFINE term SEMI term"
+    "term : LET IDENT COLON term DEFINE term SEMI term"
+    span = _span(p, 1, 8)
+    p[0] = SLet(
+        span=span,
+        uparams=(),
+        name=p[2],
+        ty=p[4],
+        val=p[6],
+        body=p[8],
+    )
+
+
+def p_term_let_uparams(p: yacc.YaccProduction) -> None:
+    "term : LET u_binders_nonempty IDENT COLON term DEFINE term SEMI term"
     span = _span(p, 1, 9)
     p[0] = SLet(
         span=span,
@@ -147,14 +162,22 @@ def p_term_let(p: yacc.YaccProduction) -> None:
     )
 
 
+def p_term_let_pat(p: yacc.YaccProduction) -> None:
+    "term : LET let_pat DEFINE term SEMI term"
+    span = _span(p, 1, 6)
+    p[0] = SLetPat(span=span, pat=p[2], value=p[4], body=p[6])
+
+
 def p_term_match(p: yacc.YaccProduction) -> None:
-    "term : MATCH term match_tail"
+    "term : MATCH match_scrutinees match_tail"
     as_name, motive, branches = p[3]
     span = Span(_item_span(p, 1).start, branches[-1].span.end)
+    scrutinees = p[2]
+    as_names = (as_name,) if as_name is not None else tuple(None for _ in scrutinees)
     p[0] = SMatch(
         span=span,
-        scrutinee=p[2],
-        as_name=as_name,
+        scrutinees=scrutinees,
+        as_names=as_names,
         motive=motive,
         branches=branches,
     )
@@ -182,6 +205,16 @@ def p_match_tail_with(p: yacc.YaccProduction) -> None:
 def p_match_tail_as_return(p: yacc.YaccProduction) -> None:
     "match_tail : AS IDENT RETURN term WITH match_branches"
     p[0] = (p[2], p[4], p[6])
+
+
+def p_match_scrutinees_multi(p: yacc.YaccProduction) -> None:
+    "match_scrutinees : match_scrutinees COMMA term"
+    p[0] = p[1] + (p[3],)
+
+
+def p_match_scrutinees_single(p: yacc.YaccProduction) -> None:
+    "match_scrutinees : term"
+    p[0] = (p[1],)
 
 
 def p_term_fun(p: yacc.YaccProduction) -> None:
@@ -243,6 +276,16 @@ def p_u_binders_multi(p: yacc.YaccProduction) -> None:
 def p_u_binders_empty(p: yacc.YaccProduction) -> None:
     "u_binders : empty"
     p[0] = ()
+
+
+def p_u_binders_nonempty_multi(p: yacc.YaccProduction) -> None:
+    "u_binders_nonempty : u_binders_nonempty u_binder"
+    p[0] = p[1] + (p[2],)
+
+
+def p_u_binders_nonempty_single(p: yacc.YaccProduction) -> None:
+    "u_binders_nonempty : u_binder"
+    p[0] = (p[1],)
 
 
 def p_u_binder(p: yacc.YaccProduction) -> None:
@@ -328,39 +371,110 @@ def p_match_branches_single(p: yacc.YaccProduction) -> None:
 
 
 def p_match_branch(p: yacc.YaccProduction) -> None:
-    "match_branch : PIPE IDENT pat_binders DARROW term"
-    pipe_tok = cast(lex.LexToken, p.slice[1])
-    span = Span(pipe_tok.lexpos, p[5].span.end)
-    p[0] = SBranch(ctor=p[2], binders=p[3], rhs=p[5], span=span)
-
-
-def p_match_branch_no_binders(p: yacc.YaccProduction) -> None:
-    "match_branch : PIPE IDENT DARROW term"
+    "match_branch : PIPE pat DARROW term"
     pipe_tok = cast(lex.LexToken, p.slice[1])
     span = Span(pipe_tok.lexpos, p[4].span.end)
-    p[0] = SBranch(ctor=p[2], binders=(), rhs=p[4], span=span)
+    p[0] = SBranch(pat=p[2], rhs=p[4], span=span)
 
 
-def p_pat_binders_multi(p: yacc.YaccProduction) -> None:
-    "pat_binders : pat_binders pat_binder"
+def p_pat_ctor_args(p: yacc.YaccProduction) -> None:
+    "pat : IDENT pat_args"
+    ident_tok = cast(lex.LexToken, p.slice[1])
+    end = p[2][-1].span.end
+    p[0] = PatCtor(ctor=p[1], args=p[2], span=Span(ident_tok.lexpos, end))
+
+
+def p_pat_ctor_ident(p: yacc.YaccProduction) -> None:
+    "pat : IDENT"
+    tok = cast(lex.LexToken, p.slice[1])
+    p[0] = PatVar(name=p[1], span=Span(tok.lexpos, tok.lexpos + len(p[1])))
+
+
+def p_pat_wild(p: yacc.YaccProduction) -> None:
+    "pat : HOLE"
+    tok = cast(lex.LexToken, p.slice[1])
+    p[0] = PatWild(span=Span(tok.lexpos, tok.lexpos + 1))
+
+
+def p_pat_paren(p: yacc.YaccProduction) -> None:
+    "pat : LPAREN pat RPAREN"
+    p[0] = p[2]
+
+
+def p_pat_tuple(p: yacc.YaccProduction) -> None:
+    "pat : LPAREN pat_tuple RPAREN"
+    lparen = cast(lex.LexToken, p.slice[1])
+    end = p[2][-1].span.end
+    p[0] = PatTuple(elts=p[2], span=Span(lparen.lexpos, end))
+
+
+def p_pat_args_multi(p: yacc.YaccProduction) -> None:
+    "pat_args : pat_args pat_atom"
     p[0] = p[1] + (p[2],)
 
 
-def p_pat_binders_single(p: yacc.YaccProduction) -> None:
-    "pat_binders : pat_binder"
+def p_pat_args_single(p: yacc.YaccProduction) -> None:
+    "pat_args : pat_atom"
     p[0] = (p[1],)
 
 
-def p_pat_binder_ident(p: yacc.YaccProduction) -> None:
-    "pat_binder : IDENT"
-    span = _span(p, 1, 1)
-    p[0] = SPatBinder(name=p[1], span=span)
+def p_pat_atom_ident(p: yacc.YaccProduction) -> None:
+    "pat_atom : IDENT"
+    tok = cast(lex.LexToken, p.slice[1])
+    p[0] = PatVar(name=p[1], span=Span(tok.lexpos, tok.lexpos + len(p[1])))
 
 
-def p_pat_binder_hole(p: yacc.YaccProduction) -> None:
-    "pat_binder : HOLE"
-    span = _span(p, 1, 1)
-    p[0] = SPatBinder(name=None, span=span)
+def p_pat_atom_wild(p: yacc.YaccProduction) -> None:
+    "pat_atom : HOLE"
+    tok = cast(lex.LexToken, p.slice[1])
+    p[0] = PatWild(span=Span(tok.lexpos, tok.lexpos + 1))
+
+
+def p_pat_atom_paren(p: yacc.YaccProduction) -> None:
+    "pat_atom : LPAREN pat RPAREN"
+    p[0] = p[2]
+
+
+def p_pat_atom_tuple(p: yacc.YaccProduction) -> None:
+    "pat_atom : LPAREN pat_tuple RPAREN"
+    lparen = cast(lex.LexToken, p.slice[1])
+    end = p[2][-1].span.end
+    p[0] = PatTuple(elts=p[2], span=Span(lparen.lexpos, end))
+
+
+def p_pat_tuple_multi(p: yacc.YaccProduction) -> None:
+    "pat_tuple : pat_tuple COMMA pat"
+    p[0] = p[1] + (p[3],)
+
+
+def p_pat_tuple_start(p: yacc.YaccProduction) -> None:
+    "pat_tuple : pat COMMA pat"
+    p[0] = (p[1], p[3])
+
+
+def p_let_pat_ctor(p: yacc.YaccProduction) -> None:
+    "let_pat : IDENT pat_args"
+    ident_tok = cast(lex.LexToken, p.slice[1])
+    end = p[2][-1].span.end
+    p[0] = PatCtor(ctor=p[1], args=p[2], span=Span(ident_tok.lexpos, end))
+
+
+def p_let_pat_wild(p: yacc.YaccProduction) -> None:
+    "let_pat : HOLE"
+    tok = cast(lex.LexToken, p.slice[1])
+    p[0] = PatWild(span=Span(tok.lexpos, tok.lexpos + 1))
+
+
+def p_let_pat_paren(p: yacc.YaccProduction) -> None:
+    "let_pat : LPAREN pat RPAREN"
+    p[0] = p[2]
+
+
+def p_let_pat_tuple(p: yacc.YaccProduction) -> None:
+    "let_pat : LPAREN pat_tuple RPAREN"
+    lparen = cast(lex.LexToken, p.slice[1])
+    end = p[2][-1].span.end
+    p[0] = PatTuple(elts=p[2], span=Span(lparen.lexpos, end))
 
 
 def p_ctor_decl(p: yacc.YaccProduction) -> None:
