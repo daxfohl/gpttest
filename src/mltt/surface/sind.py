@@ -5,10 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from types import MappingProxyType
 
-from mltt.kernel.ast import Lam, Term, Univ, UApp
+from mltt.kernel.ast import App, Lam, Term, Univ, UApp
 from mltt.kernel.environment import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Elim, Ind
-from mltt.kernel.telescope import Telescope, decompose_uapp
+from mltt.kernel.telescope import ArgList, Telescope, decompose_uapp, mk_uapp
 from mltt.surface.elab_state import Constraint, ElabState
 from mltt.surface.sast import (
     NameEnv,
@@ -89,13 +89,17 @@ class SMatch(SurfaceTerm):
     branches: tuple[SBranch, ...]
 
     def elab_infer(self, env: Env, state: ElabState) -> tuple[Term, Term]:
-        if self.motive is not None or self.as_name is not None:
-            raise SurfaceError("Dependent match not implemented", self.span)
-        raise SurfaceError("Cannot infer match result type; use check-mode", self.span)
+        if self.motive is None and self.as_name is None:
+            raise SurfaceError(
+                "Cannot infer match result type; use check-mode", self.span
+            )
+        return self._elab_with_motive(env, state)
 
     def elab_check(self, env: Env, state: ElabState, expected: Term) -> Term:
         if self.motive is not None or self.as_name is not None:
-            raise SurfaceError("Dependent match not implemented", self.span)
+            term, term_ty = self._elab_with_motive(env, state)
+            state.add_constraint(env, term_ty, expected, self.span)
+            return term
         scrut_term, scrut_ty = self.scrutinee.elab_infer(env, state)
         scrut_ty_whnf = scrut_ty.whnf(env)
         head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
@@ -173,6 +177,66 @@ class SMatch(SurfaceTerm):
             seen.add(ctor)
             branches[ctor] = branch
         return branches
+
+    def _elab_with_motive(self, env: Env, state: ElabState) -> tuple[Term, Term]:
+        if self.motive is None:
+            raise SurfaceError("Match motive missing", self.span)
+        scrut_term, scrut_ty = self.scrutinee.elab_infer(env, state)
+        scrut_ty_whnf = scrut_ty.whnf(env)
+        head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
+        ind = self._resolve_inductive_head(env, head)
+        if ind is None:
+            raise SurfaceError("Match scrutinee is not an inductive type", self.span)
+        p = len(ind.param_types)
+        q = len(ind.index_types)
+        if len(args) != p + q:
+            raise SurfaceError("Match scrutinee has wrong arity", self.span)
+        params_actual = args[:p]
+        env_motive = env.push_binder(
+            scrut_ty_whnf, name=self.as_name if self.as_name is not None else "_"
+        )
+        motive_term, motive_ty = self.motive.elab_infer(env_motive, state)
+        motive_ty_whnf = motive_ty.whnf(env_motive)
+        if not isinstance(motive_ty_whnf, Univ):
+            raise SurfaceError("Match motive must be a universe", self.motive.span)
+        motive = Lam(scrut_ty_whnf, motive_term)
+        match_ty = App(motive, scrut_term)
+        branch_map = self._branch_map(env, ind)
+        cases: list[Term] = []
+        for ctor in ind.constructors:
+            branch = branch_map.get(ctor)
+            if branch is None:
+                raise SurfaceError(
+                    f"Missing branch for constructor {ctor.name}", self.span
+                )
+            field_tys = ctor.field_schemas.inst_levels(level_actuals).instantiate(
+                params_actual
+            )
+            if len(branch.binders) != len(field_tys):
+                raise SurfaceError(
+                    f"Wrong number of binders for {ctor.name}", branch.span
+                )
+            m = len(field_tys)
+            env_branch = env
+            for binder, field_ty in zip(branch.binders, field_tys, strict=True):
+                env_branch = env_branch.push_binder(
+                    field_ty, name=binder.name if binder.name is not None else None
+                )
+            params_in_fields_ctx = params_actual.shift(m)
+            field_vars = ArgList.vars(m)
+            scrut_like = mk_uapp(
+                ctor,
+                level_actuals,
+                params_in_fields_ctx,
+                field_vars,
+            )
+            expected_branch = motive_term.shift(m).subst(scrut_like, m)
+            rhs_term = branch.rhs.elab_check(env_branch, state, expected_branch)
+            case_term = rhs_term
+            for field_ty in reversed(list(field_tys)):
+                case_term = Lam(field_ty, case_term)
+            cases.append(case_term)
+        return Elim(ind, motive, tuple(cases), scrut_term), match_ty
 
 
 @dataclass(frozen=True)

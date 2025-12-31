@@ -39,6 +39,18 @@ def test_match_pred() -> None:
     elab_ok(src)
 
 
+def test_match_pred_dependent() -> None:
+    src = """
+    let pred : Nat -> Nat :=
+      fun (n : Nat) =>
+        match n as z return Nat with
+        | Zero => ctor Nat.Zero
+        | Succ k => k;
+    pred
+    """
+    elab_ok(src)
+
+
 def test_match_drop_succ() -> None:
     src = """
     let drop : Nat -> Nat :=
