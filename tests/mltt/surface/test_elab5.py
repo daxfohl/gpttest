@@ -90,3 +90,15 @@ def test_surface_inductive_maybe() -> None:
     m
     """
     elab_ok_in_env(src, env)
+
+
+def test_surface_inductive_ctor_implicit_fields() -> None:
+    env = prelude_env()
+    src = """
+    inductive Wrap (A : Type 0) : Type 0 :=
+    | Mk {x : A};
+    let mk : (A : Type 0) -> A -> const Wrap A :=
+      fun (A : Type 0) (x : A) => ctor Wrap.Mk A x;
+    mk Nat Nat.Zero
+    """
+    elab_ok_in_env(src, env)

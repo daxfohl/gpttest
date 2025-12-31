@@ -104,11 +104,6 @@ class SInductiveDef(SurfaceTerm):
         )
         ctors: list[Ctor] = []
         for ctor_decl in self.ctors:
-            for binder in ctor_decl.fields:
-                if binder.implicit:
-                    raise SurfaceError(
-                        "Constructor fields cannot be implicit", binder.span
-                    )
             ctor_name = f"{self.name}.{ctor_decl.name}"
             if env.lookup_global(ctor_name) is not None:
                 raise SurfaceError(f"Duplicate constructor {ctor_name}", ctor_decl.span)
