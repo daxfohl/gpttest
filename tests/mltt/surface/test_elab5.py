@@ -42,3 +42,13 @@ def test_local_universe_binders_with_id() -> None:
     id {Type} Type
     """
     elab_ok(src)
+
+
+def test_local_universe_binders_with_id_implicit() -> None:
+    src = """
+    let id : {A : Type} -> A -> A :=
+      fun {A} (x : A) => x;
+    let x : Nat := id Nat.Zero;
+    x
+    """
+    elab_ok(src)
