@@ -9,7 +9,7 @@
 - Run `source .venv/bin/activate && black .` before sending changes that touch Python files.
 - Use `source .venv/bin/activate && python` when running repo-local Python scripts.
 - The `mltt.kernel` module implements a miniature Martin-Löf type theory.
-- The `mltt.ind` module implements several common inductives such as `Nat`, `Vec`, `Fin`, `Maybe`, `List`, `Bool`, `Sigma`, `Eq`, `Unit`, `Bottom`, and others.
+- The `mltt.ind` module implements several common inductives such as `Nat`, `Vec`, `Fin`, `Maybe`, `List`, `Bool`, `Sigma`, `Eq`, `Unit`, `Empty`, and others.
 - The `mltt.surface` module implements a parser and elaborator for surface syntax.
 - De Bruijn strategy: binders push indices outward (0 = innermost). Context entries are stored relative to their tails and shifted on lookup; extending a context prepends new binders without rewriting existing entry types. Substitutions decrement indices above the target and shift the inserted term when descending under binders. Inductive parameters are outermost, followed by indices, then constructor arguments; utilities expect substitutions in that order and rely on consistent shifting.
 - `mltt.kernel.ast`:
