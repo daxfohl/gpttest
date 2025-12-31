@@ -1,15 +1,14 @@
 # gpttest
 
-This repository contains a small Python library that models fragments of Martin-Löf type theory.  The `mltt` package exposes a minimal abstract syntax tree along with utilities for working with de Bruijn indices, evaluating terms, checking types, and constructing proofs of propositional equality.
+This repository contains a small Python library that models fragments of Martin-Löf type theory. The `mltt` package exposes a kernel AST and helpers for working with de Bruijn indices, normalization/WHNF, type checking, inductive definitions, and proof terms.
 
 ## Project layout
 
-- `src/mltt/ast.py` – dataclasses that encode the core language constructs such as lambda abstractions, dependent function and pair types, natural numbers, and identity types.
-- `src/mltt/debruijn.py` – shifting and substitution helpers that operate on the AST using de Bruijn indices.
-- `src/mltt/beta_reduce.py` – a small-step evaluator for normalising terms.
-- `src/mltt/typing.py` – type-checking rules for the language and helpers for building typing contexts.
-- `src/mltt/eq.py` – derived rules for propositional equality (congruence, symmetry, and transitivity).
-- `tests/mltt/` – pytest-based unit tests mirroring the source tree; they exercise the evaluator, typing rules, equality lemmas, and de Bruijn utilities.
+- `src/mltt/kernel/` – core kernel: AST, environments, normalization/WHNF, typing, and inductive eliminators.
+- `src/mltt/inductive/` – library of inductive definitions (Nat, Bool, List, Vec, Fin, Sigma, etc.).
+- `src/mltt/surface/` – surface syntax, parser, and elaboration into kernel terms (includes a prelude).
+- `src/mltt/proofs/` – example proof terms (e.g., `add_comm`).
+- `tests/mltt/` – pytest-based unit tests mirroring the source tree; they exercise the kernel, inductives, surface elaboration, and proofs.
 
 ## Development
 
