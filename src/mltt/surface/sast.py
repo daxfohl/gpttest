@@ -44,9 +44,9 @@ class SurfaceTerm:
         raise SurfaceError("Unsupported surface term", self.span)
 
     def elab_check(self, env: ElabEnv, state: "ElabState", expected: ElabType) -> Term:
-        term, term_ty = self.elab_infer(env, state)
+        term_k, term_ty = self.elab_infer(env, state)
         state.add_constraint(env.kenv, term_ty.term, expected.term, self.span)
-        return term
+        return term_k
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         raise SurfaceError("Unsupported surface term", self.span)

@@ -555,11 +555,6 @@ class SLetPat(SurfaceTerm):
         match_term_k = match_term.elab_check(env, state, body_ty)
         return match_term_k, body_ty
 
-    def elab_check(self, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
-        term, term_ty = self.elab_infer(env, state)
-        state.add_constraint(env.kenv, term_ty.term, expected.term, self.span)
-        return term
-
     def resolve(self, env: Env, names: NameEnv) -> Term:
         raise SurfaceError("Let-pattern requires elaboration", self.span)
 
@@ -681,11 +676,6 @@ class SElim(SurfaceTerm):
         )
         elim_ty = mk_app(motive_term, indices_actual, scrut_term)
         return elim_term, ElabType(elim_ty)
-
-    def elab_check(self, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
-        term, term_ty = self.elab_infer(env, state)
-        state.add_constraint(env.kenv, term_ty.term, expected.term, self.span)
-        return term
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         raise SurfaceError("Eliminator requires elaboration", self.span)
