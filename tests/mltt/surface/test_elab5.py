@@ -32,3 +32,13 @@ def test_local_universe_binders_with_maybe() -> None:
     mk {Type}
     """
     elab_ok(src)
+
+
+def test_local_universe_binders_with_id() -> None:
+    src = """
+    let id : {A : Type} -> A -> A :=
+      fun {A} (x : A) => x;
+    let x : Nat := id {Nat} Nat.Zero;
+    id {Type} Type
+    """
+    elab_ok(src)
