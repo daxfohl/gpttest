@@ -31,6 +31,9 @@ from mltt.surface.match import (
     PatVar,
     PatWild,
     SBranch,
+    SElim,
+    SElimBinder,
+    SElimBranch,
     SLetPat,
     SMatch,
 )
@@ -39,6 +42,7 @@ from mltt.surface.sind import SConstructorDecl, SCtor, SInd, SInductiveDef
 _SOURCE: str = ""
 
 reserved = {
+    "elim": "ELIM",
     "fun": "FUN",
     "let": "LET",
     "match": "MATCH",
@@ -180,6 +184,17 @@ def p_term_match(p: yacc.YaccProduction) -> None:
         as_names=as_names,
         motive=motive,
         branches=branches,
+    )
+
+
+def p_term_elim(p: yacc.YaccProduction) -> None:
+    "term : ELIM term RETURN term WITH elim_branches"
+    span = Span(_item_span(p, 1).start, p[6][-1].span.end)
+    p[0] = SElim(
+        span=span,
+        scrutinee=p[2],
+        motive=p[4],
+        branches=p[6],
     )
 
 
@@ -377,6 +392,52 @@ def p_match_branch(p: yacc.YaccProduction) -> None:
     p[0] = SBranch(pat=p[2], rhs=p[4], span=span)
 
 
+def p_elim_branches_multi(p: yacc.YaccProduction) -> None:
+    "elim_branches : elim_branches elim_branch"
+    p[0] = p[1] + (p[2],)
+
+
+def p_elim_branches_single(p: yacc.YaccProduction) -> None:
+    "elim_branches : elim_branch"
+    p[0] = (p[1],)
+
+
+def p_elim_branch(p: yacc.YaccProduction) -> None:
+    "elim_branch : PIPE IDENT elim_binders DARROW term"
+    pipe_tok = cast(lex.LexToken, p.slice[1])
+    span = Span(pipe_tok.lexpos, p[5].span.end)
+    p[0] = SElimBranch(ctor=p[2], binders=p[3], rhs=p[5], span=span)
+
+
+def p_elim_branch_simple(p: yacc.YaccProduction) -> None:
+    "elim_branch : PIPE IDENT DARROW term"
+    pipe_tok = cast(lex.LexToken, p.slice[1])
+    span = Span(pipe_tok.lexpos, p[4].span.end)
+    p[0] = SElimBranch(ctor=p[2], binders=(), rhs=p[4], span=span)
+
+
+def p_elim_binders_multi(p: yacc.YaccProduction) -> None:
+    "elim_binders : elim_binders elim_binder"
+    p[0] = p[1] + (p[2],)
+
+
+def p_elim_binders_single(p: yacc.YaccProduction) -> None:
+    "elim_binders : elim_binder"
+    p[0] = (p[1],)
+
+
+def p_elim_binder_ident(p: yacc.YaccProduction) -> None:
+    "elim_binder : IDENT"
+    tok = cast(lex.LexToken, p.slice[1])
+    p[0] = SElimBinder(name=p[1], span=Span(tok.lexpos, tok.lexpos + len(p[1])))
+
+
+def p_elim_binder_hole(p: yacc.YaccProduction) -> None:
+    "elim_binder : HOLE"
+    tok = cast(lex.LexToken, p.slice[1])
+    p[0] = SElimBinder(name=None, span=Span(tok.lexpos, tok.lexpos + 1))
+
+
 def p_pat_ctor_args(p: yacc.YaccProduction) -> None:
     "pat : IDENT pat_args"
     ident_tok = cast(lex.LexToken, p.slice[1])
@@ -480,7 +541,7 @@ def p_let_pat_tuple(p: yacc.YaccProduction) -> None:
 def p_ctor_decl(p: yacc.YaccProduction) -> None:
     "ctor_decl : PIPE IDENT"
     span = _span(p, 1, 2)
-    p[0] = SConstructorDecl(name=p[2], fields=(), span=span)
+    p[0] = SConstructorDecl(name=p[2], fields=(), result=None, span=span)
 
 
 def p_ctor_decl_fields(p: yacc.YaccProduction) -> None:
@@ -488,7 +549,20 @@ def p_ctor_decl_fields(p: yacc.YaccProduction) -> None:
     pipe_tok = cast(lex.LexToken, p.slice[1])
     end = p[3][-1].span.end
     span = Span(pipe_tok.lexpos, end)
-    p[0] = SConstructorDecl(name=p[2], fields=p[3], span=span)
+    p[0] = SConstructorDecl(name=p[2], fields=p[3], result=None, span=span)
+
+
+def p_ctor_decl_result(p: yacc.YaccProduction) -> None:
+    "ctor_decl : PIPE IDENT COLON term"
+    span = _span(p, 1, 4)
+    p[0] = SConstructorDecl(name=p[2], fields=(), result=p[4], span=span)
+
+
+def p_ctor_decl_fields_result(p: yacc.YaccProduction) -> None:
+    "ctor_decl : PIPE IDENT ctor_binders COLON term"
+    pipe_tok = cast(lex.LexToken, p.slice[1])
+    span = Span(pipe_tok.lexpos, p[5].span.end)
+    p[0] = SConstructorDecl(name=p[2], fields=p[3], result=p[5], span=span)
 
 
 def p_ctor_binders_multi(p: yacc.YaccProduction) -> None:

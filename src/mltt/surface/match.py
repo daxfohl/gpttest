@@ -4,11 +4,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from mltt.kernel.ast import App, Lam, Term, Univ, UApp
+from mltt.kernel.ast import App, Lam, Pi, Term, Univ, UApp
 from mltt.kernel.environment import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
-from mltt.kernel.telescope import ArgList, Telescope, decompose_uapp, mk_uapp
+from mltt.kernel.telescope import (
+    ArgList,
+    Telescope,
+    decompose_uapp,
+    mk_app,
+    mk_lams,
+    mk_uapp,
+)
 from mltt.surface.elab_state import ElabState
 from mltt.surface.sast import NameEnv, SVar, Span, SurfaceError, SurfaceTerm
 
@@ -597,3 +604,216 @@ class SLetPat(SurfaceTerm):
         for field_ty, subpat in zip(field_tys, pat.args, strict=True):
             binders.extend(self._collect_binders(env, field_ty, subpat))
         return binders
+
+
+@dataclass(frozen=True)
+class SElimBinder:
+    name: str | None
+    span: Span
+
+
+@dataclass(frozen=True)
+class SElimBranch:
+    ctor: str
+    binders: tuple[SElimBinder, ...]
+    rhs: SurfaceTerm
+    span: Span
+
+
+@dataclass(frozen=True)
+class SElim(SurfaceTerm):
+    scrutinee: SurfaceTerm
+    motive: SurfaceTerm
+    branches: tuple[SElimBranch, ...]
+
+    def elab_infer(self, env: Env, state: ElabState) -> tuple[Term, Term]:
+        scrut_term, scrut_ty = self.scrutinee.elab_infer(env, state)
+        scrut_ty_whnf = scrut_ty.whnf(env)
+        head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
+        ind = _resolve_inductive_head(env, head)
+        if ind is None:
+            raise SurfaceError(
+                "Eliminator scrutinee is not an inductive type", self.span
+            )
+        p = len(ind.param_types)
+        q = len(ind.index_types)
+        if len(args) != p + q:
+            raise SurfaceError("Eliminator scrutinee has wrong arity", self.span)
+        params_actual = args[:p]
+        indices_actual = args[p:]
+        motive_term = self._elab_motive(
+            env,
+            state,
+            ind,
+            level_actuals,
+            params_actual,
+            indices_actual,
+            scrut_ty_whnf,
+        )
+        cases = self._elab_cases(
+            env,
+            state,
+            ind,
+            level_actuals,
+            params_actual,
+            indices_actual,
+            motive_term,
+        )
+        elim_term = Elim(
+            inductive=ind, motive=motive_term, cases=cases, scrutinee=scrut_term
+        )
+        elim_ty = mk_app(motive_term, indices_actual, scrut_term)
+        return elim_term, elim_ty
+
+    def elab_check(self, env: Env, state: ElabState, expected: Term) -> Term:
+        term, term_ty = self.elab_infer(env, state)
+        state.add_constraint(env, term_ty, expected, self.span)
+        return term
+
+    def resolve(self, env: Env, names: NameEnv) -> Term:
+        raise SurfaceError("Eliminator requires elaboration", self.span)
+
+    def _elab_motive(
+        self,
+        env: Env,
+        state: ElabState,
+        ind: Ind,
+        level_actuals: tuple[LevelExpr, ...],
+        params_actual: ArgList,
+        indices_actual: ArgList,
+        scrut_ty: Term,
+    ) -> Term:
+        motive_term, motive_ty = self.motive.elab_infer(env, state)
+        motive_ty_whnf = motive_ty.whnf(env)
+        index_tys = ind.index_types.inst_levels(level_actuals).instantiate(
+            params_actual
+        )
+        q = len(index_tys)
+        params_in_indices_ctx = params_actual.shift(q)
+        index_vars = ArgList.vars(q)
+        scrut_in_indices_ctx = mk_uapp(
+            ind, level_actuals, params_in_indices_ctx, index_vars
+        )
+        if isinstance(motive_ty_whnf, Univ):
+            body = motive_term.shift(q + 1)
+            return mk_lams(*index_tys, scrut_in_indices_ctx, body=body)
+        motive_pi = motive_ty_whnf
+        for _ in range(q + 1):
+            if not isinstance(motive_pi, Pi):
+                raise SurfaceError(
+                    "Eliminator motive must be a function over indices and scrutinee",
+                    self.motive.span,
+                )
+            motive_pi = motive_pi.return_ty.whnf(env)
+        if not isinstance(motive_pi, Univ):
+            raise SurfaceError(
+                "Eliminator motive must return a universe", self.motive.span
+            )
+        return motive_term
+
+    def _elab_cases(
+        self,
+        env: Env,
+        state: ElabState,
+        ind: Ind,
+        level_actuals: tuple[LevelExpr, ...],
+        params_actual: ArgList,
+        indices_actual: ArgList,
+        motive: Term,
+    ) -> tuple[Term, ...]:
+        branches: dict[Ctor, SElimBranch] = {}
+        seen: set[Ctor] = set()
+        ctor_by_name = {ctor.name: ctor for ctor in ind.constructors}
+        ctor_by_qual = {f"{ind.name}.{ctor.name}": ctor for ctor in ind.constructors}
+        for branch in self.branches:
+            ctor = ctor_by_qual.get(branch.ctor) or ctor_by_name.get(branch.ctor)
+            if ctor is None:
+                decl = env.lookup_global(branch.ctor)
+                if decl is not None and isinstance(decl.value, Ctor):
+                    ctor = decl.value
+            if ctor is None or ctor.inductive != ind:
+                raise SurfaceError(f"Unknown constructor {branch.ctor}", branch.span)
+            if ctor in seen:
+                raise SurfaceError(
+                    f"Duplicate branch for constructor {ctor.name}", branch.span
+                )
+            seen.add(ctor)
+            branches[ctor] = branch
+        cases: list[Term] = []
+        for ctor in ind.constructors:
+            case_branch = branches.get(ctor)
+            if case_branch is None:
+                raise SurfaceError(
+                    f"Missing branch for constructor {ctor.name}", self.span
+                )
+            tel, codomain = self._case_telescope(
+                ind,
+                ctor,
+                level_actuals,
+                params_actual,
+                indices_actual,
+                motive,
+            )
+            if len(case_branch.binders) != len(tel):
+                raise SurfaceError(
+                    f"Wrong number of binders for {ctor.name}", case_branch.span
+                )
+            env_branch = env
+            for binder, binder_ty in zip(case_branch.binders, tel, strict=True):
+                env_branch = env_branch.push_binder(binder_ty, name=binder.name)
+            rhs_term = case_branch.rhs.elab_check(
+                env_branch, state, codomain.shift(len(tel))
+            )
+            case_term = rhs_term
+            for binder_ty in reversed(list(tel)):
+                case_term = Lam(binder_ty, case_term)
+            cases.append(case_term)
+        return tuple(cases)
+
+    def _case_telescope(
+        self,
+        ind: Ind,
+        ctor: Ctor,
+        level_actuals: tuple[LevelExpr, ...],
+        params_actual: ArgList,
+        indices_actual: ArgList,
+        motive: Term,
+    ) -> tuple[Telescope, Term]:
+        p = len(ind.param_types)
+        q = len(ind.index_types)
+        ctor_field_types = Telescope.of(
+            *[
+                t.inst_levels(level_actuals).instantiate(params_actual, depth_above=i)
+                for i, t in enumerate(ctor.field_schemas)
+            ]
+        )
+        m = len(ctor_field_types)
+        params_in_fields_ctx = params_actual.shift(m)
+        motive_in_fields_ctx = motive.shift(m)
+        field_vars = ArgList.vars(m)
+        scrut_like = mk_uapp(ctor, level_actuals, params_in_fields_ctx, field_vars)
+        result_indices = ArgList.of(
+            *[
+                t.inst_levels(level_actuals).instantiate(params_actual, m)
+                for t in ctor.result_indices
+            ]
+        )
+        ihs: list[Term] = []
+        for ri, j in enumerate(ctor.rps):
+            rec_head, rec_levels, rec_field_args = decompose_uapp(
+                ctor_field_types[j].shift(m - j)
+            )
+            if rec_head != ind:
+                raise SurfaceError("Recursive field head mismatch", self.span)
+            if level_actuals and rec_levels and rec_levels != level_actuals:
+                raise SurfaceError("Recursive field universe mismatch", self.span)
+            rec_params = rec_field_args[:p]
+            rec_indices = rec_field_args[p : p + q]
+            ih_type = mk_app(motive_in_fields_ctx, rec_indices, field_vars[j])
+            ihs.append(ih_type.shift(ri))
+        ih_types = Telescope.of(*ihs)
+        codomain = mk_app(motive_in_fields_ctx, result_indices, scrut_like).shift(
+            len(ih_types)
+        )
+        tel = ctor_field_types + ih_types
+        return tel, codomain

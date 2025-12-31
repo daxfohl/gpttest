@@ -8,11 +8,13 @@ from types import MappingProxyType
 from mltt.kernel.ast import Term, Univ, UApp
 from mltt.kernel.environment import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
-from mltt.kernel.telescope import Telescope
+from mltt.kernel.telescope import ArgList, Telescope, decompose_uapp
 from mltt.surface.elab_state import Constraint, ElabState
+from mltt.surface.match import _resolve_inductive_head
 from mltt.surface.sast import (
     NameEnv,
     SBinder,
+    SPi,
     Span,
     SurfaceError,
     SurfaceTerm,
@@ -73,6 +75,7 @@ class SCtor(SurfaceTerm):
 class SConstructorDecl:
     name: str
     fields: tuple[SBinder, ...]
+    result: SurfaceTerm | None
     span: Span
 
 
@@ -95,45 +98,99 @@ class SInductiveDef(SurfaceTerm):
                 )
         if len(set(self.uparams)) != len(self.uparams):
             raise SurfaceError("Duplicate universe binder", self.span)
+        index_binders: tuple[SBinder, ...] = ()
+        level_body = self.level
+        if isinstance(self.level, SPi):
+            index_binders = self.level.binders
+            level_body = self.level.body
+        for binder in index_binders:
+            if binder.implicit:
+                raise SurfaceError("Inductive indices cannot be implicit", binder.span)
         old_level_names = state.level_names
         state.level_names = list(reversed(self.uparams)) + state.level_names
         param_tys, _param_impls, env_params = _elab_binders(env, state, self.params)
-        level_term, level_ty = self.level.elab_infer(env, state)
-        level_ty_whnf = level_ty.whnf(env)
+        index_tys, _index_impls, env_indices = _elab_binders(
+            env_params, state, index_binders
+        )
+        level_term, level_ty = level_body.elab_infer(env_indices, state)
+        level_ty_whnf = level_ty.whnf(env_indices)
         if not isinstance(level_ty_whnf, Univ):
-            raise SurfaceError("Inductive level must be a universe", self.level.span)
+            raise SurfaceError("Inductive level must be a universe", level_body.span)
         if not isinstance(level_term, Univ):
-            raise SurfaceError("Inductive level must be a Type", self.level.span)
+            raise SurfaceError("Inductive level must be a Type", level_body.span)
         ind = Ind(
             name=self.name,
             param_types=Telescope.of(*param_tys),
+            index_types=Telescope.of(*index_tys),
             level=level_term.level,
             uarity=len(self.uparams),
         )
-        ctors: list[Ctor] = []
-        for ctor_decl in self.ctors:
-            ctor_name = f"{self.name}.{ctor_decl.name}"
-            if env.lookup_global(ctor_name) is not None:
-                raise SurfaceError(f"Duplicate constructor {ctor_name}", ctor_decl.span)
-            field_tys, _field_impls, _ = _elab_binders(
-                env_params, state, ctor_decl.fields
-            )
-            ctors.append(
-                Ctor(
-                    name=ctor_decl.name,
-                    inductive=ind,
-                    field_schemas=Telescope.of(*field_tys),
-                    uarity=ind.uarity,
-                )
-            )
-        object.__setattr__(ind, "constructors", tuple(ctors))
-        state.level_names = old_level_names
         mapping: dict[str, Term] = {self.name: ind}
         globals_dict = dict(env.globals)
         ind_ty = ind.infer_type(env)
         globals_dict[self.name] = GlobalDecl(
             ty=ind_ty, value=ind, reducible=True, uarity=ind.uarity
         )
+        env_with_ind = Env(binders=env.binders, globals=MappingProxyType(globals_dict))
+        env_params_with_ind = Env(
+            binders=env_params.binders, globals=env_with_ind.globals
+        )
+        ctors: list[Ctor] = []
+        for ctor_decl in self.ctors:
+            ctor_name = f"{self.name}.{ctor_decl.name}"
+            if env.lookup_global(ctor_name) is not None:
+                raise SurfaceError(f"Duplicate constructor {ctor_name}", ctor_decl.span)
+            field_tys, _field_impls, env_fields = _elab_binders(
+                env_params_with_ind, state, ctor_decl.fields
+            )
+            result_indices = ArgList.empty()
+            if len(index_tys) != 0 and ctor_decl.result is None:
+                raise SurfaceError(
+                    "Constructor must specify result indices", ctor_decl.span
+                )
+            if ctor_decl.result is not None:
+                result_term, result_ty = ctor_decl.result.elab_infer(env_fields, state)
+                result_ty_whnf = result_ty.whnf(env_fields)
+                if not isinstance(result_ty_whnf, Univ):
+                    raise SurfaceError(
+                        "Constructor result must be a universe", ctor_decl.span
+                    )
+                head, _levels, args = decompose_uapp(result_term)
+                ind_head = _resolve_inductive_head(env_with_ind, head)
+                if ind_head != ind:
+                    raise SurfaceError(
+                        "Constructor result must be the inductive", ctor_decl.span
+                    )
+                p = len(ind.param_types)
+                q = len(ind.index_types)
+                if len(args) != p + q:
+                    raise SurfaceError(
+                        "Constructor result has wrong arity", ctor_decl.span
+                    )
+                param_vars = ArgList.vars(p, len(field_tys))
+                if args[:p] != param_vars:
+                    raise SurfaceError(
+                        "Constructor result parameters must be unchanged",
+                        ctor_decl.span,
+                    )
+                result_indices = args[p:]
+            field_tys = [
+                self._replace_defined(field_ty, mapping) for field_ty in field_tys
+            ]
+            result_indices = ArgList.of(
+                *(self._replace_defined(idx, mapping) for idx in result_indices)
+            )
+            ctors.append(
+                Ctor(
+                    name=ctor_decl.name,
+                    inductive=ind,
+                    field_schemas=Telescope.of(*field_tys),
+                    result_indices=result_indices,
+                    uarity=ind.uarity,
+                )
+            )
+        object.__setattr__(ind, "constructors", tuple(ctors))
+        state.level_names = old_level_names
         for ctor in ctors:
             ctor_name = f"{self.name}.{ctor.name}"
             mapping[ctor_name] = ctor
