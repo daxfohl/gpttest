@@ -4,7 +4,7 @@ from mltt.inductive.eq import Id, IdElim, Refl
 from mltt.inductive.nat import NatRec, NatType, Zero, add, numeral
 from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var
 from mltt.kernel.env import Env
-from mltt.kernel.telescope import mk_app, mk_lams
+from mltt.kernel.tel import mk_app, mk_lams
 
 
 def test_infer_var() -> None:

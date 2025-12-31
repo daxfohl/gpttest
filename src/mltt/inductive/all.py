@@ -6,7 +6,7 @@ from mltt.inductive.list import ConsCtorAt, ListAt, NilCtorAt
 from mltt.kernel.ast import App, Pi, Term, Univ, Var, UApp
 from mltt.kernel.ind import Elim, Ctor, Ind
 from mltt.kernel.levels import LVar, LevelExpr
-from mltt.kernel.telescope import mk_app, mk_uapp, Telescope, ArgList
+from mltt.kernel.tel import mk_app, mk_uapp, Telescope, ArgList
 
 
 def _all() -> tuple[Ind, Ctor, Ctor]:

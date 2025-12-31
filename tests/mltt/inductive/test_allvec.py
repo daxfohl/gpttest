@@ -9,7 +9,7 @@ from mltt.inductive.allvec import (
 from mltt.inductive.nat import NatType, Zero, Succ
 from mltt.inductive.vec import VecType, Nil
 from mltt.kernel.ast import Univ, Var, Pi, App, Term
-from mltt.kernel.telescope import mk_lams, mk_pis, mk_app
+from mltt.kernel.tel import mk_lams, mk_pis, mk_app
 
 
 def test_infer_allvec_type_constructor_at_level() -> None:

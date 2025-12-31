@@ -8,7 +8,7 @@ from mltt.kernel.ast import App, Lam, Pi, Term, Univ, UApp
 from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
-from mltt.kernel.telescope import (
+from mltt.kernel.tel import (
     ArgList,
     Telescope,
     decompose_uapp,

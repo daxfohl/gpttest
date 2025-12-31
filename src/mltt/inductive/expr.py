@@ -5,7 +5,7 @@ from __future__ import annotations
 from mltt.inductive.sigma import Sigma
 from mltt.kernel.ast import Lam, Term, Univ, Var
 from mltt.kernel.ind import Elim, Ctor, Ind
-from mltt.kernel.telescope import mk_app, Telescope, ArgList
+from mltt.kernel.tel import mk_app, Telescope, ArgList
 
 # Expr (Ty : Type1) (τ : Ty) : Type1
 Expr = Ind(

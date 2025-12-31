@@ -7,7 +7,7 @@ from mltt.inductive.vec import ConsCtorAt, NilCtorAt, VecAt
 from mltt.kernel.ast import App, Pi, Term, Univ, Var, UApp
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LVar, LevelExpr
-from mltt.kernel.telescope import mk_app, Telescope, ArgList
+from mltt.kernel.tel import mk_app, Telescope, ArgList
 
 
 def _allvec() -> tuple[Ind, Ctor, Ctor]:

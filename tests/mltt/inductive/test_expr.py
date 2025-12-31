@@ -2,7 +2,7 @@ from mltt.inductive.expr import Const, ConstCtor, ExprType, Pair, PairCtor
 from mltt.inductive.nat import NatType, Zero
 from mltt.inductive.sigma import Sigma
 from mltt.kernel.ast import Lam, Univ, Var
-from mltt.kernel.telescope import mk_app, mk_pis
+from mltt.kernel.tel import mk_app, mk_pis
 
 
 def test_const_typechecks() -> None:

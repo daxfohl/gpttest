@@ -8,7 +8,7 @@ from types import MappingProxyType
 from mltt.kernel.ast import Term, Univ, UApp
 from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
-from mltt.kernel.telescope import ArgList, Telescope, decompose_uapp
+from mltt.kernel.tel import ArgList, Telescope, decompose_uapp
 from mltt.surface.elab_state import Constraint, ElabState
 from mltt.surface.match import _resolve_inductive_head
 from mltt.surface.sast import (

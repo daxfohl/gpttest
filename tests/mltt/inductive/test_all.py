@@ -9,7 +9,7 @@ from mltt.inductive.all import (
 from mltt.inductive.list import Cons, ConsCtor, List, ListAt, Nil, NilCtor
 from mltt.inductive.nat import NatType, Zero
 from mltt.kernel.ast import Lam, Pi, Univ, Var
-from mltt.kernel.telescope import mk_app, mk_pis
+from mltt.kernel.tel import mk_app, mk_pis
 
 
 def trivial_predicate() -> Lam:

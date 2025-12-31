@@ -5,7 +5,7 @@ from mltt.inductive.nat import NatType, Succ, Zero
 from mltt.kernel.ast import Univ, Var
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LVar
-from mltt.kernel.telescope import (
+from mltt.kernel.tel import (
     mk_app,
     mk_pis,
     mk_lams,

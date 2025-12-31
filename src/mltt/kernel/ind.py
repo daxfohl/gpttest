@@ -9,7 +9,7 @@ from typing import ClassVar
 from mltt.kernel.ast import Term, Pi, Univ, App, TermFieldMeta
 from mltt.kernel.env import Env
 from mltt.kernel.levels import LConst, LevelExpr, LVar
-from mltt.kernel.telescope import (
+from mltt.kernel.tel import (
     mk_app,
     mk_pis,
     mk_uapp,

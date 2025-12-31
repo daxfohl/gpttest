@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar
 from mltt.kernel.levels import LevelExpr, LConst
 
 if TYPE_CHECKING:
-    from mltt.kernel.telescope import ArgList
+    from mltt.kernel.tel import ArgList
     from mltt.kernel.env import Env
 
 

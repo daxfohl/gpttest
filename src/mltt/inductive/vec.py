@@ -7,7 +7,7 @@ from mltt.inductive.nat import NatType, Succ, Zero
 from mltt.kernel.ast import Term, Univ, Var, UApp
 from mltt.kernel.ind import Elim, Ctor, Ind
 from mltt.kernel.levels import LVar, LevelExpr
-from mltt.kernel.telescope import mk_app, mk_uapp, mk_lams, Telescope, ArgList
+from mltt.kernel.tel import mk_app, mk_uapp, mk_lams, Telescope, ArgList
 
 
 def _vec() -> tuple[Ind, Ctor, Ctor]:

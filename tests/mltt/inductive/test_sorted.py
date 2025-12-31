@@ -12,7 +12,7 @@ from mltt.inductive.sorted import (
     SortedType,
 )
 from mltt.kernel.ast import Lam, Pi, Univ, Var, Term
-from mltt.kernel.telescope import mk_app, mk_pis
+from mltt.kernel.tel import mk_app, mk_pis
 
 
 def reflexive_relation(A: Term) -> Lam:

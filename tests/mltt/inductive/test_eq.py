@@ -1,7 +1,7 @@
 from mltt.inductive.eq import Id, IdElim, Refl, cong, sym, trans
 from mltt.inductive.nat import NatType, Succ, Zero
 from mltt.kernel.ast import App, Lam, Var
-from mltt.kernel.telescope import mk_lams
+from mltt.kernel.tel import mk_lams
 
 
 def test_cong_builds_identity_elimination_over_function_application() -> None:

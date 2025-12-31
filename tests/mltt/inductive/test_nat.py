@@ -14,7 +14,7 @@ from mltt.inductive.nat import (
 )
 from mltt.kernel.ast import Pi
 from mltt.kernel.env import Const
-from mltt.kernel.telescope import mk_pis
+from mltt.kernel.tel import mk_pis
 from mltt.surface.prelude import prelude_env
 
 

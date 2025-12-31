@@ -5,7 +5,7 @@ from __future__ import annotations
 from mltt.inductive.eq import Refl, Id, ap, trans, sym
 from mltt.inductive.nat import NatType, Succ, Zero, add, NatElim
 from mltt.kernel.ast import Lam, Term, Var, Pi
-from mltt.kernel.telescope import mk_app, mk_lams
+from mltt.kernel.tel import mk_app, mk_lams
 
 
 def add_zero_right() -> Term:

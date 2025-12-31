@@ -12,7 +12,7 @@ from mltt.inductive.maybe import (
 )
 from mltt.inductive.nat import NatType, Succ, Zero
 from mltt.kernel.ast import Lam, Pi, Univ, Var, Term
-from mltt.kernel.telescope import mk_pis
+from mltt.kernel.tel import mk_pis
 
 
 def test_infer_maybe_type_constructor() -> None:

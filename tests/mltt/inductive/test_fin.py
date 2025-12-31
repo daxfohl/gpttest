@@ -9,7 +9,7 @@ from mltt.inductive.fin import (
 )
 from mltt.inductive.nat import NatType, Succ, Zero, numeral
 from mltt.kernel.ast import Pi, Univ, Var
-from mltt.kernel.telescope import mk_app, mk_pis, mk_lams
+from mltt.kernel.tel import mk_app, mk_pis, mk_lams
 
 
 def test_infer_fin_type() -> None:

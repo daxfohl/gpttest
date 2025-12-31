@@ -1,7 +1,7 @@
 from mltt.inductive.eq import Id, Refl
 from mltt.inductive.nat import NatType, Succ, Zero, add, numeral
 from mltt.kernel.ast import Var
-from mltt.kernel.telescope import mk_app, mk_pis
+from mltt.kernel.tel import mk_app, mk_pis
 from mltt.proofs.add_comm import (
     add_zero_left,
     add_zero_right,

@@ -10,7 +10,7 @@ from mltt.inductive.vec import ConsCtorAt, Cons_U
 from mltt.kernel.ast import App, Lam, Pi, Term, Univ, Var
 from mltt.kernel.ind import Elim
 from mltt.kernel.levels import LVar
-from mltt.kernel.telescope import mk_pis, mk_lams, mk_app, mk_uapp, ArgList
+from mltt.kernel.tel import mk_pis, mk_lams, mk_app, mk_uapp, ArgList
 
 
 # ------------- Shift: basic behavior -------------

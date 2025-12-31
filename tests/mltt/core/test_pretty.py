@@ -1,7 +1,7 @@
 from mltt.inductive.nat import NatType, Succ, Zero
 from mltt.kernel.ast import App, Lam, Pi, Var
 from mltt.kernel.pretty import pretty
-from mltt.kernel.telescope import mk_lams
+from mltt.kernel.tel import mk_lams
 
 
 def test_inductive_and_constructor_names() -> None:

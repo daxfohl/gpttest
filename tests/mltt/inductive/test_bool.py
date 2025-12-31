@@ -17,7 +17,7 @@ from mltt.inductive.bool import (
 )
 from mltt.inductive.nat import NatType, Succ, Zero, numeral
 from mltt.kernel.ast import Univ, Var
-from mltt.kernel.telescope import mk_app, mk_pis
+from mltt.kernel.tel import mk_app, mk_pis
 
 
 def test_ctor_types() -> None:
