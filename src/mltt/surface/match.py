@@ -62,6 +62,15 @@ def _looks_like_ctor(name: str) -> bool:
     return bool(name) and (name[0].isupper() or "." in name)
 
 
+def _elab_scrutinee_info(
+    scrutinee: SurfaceTerm, env: ElabEnv, state: ElabState
+) -> tuple[Term, Term, Term, tuple[LevelExpr, ...], ArgList]:
+    scrut_term, scrut_ty = scrutinee.elab_infer(env, state)
+    scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
+    head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
+    return scrut_term, scrut_ty_whnf, head, level_actuals, args
+
+
 @dataclass(frozen=True)
 class Pat:
     span: Span
@@ -128,9 +137,9 @@ class SMatch(SurfaceTerm):
 
     def _elab_core(self, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
         self._check_duplicate_binders(self.branches)
-        scrut_term, scrut_ty = self.scrutinees[0].elab_infer(env, state)
-        scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
-        head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
+        scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
+            self.scrutinees[0], env, state
+        )
         ind = _resolve_inductive_head(env.kenv, head)
         if ind is None:
             raise SurfaceError("Match scrutinee is not an inductive type", self.span)
@@ -174,9 +183,9 @@ class SMatch(SurfaceTerm):
         if len(self.scrutinees) != 1:
             raise SurfaceError("Dependent match needs one scrutinee", self.span)
         self._check_duplicate_binders(self.branches)
-        scrut_term, scrut_ty = self.scrutinees[0].elab_infer(env, state)
-        scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
-        head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
+        scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
+            self.scrutinees[0], env, state
+        )
         ind = _resolve_inductive_head(env.kenv, head)
         if ind is None:
             raise SurfaceError("Match scrutinee is not an inductive type", self.span)
@@ -639,9 +648,9 @@ class SElim(SurfaceTerm):
     branches: tuple[SElimBranch, ...]
 
     def elab_infer(self, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
-        scrut_term, scrut_ty = self.scrutinee.elab_infer(env, state)
-        scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
-        head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
+        scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
+            self.scrutinee, env, state
+        )
         ind = _resolve_inductive_head(env.kenv, head)
         if ind is None:
             raise SurfaceError(
