@@ -24,7 +24,7 @@ from mltt.surface.sast import (
     SHole,
     SLet,
 )
-from mltt.surface.sind import SInd, SCtor
+from mltt.surface.sind import SConstructorDecl, SInd, SCtor, SInductiveDef
 
 _SOURCE: str = ""
 
@@ -35,6 +35,7 @@ reserved = {
     "const": "CONST",
     "ind": "IND",
     "ctor": "CTOR",
+    "inductive": "INDUCTIVE",
 }
 
 tokens = (
@@ -45,6 +46,7 @@ tokens = (
     "DARROW",
     "DEFINE",
     "COLON",
+    "PIPE",
     "LPAREN",
     "RPAREN",
     "SEMI",
@@ -59,6 +61,7 @@ t_ARROW = r"->"
 t_DARROW = r"=>"
 t_DEFINE = r":="
 t_COLON = r":"
+t_PIPE = r"\|"
 t_LPAREN = r"\("
 t_RPAREN = r"\)"
 t_SEMI = r";"
@@ -125,6 +128,19 @@ def p_term_let(p: yacc.YaccProduction) -> None:
     p[0] = SLet(span=span, name=p[2], ty=p[4], val=p[6], body=p[8])
 
 
+def p_term_inductive(p: yacc.YaccProduction) -> None:
+    "term : INDUCTIVE IDENT ind_binders COLON term DEFINE ctor_decls SEMI term"
+    span = _span(p, 1, 9)
+    p[0] = SInductiveDef(
+        span=span,
+        name=p[2],
+        params=p[3],
+        level=p[5],
+        ctors=p[7],
+        body=p[9],
+    )
+
+
 def p_term_fun(p: yacc.YaccProduction) -> None:
     "term : FUN lam_binders DARROW term"
     span = _span(p, 1, 4)
@@ -164,6 +180,16 @@ def p_pi_binders_multi(p: yacc.YaccProduction) -> None:
 def p_pi_binders_single(p: yacc.YaccProduction) -> None:
     "pi_binders : binder"
     p[0] = (p[1],)
+
+
+def p_ind_binders_multi(p: yacc.YaccProduction) -> None:
+    "ind_binders : ind_binders binder"
+    p[0] = p[1] + (p[2],)
+
+
+def p_ind_binders_empty(p: yacc.YaccProduction) -> None:
+    "ind_binders : empty"
+    p[0] = ()
 
 
 def p_lam_binders_multi(p: yacc.YaccProduction) -> None:
@@ -221,6 +247,40 @@ def p_binder_implicit_hole(p: yacc.YaccProduction) -> None:
     "binder : LBRACE HOLE COLON term RBRACE"
     span = _span(p, 1, 5)
     p[0] = SBinder("_", p[4], span, implicit=True)
+
+
+def p_ctor_decls_multi(p: yacc.YaccProduction) -> None:
+    "ctor_decls : ctor_decls ctor_decl"
+    p[0] = p[1] + (p[2],)
+
+
+def p_ctor_decls_single(p: yacc.YaccProduction) -> None:
+    "ctor_decls : ctor_decl"
+    p[0] = (p[1],)
+
+
+def p_ctor_decl(p: yacc.YaccProduction) -> None:
+    "ctor_decl : PIPE IDENT"
+    span = _span(p, 1, 2)
+    p[0] = SConstructorDecl(name=p[2], fields=(), span=span)
+
+
+def p_ctor_decl_fields(p: yacc.YaccProduction) -> None:
+    "ctor_decl : PIPE IDENT ctor_binders"
+    pipe_tok = cast(lex.LexToken, p.slice[1])
+    end = p[3][-1].span.end
+    span = Span(pipe_tok.lexpos, end)
+    p[0] = SConstructorDecl(name=p[2], fields=p[3], span=span)
+
+
+def p_ctor_binders_multi(p: yacc.YaccProduction) -> None:
+    "ctor_binders : ctor_binders binder"
+    p[0] = p[1] + (p[2],)
+
+
+def p_ctor_binders_single(p: yacc.YaccProduction) -> None:
+    "ctor_binders : binder"
+    p[0] = (p[1],)
 
 
 def _append_app(left: SurfaceTerm, arg: SArg) -> SApp:
@@ -331,6 +391,11 @@ def p_atom_base_ann(p: yacc.YaccProduction) -> None:
     "atom_base : LPAREN term COLON term RPAREN"
     span = _span(p, 1, 5)
     p[0] = SAnn(span=span, term=p[2], ty=p[4])
+
+
+def p_empty(p: yacc.YaccProduction) -> None:
+    "empty :"
+    p[0] = ()
 
 
 def p_error(p: lex.LexToken | None) -> None:
