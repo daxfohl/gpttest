@@ -56,10 +56,6 @@ class ElabState:
     level_constraints: list[LevelConstraint] = field(default_factory=list)
     next_level_id: int = 0
     level_names: list[str] = field(default_factory=list)
-    implicit_globals: dict[str, tuple[bool, ...]] = field(default_factory=dict)
-    implicit_locals: dict[int, tuple[tuple[bool, ...], ...]] = field(
-        default_factory=dict
-    )
 
     def lookup_level(self, name: str, span: Span) -> LevelExpr:
         try:
@@ -86,53 +82,6 @@ class ElabState:
 
     def add_constraint(self, env: Env, lhs: Term, rhs: Term, span: Span | None) -> None:
         self.constraints.append(Constraint(len(env.binders), lhs, rhs, span))
-
-    def register_global_implicit(
-        self, name: str, implicit_spine: tuple[bool, ...]
-    ) -> None:
-        self.implicit_globals[name] = implicit_spine
-
-    def global_implicit(self, name: str) -> tuple[bool, ...]:
-        return self.implicit_globals.get(name, ())
-
-    def local_implicit(self, env: Env, idx: int) -> tuple[bool, ...]:
-        locals_spines = self._implicit_locals_for_env(env)
-        if idx < 0 or idx >= len(locals_spines):
-            return ()
-        return locals_spines[idx]
-
-    def push_binder_env(
-        self,
-        env: Env,
-        ty: Term,
-        name: str | None = None,
-        uarity: int = 0,
-        implicit_spine: tuple[bool, ...] = (),
-    ) -> Env:
-        new_env = env.push_binder(ty, name=name, uarity=uarity)
-        parent = self._implicit_locals_for_env(env)
-        self.implicit_locals[id(new_env)] = (implicit_spine,) + parent
-        return new_env
-
-    def push_let_env(
-        self,
-        env: Env,
-        ty: Term,
-        value: Term,
-        name: str | None = None,
-        uarity: int = 0,
-        implicit_spine: tuple[bool, ...] = (),
-    ) -> Env:
-        new_env = env.push_let(ty, value, name=name, uarity=uarity)
-        parent = self._implicit_locals_for_env(env)
-        self.implicit_locals[id(new_env)] = (implicit_spine,) + parent
-        return new_env
-
-    def _implicit_locals_for_env(self, env: Env) -> tuple[tuple[bool, ...], ...]:
-        locals_spines = self.implicit_locals.get(id(env))
-        if locals_spines is not None:
-            return locals_spines
-        return tuple(() for _ in env.binders)
 
     def add_level_constraint(
         self,
@@ -608,8 +557,6 @@ class ElabState:
                 return Univ(self.zonk_level(level))
             case UApp(head, levels):
                 return UApp(head, tuple(self.zonk_level(level) for level in levels))
-            case Ind():
-                return term
             case _:
                 return term
 
@@ -649,26 +596,6 @@ class ElabState:
 
         walk(term)
         return found
-
-    def _level_metas_in_constraints(self) -> set[int]:
-        used: set[int] = set()
-
-        def collect(level: LevelExpr) -> None:
-            match level:
-                case LMeta(mid):
-                    used.add(mid)
-                case LSucc(e):
-                    collect(e)
-                case LMax(a, b):
-                    collect(a)
-                    collect(b)
-                case _:
-                    return
-
-        for constraint in self.level_constraints:
-            collect(constraint.lhs)
-            collect(constraint.rhs)
-        return used
 
     def _level_meta_equalities(self) -> set[tuple[int, int]]:
         pairs: set[tuple[int, int]] = set()

@@ -6,7 +6,7 @@ This repository contains a small Python library that models fragments of Martin-
 
 - `src/mltt/kernel/` – core kernel: AST, environments, normalization/WHNF, typing, and inductive eliminators.
 - `src/mltt/inductive/` – library of inductive definitions (Nat, Bool, List, Vec, Fin, Sigma, etc.).
-- `src/mltt/surface/` – surface syntax, parser, and elaboration into kernel terms (includes a prelude).
+- `src/mltt/surface/` – surface syntax, parser, and elaboration into kernel terms (includes a prelude and elaboration metadata helpers such as `etype.py`).
 - `src/mltt/proofs/` – example proof terms (e.g., `add_comm`).
 - `tests/mltt/` – pytest-based unit tests mirroring the source tree; they exercise the kernel, inductives, surface elaboration, and proofs.
 

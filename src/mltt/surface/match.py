@@ -17,6 +17,7 @@ from mltt.kernel.tel import (
     mk_uapp,
 )
 from mltt.surface.elab_state import ElabState
+from mltt.surface.etype import ElabEnv, ElabType
 from mltt.surface.sast import NameEnv, SVar, Span, SurfaceError, SurfaceTerm
 
 
@@ -94,7 +95,7 @@ class SMatch(SurfaceTerm):
     motive: SurfaceTerm | None
     branches: tuple[SBranch, ...]
 
-    def elab_infer(self, env: Env, state: ElabState) -> tuple[Term, Term]:
+    def elab_infer(self, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
         if len(self.scrutinees) != 1:
             return self._desugar().elab_infer(env, state)
         if self.motive is None and all(n is None for n in self.as_names):
@@ -103,12 +104,12 @@ class SMatch(SurfaceTerm):
             )
         return self._elab_with_motive(env, state)
 
-    def elab_check(self, env: Env, state: ElabState, expected: Term) -> Term:
+    def elab_check(self, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
         if len(self.scrutinees) != 1:
             return self._desugar().elab_check(env, state, expected)
         if self.motive is not None or any(n is not None for n in self.as_names):
             term, term_ty = self._elab_with_motive(env, state)
-            state.add_constraint(env, term_ty, expected, self.span)
+            state.add_constraint(env.kenv, term_ty.term, expected.term, self.span)
             return term
         desugared = self._desugar()
         if desugared is not self:
@@ -118,12 +119,12 @@ class SMatch(SurfaceTerm):
     def resolve(self, env: Env, names: NameEnv) -> Term:
         raise SurfaceError("Match requires elaboration", self.span)
 
-    def _elab_core(self, env: Env, state: ElabState, expected: Term) -> Term:
+    def _elab_core(self, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
         self._check_duplicate_binders(self.branches)
         scrut_term, scrut_ty = self.scrutinees[0].elab_infer(env, state)
-        scrut_ty_whnf = scrut_ty.whnf(env)
+        scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
         head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
-        ind = _resolve_inductive_head(env, head)
+        ind = _resolve_inductive_head(env.kenv, head)
         if ind is None:
             raise SurfaceError("Match scrutinee is not an inductive type", self.span)
         p = len(ind.param_types)
@@ -143,29 +144,33 @@ class SMatch(SurfaceTerm):
             binder_names = self._branch_binders(branch.pat, ctor, field_tys)
             env_branch = env
             for binder_name, field_ty in zip(binder_names, field_tys, strict=True):
-                env_branch = state.push_binder_env(
-                    env_branch, field_ty, name=binder_name
+                env_branch = env_branch.push_binder(
+                    ElabType(field_ty), name=binder_name
                 )
             rhs_term = branch.rhs.elab_check(
-                env_branch, state, expected.shift(len(field_tys))
+                env_branch,
+                state,
+                ElabType(expected.term.shift(len(field_tys)), expected.implicit_spine),
             )
             case_term = rhs_term
             for field_ty in reversed(list(field_tys)):
                 case_term = Lam(field_ty, case_term)
             cases.append(case_term)
-        motive = Lam(scrut_ty_whnf, expected.shift(1))
+        motive = Lam(scrut_ty_whnf, expected.term.shift(1))
         return Elim(ind, motive, tuple(cases), scrut_term)
 
-    def _elab_with_motive(self, env: Env, state: ElabState) -> tuple[Term, Term]:
+    def _elab_with_motive(
+        self, env: ElabEnv, state: ElabState
+    ) -> tuple[Term, ElabType]:
         if self.motive is None:
             raise SurfaceError("Match motive missing", self.span)
         if len(self.scrutinees) != 1:
             raise SurfaceError("Dependent match needs one scrutinee", self.span)
         self._check_duplicate_binders(self.branches)
         scrut_term, scrut_ty = self.scrutinees[0].elab_infer(env, state)
-        scrut_ty_whnf = scrut_ty.whnf(env)
+        scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
         head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
-        ind = _resolve_inductive_head(env, head)
+        ind = _resolve_inductive_head(env.kenv, head)
         if ind is None:
             raise SurfaceError("Match scrutinee is not an inductive type", self.span)
         p = len(ind.param_types)
@@ -174,9 +179,9 @@ class SMatch(SurfaceTerm):
             raise SurfaceError("Match scrutinee has wrong arity", self.span)
         params_actual = args[:p]
         as_name = self.as_names[0] if self.as_names else None
-        env_motive = state.push_binder_env(env, scrut_ty_whnf, name=as_name or "_")
+        env_motive = env.push_binder(ElabType(scrut_ty_whnf), name=as_name or "_")
         motive_term, motive_ty = self.motive.elab_infer(env_motive, state)
-        motive_ty_whnf = motive_ty.whnf(env_motive)
+        motive_ty_whnf = motive_ty.term.whnf(env_motive.kenv)
         if not isinstance(motive_ty_whnf, Univ):
             raise SurfaceError("Match motive must be a universe", self.motive.span)
         motive = Lam(scrut_ty_whnf, motive_term)
@@ -194,8 +199,8 @@ class SMatch(SurfaceTerm):
             binder_names = self._branch_binders(branch.pat, ctor, field_tys)
             env_branch = env
             for binder_name, field_ty in zip(binder_names, field_tys, strict=True):
-                env_branch = state.push_binder_env(
-                    env_branch, field_ty, name=binder_name
+                env_branch = env_branch.push_binder(
+                    ElabType(field_ty), name=binder_name
                 )
             params_in_fields_ctx = params_actual.shift(m)
             field_vars = ArgList.vars(m)
@@ -206,12 +211,14 @@ class SMatch(SurfaceTerm):
                 field_vars,
             )
             expected_branch = motive_term.shift(m).subst(scrut_like, m)
-            rhs_term = branch.rhs.elab_check(env_branch, state, expected_branch)
+            rhs_term = branch.rhs.elab_check(
+                env_branch, state, ElabType(expected_branch)
+            )
             case_term = rhs_term
             for field_ty in reversed(list(field_tys)):
                 case_term = Lam(field_ty, case_term)
             cases.append(case_term)
-        return Elim(ind, motive, tuple(cases), scrut_term), match_ty
+        return Elim(ind, motive, tuple(cases), scrut_term), ElabType(match_ty)
 
     def _field_types(
         self,
@@ -227,7 +234,7 @@ class SMatch(SurfaceTerm):
         )
 
     def _branch_map(
-        self, env: Env, ind: Ind
+        self, env: ElabEnv, ind: Ind
     ) -> tuple[dict[Ctor, SBranch], SBranch | None]:
         branches: dict[Ctor, SBranch] = {}
         default: SBranch | None = None
@@ -524,14 +531,14 @@ class SLetPat(SurfaceTerm):
     value: SurfaceTerm
     body: SurfaceTerm
 
-    def elab_infer(self, env: Env, state: ElabState) -> tuple[Term, Term]:
+    def elab_infer(self, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
         value_term, value_ty = self.value.elab_infer(env, state)
-        value_ty_whnf = value_ty.whnf(env)
-        if not self._is_irrefutable(env, value_ty_whnf, self.pat):
+        value_ty_whnf = value_ty.term.whnf(env.kenv)
+        if not self._is_irrefutable(env.kenv, value_ty_whnf, self.pat):
             raise SurfaceError("Refutable pattern in let; use match", self.span)
         env_body = env
-        for name, ty in self._collect_binders(env, value_ty_whnf, self.pat):
-            env_body = state.push_binder_env(env_body, ty, name=name)
+        for name, ty in self._collect_binders(env.kenv, value_ty_whnf, self.pat):
+            env_body = env_body.push_binder(ElabType(ty), name=name)
         body_term, body_ty = self.body.elab_infer(env_body, state)
         match_term = SMatch(
             span=self.span,
@@ -543,9 +550,9 @@ class SLetPat(SurfaceTerm):
         match_term_k = match_term.elab_check(env, state, body_ty)
         return match_term_k, body_ty
 
-    def elab_check(self, env: Env, state: ElabState, expected: Term) -> Term:
+    def elab_check(self, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
         term, term_ty = self.elab_infer(env, state)
-        state.add_constraint(env, term_ty, expected, self.span)
+        state.add_constraint(env.kenv, term_ty.term, expected.term, self.span)
         return term
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
@@ -631,11 +638,11 @@ class SElim(SurfaceTerm):
     motive: SurfaceTerm
     branches: tuple[SElimBranch, ...]
 
-    def elab_infer(self, env: Env, state: ElabState) -> tuple[Term, Term]:
+    def elab_infer(self, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
         scrut_term, scrut_ty = self.scrutinee.elab_infer(env, state)
-        scrut_ty_whnf = scrut_ty.whnf(env)
+        scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
         head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
-        ind = _resolve_inductive_head(env, head)
+        ind = _resolve_inductive_head(env.kenv, head)
         if ind is None:
             raise SurfaceError(
                 "Eliminator scrutinee is not an inductive type", self.span
@@ -668,11 +675,11 @@ class SElim(SurfaceTerm):
             inductive=ind, motive=motive_term, cases=cases, scrutinee=scrut_term
         )
         elim_ty = mk_app(motive_term, indices_actual, scrut_term)
-        return elim_term, elim_ty
+        return elim_term, ElabType(elim_ty)
 
-    def elab_check(self, env: Env, state: ElabState, expected: Term) -> Term:
+    def elab_check(self, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
         term, term_ty = self.elab_infer(env, state)
-        state.add_constraint(env, term_ty, expected, self.span)
+        state.add_constraint(env.kenv, term_ty.term, expected.term, self.span)
         return term
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
@@ -680,7 +687,7 @@ class SElim(SurfaceTerm):
 
     def _elab_motive(
         self,
-        env: Env,
+        env: ElabEnv,
         state: ElabState,
         ind: Ind,
         level_actuals: tuple[LevelExpr, ...],
@@ -700,12 +707,12 @@ class SElim(SurfaceTerm):
         if self.as_name is not None:
             env_motive = env
             for idx_ty in index_tys:
-                env_motive = state.push_binder_env(env_motive, idx_ty)
-            env_motive = state.push_binder_env(
-                env_motive, scrut_in_indices_ctx, name=self.as_name
+                env_motive = env_motive.push_binder(ElabType(idx_ty))
+            env_motive = env_motive.push_binder(
+                ElabType(scrut_in_indices_ctx), name=self.as_name
             )
             motive_term, motive_ty = self.motive.elab_infer(env_motive, state)
-            motive_ty_whnf = motive_ty.whnf(env_motive)
+            motive_ty_whnf = motive_ty.term.whnf(env_motive.kenv)
             if not isinstance(motive_ty_whnf, Univ):
                 raise SurfaceError(
                     "Eliminator motive must return a universe", self.motive.span
@@ -713,7 +720,7 @@ class SElim(SurfaceTerm):
             body = motive_term.shift(q + 1)
             return mk_lams(*index_tys, scrut_in_indices_ctx, body=body)
         motive_term, motive_ty = self.motive.elab_infer(env, state)
-        motive_ty_whnf = motive_ty.whnf(env)
+        motive_ty_whnf = motive_ty.term.whnf(env.kenv)
         if isinstance(motive_ty_whnf, Univ):
             body = motive_term.shift(q + 1)
             return mk_lams(*index_tys, scrut_in_indices_ctx, body=body)
@@ -724,7 +731,7 @@ class SElim(SurfaceTerm):
                     "Eliminator motive must be a function over indices and scrutinee",
                     self.motive.span,
                 )
-            motive_pi = motive_pi.return_ty.whnf(env)
+            motive_pi = motive_pi.return_ty.whnf(env.kenv)
         if not isinstance(motive_pi, Univ):
             raise SurfaceError(
                 "Eliminator motive must return a universe", self.motive.span
@@ -733,7 +740,7 @@ class SElim(SurfaceTerm):
 
     def _elab_cases(
         self,
-        env: Env,
+        env: ElabEnv,
         state: ElabState,
         ind: Ind,
         level_actuals: tuple[LevelExpr, ...],
@@ -786,11 +793,11 @@ class SElim(SurfaceTerm):
                 )
             env_branch = env
             for binder, binder_ty in zip(binders, tel, strict=True):
-                env_branch = state.push_binder_env(
-                    env_branch, binder_ty, name=binder.name
+                env_branch = env_branch.push_binder(
+                    ElabType(binder_ty), name=binder.name
                 )
             rhs_term = case_branch.rhs.elab_check(
-                env_branch, state, codomain.shift(len(tel))
+                env_branch, state, ElabType(codomain.shift(len(tel)))
             )
             case_term = rhs_term
             for binder_ty in reversed(list(tel)):
