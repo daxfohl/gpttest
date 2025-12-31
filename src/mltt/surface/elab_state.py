@@ -272,7 +272,7 @@ class ElabState:
             raise SurfaceError(
                 f"Cannot unify {lhs} with {rhs}", constraint.span or Span(0, 0)
             )
-        if isinstance(lhs, Pi) and isinstance(rhs, Pi) and lhs.implicit == rhs.implicit:
+        if isinstance(lhs, Pi) and isinstance(rhs, Pi):
             self.constraints.append(
                 Constraint(constraint.ctx_len, lhs.arg_ty, rhs.arg_ty, constraint.span)
             )
@@ -285,20 +285,12 @@ class ElabState:
                 )
             )
             return "progress"
-        if (
-            isinstance(lhs, Lam)
-            and isinstance(rhs, Lam)
-            and lhs.implicit == rhs.implicit
-        ):
+        if isinstance(lhs, Lam) and isinstance(rhs, Lam):
             self.constraints.append(
                 Constraint(constraint.ctx_len + 1, lhs.body, rhs.body, constraint.span)
             )
             return "progress"
-        if (
-            isinstance(lhs, App)
-            and isinstance(rhs, App)
-            and lhs.implicit == rhs.implicit
-        ):
+        if isinstance(lhs, App) and isinstance(rhs, App):
             self.constraints.append(
                 Constraint(constraint.ctx_len, lhs.func, rhs.func, constraint.span)
             )
@@ -364,7 +356,7 @@ class ElabState:
         self,
         env: Env,
         meta_term: MetaVar,
-        spine: list[tuple[Term, bool]],
+        spine: list[Term],
         rhs: Term,
         constraint: Constraint,
     ) -> bool:
@@ -374,7 +366,7 @@ class ElabState:
         if not spine:
             return False
         var_indices: list[int] = []
-        for arg, _implicit in spine:
+        for arg in spine:
             if not isinstance(arg, Var):
                 return False
             var_indices.append(arg.k)
@@ -392,21 +384,18 @@ class ElabState:
                 adjusted_indices.append(k - drop)
             else:
                 adjusted_indices.append(k + diff)
-        arg_tys, arg_impls = self._pi_spine(meta.ty, meta.ctx_len, len(spine), env)
+        arg_tys = self._pi_spine(meta.ty, meta.ctx_len, len(spine), env)
         term = restricted_rhs
-        for offset, (k, arg_ty, implicit) in enumerate(
-            zip(reversed(adjusted_indices), reversed(arg_tys), reversed(arg_impls))
+        for offset, (k, arg_ty) in enumerate(
+            zip(reversed(adjusted_indices), reversed(arg_tys))
         ):
             term = self._abstract_var(term, k + offset)
-            term = Lam(arg_ty, term, implicit=implicit)
+            term = Lam(arg_ty, term)
         meta.solution = term
         return True
 
-    def _pi_spine(
-        self, ty: Term, ctx_len: int, count: int, env: Env
-    ) -> tuple[list[Term], list[bool]]:
+    def _pi_spine(self, ty: Term, ctx_len: int, count: int, env: Env) -> list[Term]:
         arg_tys: list[Term] = []
-        arg_impls: list[bool] = []
         current = ty
         ctx_env = self._env_for_ctx(env, ctx_len)
         for _ in range(count):
@@ -416,9 +405,8 @@ class ElabState:
                     "Cannot solve meta: type is not a function", Span(0, 0)
                 )
             arg_tys.append(current.arg_ty)
-            arg_impls.append(current.implicit)
             current = current.return_ty
-        return arg_tys, arg_impls
+        return arg_tys
 
     def _solve_level_constraints(self) -> bool:
         progress = False
@@ -488,11 +476,11 @@ class ElabState:
         rhs_head, _ = self._decompose_app(rhs)
         return isinstance(lhs_head, MetaVar) or isinstance(rhs_head, MetaVar)
 
-    def _decompose_app(self, term: Term) -> tuple[Term, list[tuple[Term, bool]]]:
-        spine: list[tuple[Term, bool]] = []
+    def _decompose_app(self, term: Term) -> tuple[Term, list[Term]]:
+        spine: list[Term] = []
         head = term
         while isinstance(head, App):
-            spine.append((head.arg, head.implicit))
+            spine.append(head.arg)
             head = head.func
         spine.reverse()
         return head, spine

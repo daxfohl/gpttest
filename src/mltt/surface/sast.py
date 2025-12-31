@@ -65,7 +65,10 @@ class SBinder:
         ty_ty_whnf = ty_ty.whnf(env)
         if not isinstance(ty_ty_whnf, Univ):
             raise SurfaceError("Binder type must be a universe", self.span)
-        return ty_term, env.push_binder(ty_term, name=self.name)
+        implicit_spine = _implicit_spine(self.ty)
+        return ty_term, env.push_binder(
+            ty_term, name=self.name, implicit_spine=implicit_spine
+        )
 
 
 @dataclass(frozen=True)
@@ -222,9 +225,9 @@ class SLam(SurfaceTerm):
         body_term, body_ty = self.body.elab_infer(env1, state)
         lam_term = body_term
         lam_ty = body_ty
-        for ty, implicit in reversed(list(zip(binder_tys, binder_impls))):
-            lam_term = Lam(ty, lam_term, implicit=implicit)
-            lam_ty = Pi(ty, lam_ty, implicit=implicit)
+        for ty in reversed(binder_tys):
+            lam_term = Lam(ty, lam_term)
+            lam_ty = Pi(ty, lam_ty)
         return lam_term, lam_ty
 
     def elab_check(self, env: Env, state: "ElabState", expected: Term) -> Term:
@@ -236,8 +239,6 @@ class SLam(SurfaceTerm):
             pi_ty = expected_ty.whnf(env1)
             if not isinstance(pi_ty, Pi):
                 raise SurfaceError("Lambda needs expected function type", self.span)
-            if binder.implicit != pi_ty.implicit:
-                raise SurfaceError("Lambda binder implicitness mismatch", binder.span)
             if binder.ty is None:
                 binder_ty = pi_ty.arg_ty
             else:
@@ -248,27 +249,29 @@ class SLam(SurfaceTerm):
                 state.add_constraint(env1, binder_ty, pi_ty.arg_ty, binder.span)
             binder_tys.append(binder_ty)
             binder_impls.append(binder.implicit)
-            env1 = env1.push_binder(binder_ty, name=binder.name)
+            env1 = env1.push_binder(
+                binder_ty,
+                name=binder.name,
+                implicit_spine=_implicit_spine(binder.ty),
+            )
             expected_ty = pi_ty.return_ty
         body_term = self.body.elab_check(env1, state, expected_ty)
         lam_term = body_term
-        for ty, implicit in reversed(list(zip(binder_tys, binder_impls))):
-            lam_term = Lam(ty, lam_term, implicit=implicit)
+        for ty in reversed(binder_tys):
+            lam_term = Lam(ty, lam_term)
         return lam_term
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         if any(b.ty is None for b in self.binders):
             raise SurfaceError("Missing binder type", self.span)
         tys: list[Term] = []
-        impls: list[bool] = []
         for binder in self.binders:
             assert binder.ty is not None
             tys.append(binder.ty.resolve(env, names))
-            impls.append(binder.implicit)
             names.push(binder.name)
         term = self.body.resolve(env, names)
-        for ty, implicit in reversed(list(zip(tys, impls))):
-            term = Lam(ty, term, implicit=implicit)
+        for ty in reversed(tys):
+            term = Lam(ty, term)
             names.pop()
         return term
 
@@ -287,7 +290,7 @@ class SPi(SurfaceTerm):
         body_level = body_ty_whnf.level
         pi_term: Term = body_term
         result_level: LevelExpr | None = None
-        for ty, implicit in reversed(list(zip(binder_tys, binder_impls))):
+        for ty in reversed(binder_tys):
             arg_ty_ty = ty.infer_type(env).whnf(env)
             if not isinstance(arg_ty_ty, Univ):
                 raise SurfaceError("Pi domain must be a universe", self.span)
@@ -297,7 +300,7 @@ class SPi(SurfaceTerm):
             state.add_level_constraint(arg_level, result_level, self.span)
             state.add_level_constraint(body_level, result_level, self.span)
             body_level = result_level
-            pi_term = Pi(ty, pi_term, implicit=implicit)
+            pi_term = Pi(ty, pi_term)
         if result_level is None:
             result_level = state.fresh_level_meta("type", self.span)
             state.add_level_constraint(body_level, result_level, self.span)
@@ -307,15 +310,13 @@ class SPi(SurfaceTerm):
         if any(b.ty is None for b in self.binders):
             raise SurfaceError("Missing binder type", self.span)
         tys: list[Term] = []
-        impls: list[bool] = []
         for binder in self.binders:
             assert binder.ty is not None
             tys.append(binder.ty.resolve(env, names))
-            impls.append(binder.implicit)
             names.push(binder.name)
         term = self.body.resolve(env, names)
-        for ty, implicit in reversed(list(zip(tys, impls))):
-            term = Pi(ty, term, implicit=implicit)
+        for ty in reversed(tys):
+            term = Pi(ty, term)
             names.pop()
         return term
 
@@ -327,33 +328,46 @@ class SApp(SurfaceTerm):
 
     def elab_infer(self, env: Env, state: "ElabState") -> tuple[Term, Term]:
         fn_term, fn_ty = self.fn.elab_infer(env, state)
+        implicit_spine = _implicit_spine_for_term(fn_term, env)
+        spine_index = 0
         pending = list(self.args)
         while pending:
             fn_ty_whnf = fn_ty.whnf(env)
             if not isinstance(fn_ty_whnf, Pi):
                 raise SurfaceError("Application of non-function", pending[0].term.span)
-            if fn_ty_whnf.implicit and not pending[0].implicit:
+            binder_is_implicit = False
+            if implicit_spine is not None and spine_index < len(implicit_spine):
+                binder_is_implicit = implicit_spine[spine_index]
+            arg = pending.pop(0)
+            if binder_is_implicit and not arg.implicit:
                 meta = state.fresh_meta(
                     env, fn_ty_whnf.arg_ty, self.span, kind="implicit"
                 )
-                fn_term = App(fn_term, meta, implicit=True)
+                fn_term = App(fn_term, meta)
                 fn_ty = fn_ty_whnf.return_ty.subst(meta)
+                spine_index += 1
+                pending.insert(0, arg)
                 continue
-            arg = pending.pop(0)
-            if arg.implicit != fn_ty_whnf.implicit:
+            if not binder_is_implicit and arg.implicit and implicit_spine is not None:
                 raise SurfaceError(
                     "Implicit argument provided where explicit expected", arg.term.span
                 )
             arg_term = arg.term.elab_check(env, state, fn_ty_whnf.arg_ty)
-            fn_term = App(fn_term, arg_term, implicit=fn_ty_whnf.implicit)
+            fn_term = App(fn_term, arg_term)
             fn_ty = fn_ty_whnf.return_ty.subst(arg_term)
+            spine_index += 1
         while True:
             fn_ty_whnf = fn_ty.whnf(env)
-            if not isinstance(fn_ty_whnf, Pi) or not fn_ty_whnf.implicit:
+            if not isinstance(fn_ty_whnf, Pi):
+                break
+            if implicit_spine is None or spine_index >= len(implicit_spine):
+                break
+            if not implicit_spine[spine_index]:
                 break
             meta = state.fresh_meta(env, fn_ty_whnf.arg_ty, self.span, kind="implicit")
-            fn_term = App(fn_term, meta, implicit=True)
+            fn_term = App(fn_term, meta)
             fn_ty = fn_ty_whnf.return_ty.subst(meta)
+            spine_index += 1
         return fn_term, fn_ty
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
@@ -361,7 +375,7 @@ class SApp(SurfaceTerm):
         term = fn
         for arg in self.args:
             arg_term = arg.term.resolve(env, names)
-            term = App(term, arg_term, implicit=arg.implicit)
+            term = App(term, arg_term)
         return term
 
 
@@ -434,7 +448,14 @@ class SLet(SurfaceTerm):
         val_term = self.val.elab_check(env, state, ty_term)
         state.level_names = old_level_names
         uarity, ty_term, val_term = state.generalize_levels_for_let(ty_term, val_term)
-        env1 = env.push_let(ty_term, val_term, name=self.name, uarity=uarity)
+        implicit_spine = _implicit_spine(self.ty)
+        env1 = env.push_let(
+            ty_term,
+            val_term,
+            name=self.name,
+            uarity=uarity,
+            implicit_spine=implicit_spine,
+        )
         body_term, body_ty = self.body.elab_infer(env1, state)
         return Let(ty_term, val_term, body_term), body_ty
 
@@ -457,3 +478,33 @@ def _elab_binders(
         binder_tys.append(ty_term)
         binder_impls.append(binder.implicit)
     return binder_tys, binder_impls, env
+
+
+def _implicit_spine(term: SurfaceTerm | None) -> tuple[bool, ...]:
+    if term is None:
+        return ()
+    spine: list[bool] = []
+    current = term
+    while isinstance(current, SPi):
+        spine.extend(b.implicit for b in current.binders)
+        current = current.body
+    return tuple(spine)
+
+
+def _implicit_spine_for_term(term: Term, env: Env) -> tuple[bool, ...] | None:
+    head = term
+    applied = 0
+    while isinstance(head, App):
+        applied += 1
+        head = head.func
+    if isinstance(head, UApp):
+        head = head.head
+    if isinstance(head, Var):
+        implicit_spine = env.binders[head.k].implicit_spine
+    elif isinstance(head, Const):
+        implicit_spine = env.globals[head.name].implicit_spine
+    else:
+        return None
+    if applied >= len(implicit_spine):
+        return ()
+    return implicit_spine[applied:]

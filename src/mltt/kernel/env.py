@@ -21,6 +21,7 @@ class GlobalDecl:
     value: Term | None = None
     reducible: bool = True
     uarity: int = 0
+    implicit_spine: tuple[bool, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,7 @@ class Binder:
     name: str | None = None
     value: Term | None = None  # for let-bindings; None for ordinary binders
     uarity: int = 0
+    implicit_spine: tuple[bool, ...] = ()
 
     @overload
     @staticmethod
@@ -43,6 +45,7 @@ class Binder:
         name: str | None = None,
         value: Term | None = None,
         uarity: int = 0,
+        implicit_spine: tuple[bool, ...] = (),
     ) -> Binder: ...
 
     @staticmethod
@@ -51,13 +54,14 @@ class Binder:
         name: str | None = None,
         value: Term | None = None,
         uarity: int = 0,
+        implicit_spine: tuple[bool, ...] = (),
     ) -> Binder:
         """Coerce an entry or term into a ``Binder``."""
 
         if isinstance(entry, Binder):
             assert name is None and value is None and uarity == 0
             return entry
-        return Binder(entry, name, value, uarity)
+        return Binder(entry, name, value, uarity, implicit_spine)
 
 
 @dataclass(frozen=True)
@@ -73,13 +77,21 @@ class Env:
     globals: MappingProxyType[str, GlobalDecl] = MappingProxyType({})
 
     # ---- extending the environment ----
-    def push_binder(self, ty: Term, name: str | None = None, uarity: int = 0) -> Env:
+    def push_binder(
+        self,
+        ty: Term,
+        name: str | None = None,
+        uarity: int = 0,
+        implicit_spine: tuple[bool, ...] = (),
+    ) -> Env:
         """
         Push a new binder at de Bruijn index 0.
 
         This mirrors Ctx.push(ty) which does not rewrite existing entry types.
         """
-        binders = (Binder.of(ty, name, uarity=uarity),) + self.binders
+        binders = (
+            Binder.of(ty, name, uarity=uarity, implicit_spine=implicit_spine),
+        ) + self.binders
         return replace(self, binders=binders)
 
     def push_binders(self, *binders: Term | tuple[Term, str]) -> Env:
@@ -98,7 +110,12 @@ class Env:
         return env
 
     def push_let(
-        self, ty: Term, value: Term, name: str | None = None, uarity: int = 0
+        self,
+        ty: Term,
+        value: Term,
+        name: str | None = None,
+        uarity: int = 0,
+        implicit_spine: tuple[bool, ...] = (),
     ) -> Env:
         """
         Push a let-bound variable at index 0 with its type and definitional value.
@@ -107,7 +124,9 @@ class Env:
         this is still useful for pretty-printing and optional unfolding.
         """
 
-        binders = (Binder.of(ty, name, value, uarity),) + self.binders
+        binders = (
+            Binder.of(ty, name, value, uarity, implicit_spine=implicit_spine),
+        ) + self.binders
         return replace(self, binders=binders)
 
     # ---- name resolution (locals) ----

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from types import MappingProxyType
 
-from mltt.kernel.ast import App, Pi, Term, Univ, UApp
+from mltt.kernel.ast import Term, Univ, UApp
 from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
 from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_uapp
@@ -86,18 +86,6 @@ class SCtor(SurfaceTerm):
                         env, applied.infer_type(env), expected, self.span
                     )
                     return applied
-        while True:
-            term_ty_whnf = term_ty.whnf(env)
-            if not isinstance(term_ty_whnf, Pi):
-                break
-            if term_ty_whnf.implicit:
-                meta = state.fresh_meta(
-                    env, term_ty_whnf.arg_ty, self.span, kind="implicit"
-                )
-                term = App(term, meta, implicit=True)
-                term_ty = term_ty_whnf.return_ty.subst(meta)
-                continue
-            break
         state.add_constraint(env, term_ty, expected, self.span)
         return term
 
@@ -154,17 +142,23 @@ class SInductiveDef(SurfaceTerm):
             level=level_term.level,
             uarity=len(self.uparams),
         )
+        param_impls = tuple(binder.implicit for binder in self.params)
         mapping: dict[str, Term] = {self.name: ind}
         globals_dict = dict(env.globals)
         ind_ty = ind.infer_type(env)
         globals_dict[self.name] = GlobalDecl(
-            ty=ind_ty, value=ind, reducible=True, uarity=ind.uarity
+            ty=ind_ty,
+            value=ind,
+            reducible=True,
+            uarity=ind.uarity,
+            implicit_spine=param_impls,
         )
         env_with_ind = Env(binders=env.binders, globals=MappingProxyType(globals_dict))
         env_params_with_ind = Env(
             binders=env_params.binders, globals=env_with_ind.globals
         )
         ctors: list[Ctor] = []
+        ctor_impls_map: dict[str, tuple[bool, ...]] = {}
         for ctor_decl in self.ctors:
             ctor_name = f"{self.name}.{ctor_decl.name}"
             if env.lookup_global(ctor_name) is not None:
@@ -218,6 +212,9 @@ class SInductiveDef(SurfaceTerm):
                     uarity=ind.uarity,
                 )
             )
+            ctor_impls_map[ctor_decl.name] = param_impls + tuple(
+                binder.implicit for binder in ctor_decl.fields
+            )
         object.__setattr__(ind, "constructors", tuple(ctors))
         state.level_names = old_level_names
         for ctor in ctors:
@@ -225,7 +222,11 @@ class SInductiveDef(SurfaceTerm):
             mapping[ctor_name] = ctor
             ctor_ty = ctor.infer_type(env)
             globals_dict[ctor_name] = GlobalDecl(
-                ty=ctor_ty, value=ctor, reducible=True, uarity=ctor.uarity
+                ty=ctor_ty,
+                value=ctor,
+                reducible=True,
+                uarity=ctor.uarity,
+                implicit_spine=ctor_impls_map.get(ctor.name, ()),
             )
         env1 = Env(binders=env.binders, globals=MappingProxyType(globals_dict))
         body_term, body_ty = self.body.elab_infer(env1, state)
