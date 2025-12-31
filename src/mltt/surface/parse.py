@@ -129,15 +129,16 @@ def p_term_let(p: yacc.YaccProduction) -> None:
 
 
 def p_term_inductive(p: yacc.YaccProduction) -> None:
-    "term : INDUCTIVE IDENT ind_binders COLON term DEFINE ctor_decls SEMI term"
-    span = _span(p, 1, 9)
+    "term : INDUCTIVE IDENT u_binders ind_binders COLON term DEFINE ctor_decls SEMI term"
+    span = _span(p, 1, 10)
     p[0] = SInductiveDef(
         span=span,
         name=p[2],
-        params=p[3],
-        level=p[5],
-        ctors=p[7],
-        body=p[9],
+        uparams=p[3],
+        params=p[4],
+        level=p[6],
+        ctors=p[8],
+        body=p[10],
     )
 
 
@@ -190,6 +191,21 @@ def p_ind_binders_multi(p: yacc.YaccProduction) -> None:
 def p_ind_binders_empty(p: yacc.YaccProduction) -> None:
     "ind_binders : empty"
     p[0] = ()
+
+
+def p_u_binders_multi(p: yacc.YaccProduction) -> None:
+    "u_binders : u_binders u_binder"
+    p[0] = p[1] + (p[2],)
+
+
+def p_u_binders_empty(p: yacc.YaccProduction) -> None:
+    "u_binders : empty"
+    p[0] = ()
+
+
+def p_u_binder(p: yacc.YaccProduction) -> None:
+    "u_binder : LBRACE IDENT RBRACE"
+    p[0] = p[2]
 
 
 def p_lam_binders_multi(p: yacc.YaccProduction) -> None:
@@ -352,6 +368,12 @@ def p_atom_base_univ(p: yacc.YaccProduction) -> None:
     p[0] = SUniv(span=span, level=p[2])
 
 
+def p_atom_base_univ_var(p: yacc.YaccProduction) -> None:
+    "atom_base : TYPE IDENT"
+    span = _span(p, 1, 2)
+    p[0] = SUniv(span=span, level=p[2])
+
+
 def p_atom_base_univ_plain(p: yacc.YaccProduction) -> None:
     "atom_base : TYPE"
     span = _span(p, 1, 1)
@@ -360,6 +382,12 @@ def p_atom_base_univ_plain(p: yacc.YaccProduction) -> None:
 
 def p_atom_base_univ_paren(p: yacc.YaccProduction) -> None:
     "atom_base : TYPE LPAREN INT RPAREN"
+    span = _span(p, 1, 4)
+    p[0] = SUniv(span=span, level=p[3])
+
+
+def p_atom_base_univ_paren_var(p: yacc.YaccProduction) -> None:
+    "atom_base : TYPE LPAREN IDENT RPAREN"
     span = _span(p, 1, 4)
     p[0] = SUniv(span=span, level=p[3])
 

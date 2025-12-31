@@ -157,12 +157,14 @@ class SConst(SurfaceTerm):
 
 @dataclass(frozen=True)
 class SUniv(SurfaceTerm):
-    level: int | None
+    level: int | str | None
 
     def elab_infer(self, env: Env, state: "ElabState") -> tuple[Term, Term]:
         level_expr: LevelExpr | int
         if self.level is None:
             level_expr = state.fresh_level_meta("type", self.span)
+        elif isinstance(self.level, str):
+            level_expr = state.lookup_level(self.level, self.span)
         else:
             level_expr = self.level
         term = Univ(level_expr)
@@ -170,6 +172,8 @@ class SUniv(SurfaceTerm):
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         if self.level is None:
+            raise SurfaceError("Universe level requires elaboration", self.span)
+        if isinstance(self.level, str):
             raise SurfaceError("Universe level requires elaboration", self.span)
         return Univ(self.level)
 

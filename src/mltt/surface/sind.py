@@ -77,6 +77,7 @@ class SConstructorDecl:
 @dataclass(frozen=True)
 class SInductiveDef(SurfaceTerm):
     name: str
+    uparams: tuple[str, ...]
     params: tuple[SBinder, ...]
     level: SurfaceTerm
     ctors: tuple[SConstructorDecl, ...]
@@ -90,6 +91,10 @@ class SInductiveDef(SurfaceTerm):
                 raise SurfaceError(
                     "Inductive parameters cannot be implicit", binder.span
                 )
+        if len(set(self.uparams)) != len(self.uparams):
+            raise SurfaceError("Duplicate universe binder", self.span)
+        old_level_names = state.level_names
+        state.level_names = list(reversed(self.uparams)) + state.level_names
         param_tys, _param_impls, env_params = _elab_binders(env, state, self.params)
         level_term, level_ty = self.level.elab_infer(env, state)
         level_ty_whnf = level_ty.whnf(env)
@@ -101,6 +106,7 @@ class SInductiveDef(SurfaceTerm):
             name=self.name,
             param_types=Telescope.of(*param_tys),
             level=level_term.level,
+            uarity=len(self.uparams),
         )
         ctors: list[Ctor] = []
         for ctor_decl in self.ctors:
@@ -115,9 +121,11 @@ class SInductiveDef(SurfaceTerm):
                     name=ctor_decl.name,
                     inductive=ind,
                     field_schemas=Telescope.of(*field_tys),
+                    uarity=ind.uarity,
                 )
             )
         object.__setattr__(ind, "constructors", tuple(ctors))
+        state.level_names = old_level_names
         mapping: dict[str, Term] = {self.name: ind}
         globals_dict = dict(env.globals)
         ind_ty = ind.infer_type(env)
@@ -157,4 +165,7 @@ class SInductiveDef(SurfaceTerm):
     def _replace_defined(self, term: Term, mapping: dict[str, Term]) -> Term:
         if isinstance(term, Const) and term.name in mapping:
             return mapping[term.name]
+        if isinstance(term, UApp) and isinstance(term.head, Const):
+            if term.head.name in mapping:
+                return UApp(mapping[term.head.name], term.levels)
         return term._replace_terms(lambda sub, _m: self._replace_defined(sub, mapping))

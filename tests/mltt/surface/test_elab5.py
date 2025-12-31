@@ -102,3 +102,49 @@ def test_surface_inductive_ctor_implicit_fields() -> None:
     mk Nat Nat.Zero
     """
     elab_ok_in_env(src, env)
+
+
+def test_surface_inductive_maybe_universe_poly() -> None:
+    g = prelude_globals()
+    for name in (
+        "Maybe",
+        "Maybe.Nothing",
+        "Maybe.Just",
+        "Maybe_U",
+        "Maybe.Nothing_U",
+        "Maybe.Just_U",
+    ):
+        g.pop(name, None)
+    env = Env(globals=MappingProxyType(g))
+    src = """
+    inductive Maybe {u} (A : Type u) : Type u :=
+    | Nothing
+    | Just (x : A);
+    let mk : (A : Type 0) -> Maybe@{0} A :=
+      fun (A : Type 0) => ctor Maybe.Nothing@{0} A;
+    mk Nat
+    """
+    elab_ok_in_env(src, env)
+
+
+def test_surface_inductive_maybe_universe_poly_infer() -> None:
+    g = prelude_globals()
+    for name in (
+        "Maybe",
+        "Maybe.Nothing",
+        "Maybe.Just",
+        "Maybe_U",
+        "Maybe.Nothing_U",
+        "Maybe.Just_U",
+    ):
+        g.pop(name, None)
+    env = Env(globals=MappingProxyType(g))
+    src = """
+    inductive Maybe {u} (A : Type u) : Type u :=
+    | Nothing
+    | Just (x : A);
+    let mk : (A : Type 0) -> const Maybe A :=
+      fun (A : Type 0) => ctor Maybe.Nothing A;
+    mk Nat
+    """
+    elab_ok_in_env(src, env)
