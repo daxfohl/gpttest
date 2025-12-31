@@ -152,3 +152,19 @@ def test_surface_elim_add_comm() -> None:
     add_comm
     """
     elab_ok_in_env(src, env)
+
+
+def test_surface_elim_as_return() -> None:
+    env = Env(globals=MappingProxyType({}))
+    src = """
+    inductive Nat : Type 0 :=
+    | Zero
+    | Succ (k : Nat);
+    let pred : Nat -> Nat :=
+      fun (n : Nat) =>
+        elim n as z return Nat with
+        | Zero => Nat.Zero
+        | Succ k => k;
+    pred
+    """
+    elab_ok_in_env(src, env)

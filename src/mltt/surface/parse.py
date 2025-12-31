@@ -193,8 +193,21 @@ def p_term_elim(p: yacc.YaccProduction) -> None:
     p[0] = SElim(
         span=span,
         scrutinee=p[2],
+        as_name=None,
         motive=p[4],
         branches=p[6],
+    )
+
+
+def p_term_elim_as(p: yacc.YaccProduction) -> None:
+    "term : ELIM term AS IDENT RETURN term WITH elim_branches"
+    span = Span(_item_span(p, 1).start, p[8][-1].span.end)
+    p[0] = SElim(
+        span=span,
+        scrutinee=p[2],
+        as_name=p[4],
+        motive=p[6],
+        branches=p[8],
     )
 
 

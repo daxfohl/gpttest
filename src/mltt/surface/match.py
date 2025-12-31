@@ -623,6 +623,7 @@ class SElimBranch:
 @dataclass(frozen=True)
 class SElim(SurfaceTerm):
     scrutinee: SurfaceTerm
+    as_name: str | None
     motive: SurfaceTerm
     branches: tuple[SElimBranch, ...]
 
@@ -683,8 +684,6 @@ class SElim(SurfaceTerm):
         indices_actual: ArgList,
         scrut_ty: Term,
     ) -> Term:
-        motive_term, motive_ty = self.motive.elab_infer(env, state)
-        motive_ty_whnf = motive_ty.whnf(env)
         index_tys = ind.index_types.inst_levels(level_actuals).instantiate(
             params_actual
         )
@@ -694,6 +693,21 @@ class SElim(SurfaceTerm):
         scrut_in_indices_ctx = mk_uapp(
             ind, level_actuals, params_in_indices_ctx, index_vars
         )
+        if self.as_name is not None:
+            env_motive = env
+            for idx_ty in index_tys:
+                env_motive = env_motive.push_binder(idx_ty)
+            env_motive = env_motive.push_binder(scrut_in_indices_ctx, name=self.as_name)
+            motive_term, motive_ty = self.motive.elab_infer(env_motive, state)
+            motive_ty_whnf = motive_ty.whnf(env_motive)
+            if not isinstance(motive_ty_whnf, Univ):
+                raise SurfaceError(
+                    "Eliminator motive must return a universe", self.motive.span
+                )
+            body = motive_term.shift(q + 1)
+            return mk_lams(*index_tys, scrut_in_indices_ctx, body=body)
+        motive_term, motive_ty = self.motive.elab_infer(env, state)
+        motive_ty_whnf = motive_ty.whnf(env)
         if isinstance(motive_ty_whnf, Univ):
             body = motive_term.shift(q + 1)
             return mk_lams(*index_tys, scrut_in_indices_ctx, body=body)
@@ -754,12 +768,18 @@ class SElim(SurfaceTerm):
                 indices_actual,
                 motive,
             )
-            if len(case_branch.binders) != len(tel):
+            binders = list(case_branch.binders)
+            if len(binders) < len(tel):
+                binders.extend(
+                    SElimBinder(name=None, span=case_branch.span)
+                    for _ in range(len(tel) - len(binders))
+                )
+            if len(binders) != len(tel):
                 raise SurfaceError(
                     f"Wrong number of binders for {ctor.name}", case_branch.span
                 )
             env_branch = env
-            for binder, binder_ty in zip(case_branch.binders, tel, strict=True):
+            for binder, binder_ty in zip(binders, tel, strict=True):
                 env_branch = env_branch.push_binder(binder_ty, name=binder.name)
             rhs_term = case_branch.rhs.elab_check(
                 env_branch, state, codomain.shift(len(tel))
