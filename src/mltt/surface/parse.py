@@ -292,6 +292,12 @@ def p_atom_base_univ(p: yacc.YaccProduction) -> None:
     p[0] = SUniv(span=span, level=p[2])
 
 
+def p_atom_base_univ_plain(p: yacc.YaccProduction) -> None:
+    "atom_base : TYPE"
+    span = _span(p, 1, 1)
+    p[0] = SUniv(span=span, level=None)
+
+
 def p_atom_base_univ_paren(p: yacc.YaccProduction) -> None:
     "atom_base : TYPE LPAREN INT RPAREN"
     span = _span(p, 1, 4)

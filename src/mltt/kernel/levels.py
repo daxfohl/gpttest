@@ -44,6 +44,8 @@ class LevelExpr:
                 if left is None or right is None:
                     return None
                 return max(left, right)
+            case LMeta():
+                return None
             case LVar():
                 return None
             case _:
@@ -94,6 +96,8 @@ class LevelExpr:
                 return f"{e}+1"
             case LMax(a, b):
                 return f"max({a}, {b})"
+            case LMeta(mid):
+                return f"?u{mid}"
         return repr(self)
 
 
@@ -148,3 +152,8 @@ class LMax(LevelExpr):
 
     def subst(self, sub: LevelExpr, j: int = 0) -> LevelExpr:
         return LMax(self.a.subst(sub, j), self.b.subst(sub, j))
+
+
+@dataclass(frozen=True)
+class LMeta(LevelExpr):
+    mid: int

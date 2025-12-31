@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from mltt.kernel.ast import Term
+from mltt.kernel.ast import Term, UApp
 from mltt.kernel.environment import Env
 from mltt.kernel.ind import Ctor, Ind
 from mltt.surface.elab_state import ElabState
@@ -21,7 +21,14 @@ class SInd(SurfaceTerm):
             raise SurfaceError(f"Unknown inductive {self.name}", self.span)
         if not isinstance(decl.value, Ind):
             raise SurfaceError(f"{self.name} is not an inductive", self.span)
-        return decl.value, decl.value.infer_type(env)
+        ind = decl.value
+        if ind.uarity:
+            levels = tuple(
+                state.fresh_level_meta("implicit", self.span) for _ in range(ind.uarity)
+            )
+            term = UApp(ind, levels)
+            return term, ind.infer_type(env).inst_levels(levels)
+        return ind, ind.infer_type(env)
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         raise SurfaceError("Inductive references require elaboration", self.span)
@@ -37,7 +44,15 @@ class SCtor(SurfaceTerm):
             raise SurfaceError(f"Unknown constructor {self.name}", self.span)
         if not isinstance(decl.value, Ctor):
             raise SurfaceError(f"{self.name} is not a constructor", self.span)
-        return decl.value, decl.value.infer_type(env)
+        ctor = decl.value
+        if ctor.uarity:
+            levels = tuple(
+                state.fresh_level_meta("implicit", self.span)
+                for _ in range(ctor.uarity)
+            )
+            term = UApp(ctor, levels)
+            return term, ctor.infer_type(env).inst_levels(levels)
+        return ctor, ctor.infer_type(env)
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         raise SurfaceError("Constructor references require elaboration", self.span)

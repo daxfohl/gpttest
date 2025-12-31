@@ -5,9 +5,10 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 
-from mltt.kernel.ast import App, Lam, MetaVar, Pi, Term, Univ, Var
+from mltt.kernel.ast import App, Lam, MetaVar, Pi, Term, Univ, Var, UApp
 from mltt.kernel.environment import Env
-from mltt.kernel.ind import Elim
+from mltt.kernel.ind import Elim, Ind
+from mltt.kernel.levels import LConst, LMax, LMeta, LSucc, LevelExpr
 from mltt.surface.sast import Span, SurfaceError
 
 
@@ -30,10 +31,30 @@ class Constraint:
 
 
 @dataclass
+class LMetaInfo:
+    solution: LevelExpr | None = None
+    span: Span | None = None
+    origin: str = "type"
+    lower_bound: LevelExpr = field(default_factory=lambda: LConst(0))
+    upper_bounds: list[LevelExpr] = field(default_factory=list)
+
+
+@dataclass
+class LevelConstraint:
+    lhs: LevelExpr
+    rhs: LevelExpr
+    span: Span | None = None
+    reason: str | None = None
+
+
+@dataclass
 class ElabState:
     metas: dict[int, Meta] = field(default_factory=dict)
     constraints: list[Constraint] = field(default_factory=list)
     next_id: int = 0
+    level_metas: dict[int, LMetaInfo] = field(default_factory=dict)
+    level_constraints: list[LevelConstraint] = field(default_factory=list)
+    next_level_id: int = 0
 
     def fresh_meta(
         self, env: Env, expected: Term, span: Span | None, *, kind: str
@@ -45,34 +66,56 @@ class ElabState:
         )
         return MetaVar(mid)
 
+    def fresh_level_meta(self, origin: str, span: Span | None) -> LMeta:
+        mid = self.next_level_id
+        self.next_level_id += 1
+        self.level_metas[mid] = LMetaInfo(span=span, origin=origin)
+        return LMeta(mid)
+
     def add_constraint(self, env: Env, lhs: Term, rhs: Term, span: Span | None) -> None:
         self.constraints.append(Constraint(len(env.binders), lhs, rhs, span))
+
+    def add_level_constraint(
+        self,
+        lhs: LevelExpr,
+        rhs: LevelExpr,
+        span: Span | None,
+        reason: str | None = None,
+    ) -> None:
+        self.level_constraints.append(LevelConstraint(lhs, rhs, span, reason))
 
     def solve(self, env: Env) -> None:
         queue: deque[Constraint] = deque(self.constraints)
         postponed: list[Constraint] = []
         self.constraints = []
-        while queue:
-            constraint = queue.popleft()
-            result = self._solve_constraint(env, constraint)
-            if result == "solved":
-                continue
-            if result == "progress":
-                queue.extendleft(postponed)
-                postponed = []
-                continue
-            postponed.append(constraint)
-            if not queue:
-                if not postponed:
-                    break
-                queue.extend(postponed)
-                postponed = []
-                if all(self._is_stuck(env, c) for c in queue):
-                    smallest = min(queue, key=lambda c: c.span.start if c.span else 0)
-                    span = smallest.span or Span(0, 0)
-                    lhs = self.zonk(smallest.lhs)
-                    rhs = self.zonk(smallest.rhs)
-                    raise SurfaceError(f"Stuck constraint: {lhs} ≡ {rhs}", span)
+        progress = True
+        while queue or progress:
+            progress = False
+            while queue:
+                constraint = queue.popleft()
+                result = self._solve_constraint(env, constraint)
+                if result == "solved":
+                    progress = True
+                    continue
+                if result == "progress":
+                    progress = True
+                    queue.extendleft(postponed)
+                    postponed = []
+                    continue
+                postponed.append(constraint)
+                if not queue:
+                    if postponed:
+                        queue.extend(postponed)
+                        postponed = []
+                        if all(self._is_stuck(env, c) for c in queue):
+                            smallest = min(
+                                queue, key=lambda c: c.span.start if c.span else 0
+                            )
+                            span = smallest.span or Span(0, 0)
+                            lhs = self.zonk(smallest.lhs)
+                            rhs = self.zonk(smallest.rhs)
+                            raise SurfaceError(f"Stuck constraint: {lhs} ≡ {rhs}", span)
+            progress = self._solve_level_constraints() or progress
 
     def zonk(self, term: Term) -> Term:
         cache: dict[int, Term] = {}
@@ -86,24 +129,50 @@ class ElabState:
                     cache[t.mid] = walk(meta.solution)
                     return cache[t.mid]
                 return t
-            return t._replace_terms(lambda sub, _m: walk(sub))
+            if isinstance(t, Univ):
+                return Univ(self.zonk_level(t.level))
+            if isinstance(t, UApp):
+                head = walk(t.head)
+                levels = tuple(self.zonk_level(level) for level in t.levels)
+                return UApp(head, levels)
+            replaced = t._replace_terms(lambda sub, _m: walk(sub))
+            return self._zonk_levels(replaced)
 
         return walk(term)
+
+    def zonk_level(self, level: LevelExpr) -> LevelExpr:
+        match level:
+            case LMeta(mid):
+                meta = self.level_metas.get(mid)
+                if meta is not None and meta.solution is not None:
+                    return self.zonk_level(meta.solution)
+                return level
+            case LSucc(e):
+                return LSucc(self.zonk_level(e))
+            case LMax(a, b):
+                return LMax(self.zonk_level(a), self.zonk_level(b))
+            case _:
+                return level
 
     def ensure_solved(self) -> None:
         unsolved = [
             (mid, meta) for mid, meta in self.metas.items() if meta.solution is None
         ]
-        if not unsolved:
-            return
-        mid, meta = unsolved[0]
-        ty = self.zonk(meta.ty)
-        span = meta.span or Span(0, 0)
-        if meta.kind == "implicit":
-            message = f"Cannot infer implicit argument ?m{mid}; expected type {ty}"
-        else:
-            message = f"Cannot synthesize value for hole ?m{mid}; expected type {ty}"
-        raise SurfaceError(message, span)
+        if unsolved:
+            mid, meta = unsolved[0]
+            ty = self.zonk(meta.ty)
+            span = meta.span or Span(0, 0)
+            if meta.kind == "implicit":
+                message = f"Cannot infer implicit argument ?m{mid}; expected type {ty}"
+            else:
+                message = (
+                    f"Cannot synthesize value for hole ?m{mid}; expected type {ty}"
+                )
+            raise SurfaceError(message, span)
+        for mid, info in self.level_metas.items():
+            if info.solution is None:
+                span = info.span or Span(0, 0)
+                raise SurfaceError(f"Cannot infer universe level ?u{mid}", span)
 
     def _solve_constraint(self, env: Env, constraint: Constraint) -> str:
         ctx_env = self._env_for_ctx(env, constraint.ctx_len)
@@ -112,6 +181,10 @@ class ElabState:
         if lhs == rhs:
             return "solved"
         if self._solve_meta(ctx_env, constraint, lhs, rhs):
+            return "progress"
+        if isinstance(lhs, Univ) and isinstance(rhs, Univ):
+            self.add_level_constraint(lhs.level, rhs.level, constraint.span)
+            self.add_level_constraint(rhs.level, lhs.level, constraint.span)
             return "progress"
         if type(lhs) is not type(rhs):
             raise SurfaceError(
@@ -151,8 +224,6 @@ class ElabState:
                 Constraint(constraint.ctx_len, lhs.arg, rhs.arg, constraint.span)
             )
             return "progress"
-        if isinstance(lhs, Univ) and isinstance(rhs, Univ) and lhs.level == rhs.level:
-            return "solved"
         if (
             isinstance(lhs, Elim)
             and isinstance(rhs, Elim)
@@ -267,6 +338,66 @@ class ElabState:
             current = current.return_ty
         return arg_tys, arg_impls
 
+    def _solve_level_constraints(self) -> bool:
+        progress = False
+        queue: deque[LevelConstraint] = deque(self.level_constraints)
+        self.level_constraints = []
+        while queue:
+            constraint = queue.popleft()
+            lhs = self.zonk_level(constraint.lhs)
+            rhs = self.zonk_level(constraint.rhs)
+            match rhs:
+                case LMeta(mid):
+                    info = self.level_metas[mid]
+                    new_lb = self._level_max(info.lower_bound, lhs)
+                    if new_lb != info.lower_bound:
+                        info.lower_bound = new_lb
+                        progress = True
+                    continue
+            match lhs:
+                case LMeta(mid):
+                    info = self.level_metas[mid]
+                    info.upper_bounds.append(rhs)
+                    continue
+                case LMax(a, b):
+                    queue.append(
+                        LevelConstraint(a, rhs, constraint.span, constraint.reason)
+                    )
+                    queue.append(
+                        LevelConstraint(b, rhs, constraint.span, constraint.reason)
+                    )
+                    continue
+            lhs_val = self._level_eval(lhs)
+            rhs_val = self._level_eval(rhs)
+            if lhs_val is not None and rhs_val is not None:
+                if lhs_val > rhs_val:
+                    span = constraint.span or Span(0, 0)
+                    raise SurfaceError(
+                        f"Universe level mismatch: {lhs} ≤ {rhs} does not hold", span
+                    )
+        for mid, info in self.level_metas.items():
+            if info.solution is None:
+                candidate = self.zonk_level(info.lower_bound)
+                for ub in info.upper_bounds:
+                    ub_val = self._level_eval(self.zonk_level(ub))
+                    cand_val = self._level_eval(candidate)
+                    if ub_val is not None and cand_val is not None:
+                        if cand_val > ub_val:
+                            span = info.span or Span(0, 0)
+                            raise SurfaceError(
+                                "Universe level mismatch: lower bound exceeds upper",
+                                span,
+                            )
+                info.solution = candidate
+                progress = True
+        return progress
+
+    def _level_eval(self, level: LevelExpr) -> int | None:
+        return level.eval()
+
+    def _level_max(self, a: LevelExpr, b: LevelExpr) -> LevelExpr:
+        return a.max(b)
+
     def _is_stuck(self, env: Env, constraint: Constraint) -> bool:
         ctx_env = self._env_for_ctx(env, constraint.ctx_len)
         lhs = self.zonk(constraint.lhs).whnf(ctx_env)
@@ -349,3 +480,14 @@ class ElabState:
             )
 
         return restrict(term, 0)
+
+    def _zonk_levels(self, term: Term) -> Term:
+        match term:
+            case Univ(level):
+                return Univ(self.zonk_level(level))
+            case UApp(head, levels):
+                return UApp(head, tuple(self.zonk_level(level) for level in levels))
+            case Ind():
+                return term
+            case _:
+                return term

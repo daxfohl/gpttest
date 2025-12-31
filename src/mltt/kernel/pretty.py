@@ -5,7 +5,7 @@ from __future__ import annotations
 from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp, MetaVar
 from mltt.kernel.environment import Const
 from mltt.kernel.ind import Elim, Ctor, Ind
-from mltt.kernel.levels import LevelExpr, LConst, LVar, LSucc, LMax
+from mltt.kernel.levels import LevelExpr, LConst, LVar, LSucc, LMax, LMeta
 
 ATOM_PREC = 3
 APP_PREC = 2
@@ -93,6 +93,8 @@ def _pretty_level(level: LevelExpr) -> str:
             return f"{_pretty_level(e)}+1"
         case LMax(a, b):
             return f"max({_pretty_level(a)}, {_pretty_level(b)})"
+        case LMeta(mid):
+            return f"?u{mid}"
     return repr(level)
 
 
