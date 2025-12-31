@@ -44,5 +44,9 @@
   - `Ind` stores `param_types`, `index_types`, `constructors`, `level`, and `uarity`; `infer_ind_type` builds a Pi-tower `params → indices → Type(level)` with universe checks.
   - `Ctor` stores `inductive`, `field_schemas`, `result_indices`, and `uarity`; `infer_ctor_type` builds a Pi-tower with parameters outermost, then ctor fields, returning the inductive head applied to params/indices.
   - `Elim` stores `inductive`, `motive`, `cases`, and `scrutinee`; it performs iota-reduction when the scrutinee WHNF is a fully-applied constructor and `infer_elim_type` checks motive/cases and constructs expected branch types with fields then IHs.
+- `mltt.surface.prelude`:
+  - `register_value` adds a `GlobalDecl` for a computed value by inferring its type in an env built from current globals; `uarity` is copied from the value when present.
+  - `prelude_globals` builds the default global environment mapping names like `Nat`, `Bool`, `List`, `Vec`, `Fin`, `Maybe`, and `Sigma` (plus their constructors) to `GlobalDecl` entries.
+  - `prelude_env` returns an `Env` seeded with the prelude globals.
 - This codebase is not a public library—feel free to make breaking changes when needed; no backwards compatibility shims are required.
 - Tests live under `tests/mltt/` and mirror the source tree—add or update the relevant modules when behaviour changes.
