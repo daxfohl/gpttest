@@ -143,7 +143,9 @@ class SMatch(SurfaceTerm):
             binder_names = self._branch_binders(branch.pat, ctor, field_tys)
             env_branch = env
             for binder_name, field_ty in zip(binder_names, field_tys, strict=True):
-                env_branch = env_branch.push_binder(field_ty, name=binder_name)
+                env_branch = state.push_binder_env(
+                    env_branch, field_ty, name=binder_name
+                )
             rhs_term = branch.rhs.elab_check(
                 env_branch, state, expected.shift(len(field_tys))
             )
@@ -172,7 +174,7 @@ class SMatch(SurfaceTerm):
             raise SurfaceError("Match scrutinee has wrong arity", self.span)
         params_actual = args[:p]
         as_name = self.as_names[0] if self.as_names else None
-        env_motive = env.push_binder(scrut_ty_whnf, name=as_name or "_")
+        env_motive = state.push_binder_env(env, scrut_ty_whnf, name=as_name or "_")
         motive_term, motive_ty = self.motive.elab_infer(env_motive, state)
         motive_ty_whnf = motive_ty.whnf(env_motive)
         if not isinstance(motive_ty_whnf, Univ):
@@ -192,7 +194,9 @@ class SMatch(SurfaceTerm):
             binder_names = self._branch_binders(branch.pat, ctor, field_tys)
             env_branch = env
             for binder_name, field_ty in zip(binder_names, field_tys, strict=True):
-                env_branch = env_branch.push_binder(field_ty, name=binder_name)
+                env_branch = state.push_binder_env(
+                    env_branch, field_ty, name=binder_name
+                )
             params_in_fields_ctx = params_actual.shift(m)
             field_vars = ArgList.vars(m)
             scrut_like = mk_uapp(
@@ -527,7 +531,7 @@ class SLetPat(SurfaceTerm):
             raise SurfaceError("Refutable pattern in let; use match", self.span)
         env_body = env
         for name, ty in self._collect_binders(env, value_ty_whnf, self.pat):
-            env_body = env_body.push_binder(ty, name=name)
+            env_body = state.push_binder_env(env_body, ty, name=name)
         body_term, body_ty = self.body.elab_infer(env_body, state)
         match_term = SMatch(
             span=self.span,
@@ -696,8 +700,10 @@ class SElim(SurfaceTerm):
         if self.as_name is not None:
             env_motive = env
             for idx_ty in index_tys:
-                env_motive = env_motive.push_binder(idx_ty)
-            env_motive = env_motive.push_binder(scrut_in_indices_ctx, name=self.as_name)
+                env_motive = state.push_binder_env(env_motive, idx_ty)
+            env_motive = state.push_binder_env(
+                env_motive, scrut_in_indices_ctx, name=self.as_name
+            )
             motive_term, motive_ty = self.motive.elab_infer(env_motive, state)
             motive_ty_whnf = motive_ty.whnf(env_motive)
             if not isinstance(motive_ty_whnf, Univ):
@@ -780,7 +786,9 @@ class SElim(SurfaceTerm):
                 )
             env_branch = env
             for binder, binder_ty in zip(binders, tel, strict=True):
-                env_branch = env_branch.push_binder(binder_ty, name=binder.name)
+                env_branch = state.push_binder_env(
+                    env_branch, binder_ty, name=binder.name
+                )
             rhs_term = case_branch.rhs.elab_check(
                 env_branch, state, codomain.shift(len(tel))
             )

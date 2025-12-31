@@ -66,8 +66,8 @@ class SBinder:
         if not isinstance(ty_ty_whnf, Univ):
             raise SurfaceError("Binder type must be a universe", self.span)
         implicit_spine = _implicit_spine(self.ty)
-        return ty_term, env.push_binder(
-            ty_term, name=self.name, implicit_spine=implicit_spine
+        return ty_term, state.push_binder_env(
+            env, ty_term, name=self.name, implicit_spine=implicit_spine
         )
 
 
@@ -249,7 +249,8 @@ class SLam(SurfaceTerm):
                 state.add_constraint(env1, binder_ty, pi_ty.arg_ty, binder.span)
             binder_tys.append(binder_ty)
             binder_impls.append(binder.implicit)
-            env1 = env1.push_binder(
+            env1 = state.push_binder_env(
+                env1,
                 binder_ty,
                 name=binder.name,
                 implicit_spine=_implicit_spine(binder.ty),
@@ -328,7 +329,7 @@ class SApp(SurfaceTerm):
 
     def elab_infer(self, env: Env, state: "ElabState") -> tuple[Term, Term]:
         fn_term, fn_ty = self.fn.elab_infer(env, state)
-        implicit_spine = _implicit_spine_for_term(fn_term, env)
+        implicit_spine = _implicit_spine_for_term(fn_term, env, state)
         spine_index = 0
         pending = list(self.args)
         while pending:
@@ -449,7 +450,8 @@ class SLet(SurfaceTerm):
         state.level_names = old_level_names
         uarity, ty_term, val_term = state.generalize_levels_for_let(ty_term, val_term)
         implicit_spine = _implicit_spine(self.ty)
-        env1 = env.push_let(
+        env1 = state.push_let_env(
+            env,
             ty_term,
             val_term,
             name=self.name,
@@ -491,7 +493,9 @@ def _implicit_spine(term: SurfaceTerm | None) -> tuple[bool, ...]:
     return tuple(spine)
 
 
-def _implicit_spine_for_term(term: Term, env: Env) -> tuple[bool, ...] | None:
+def _implicit_spine_for_term(
+    term: Term, env: Env, state: "ElabState"
+) -> tuple[bool, ...] | None:
     head = term
     applied = 0
     while isinstance(head, App):
@@ -500,9 +504,9 @@ def _implicit_spine_for_term(term: Term, env: Env) -> tuple[bool, ...] | None:
     if isinstance(head, UApp):
         head = head.head
     if isinstance(head, Var):
-        implicit_spine = env.binders[head.k].implicit_spine
+        implicit_spine = state.local_implicit(env, head.k)
     elif isinstance(head, Const):
-        implicit_spine = env.globals[head.name].implicit_spine
+        implicit_spine = state.global_implicit(head.name)
     else:
         return None
     if applied >= len(implicit_spine):

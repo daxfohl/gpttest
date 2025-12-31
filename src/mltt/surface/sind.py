@@ -151,8 +151,8 @@ class SInductiveDef(SurfaceTerm):
             value=ind,
             reducible=True,
             uarity=ind.uarity,
-            implicit_spine=param_impls,
         )
+        state.register_global_implicit(self.name, param_impls)
         env_with_ind = Env(binders=env.binders, globals=MappingProxyType(globals_dict))
         env_params_with_ind = Env(
             binders=env_params.binders, globals=env_with_ind.globals
@@ -226,8 +226,8 @@ class SInductiveDef(SurfaceTerm):
                 value=ctor,
                 reducible=True,
                 uarity=ctor.uarity,
-                implicit_spine=ctor_impls_map.get(ctor.name, ()),
             )
+            state.register_global_implicit(ctor_name, ctor_impls_map.get(ctor.name, ()))
         env1 = Env(binders=env.binders, globals=MappingProxyType(globals_dict))
         body_term, body_ty = self.body.elab_infer(env1, state)
         body_term = self._replace_defined(body_term, mapping)

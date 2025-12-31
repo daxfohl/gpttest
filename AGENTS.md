@@ -18,9 +18,9 @@
   - `TermFieldMeta(binder_count, unchecked)` annotates dataclass fields for binder depth and type-equality checks.
   - `Var(k)`: `k` is a de Bruijn index (0 = innermost). `Var.subst` removes the binder (`k > j` decrements); `Var.shift` bumps indices at/above cutoff.
   - `MetaVar(mid)`: `mid` is the elaboration metavariable id.
-  - `Lam(arg_ty, body, implicit)`: `body` is under one binder (`binder_count=1`), `implicit` marks implicit args.
-  - `Pi(arg_ty, return_ty, implicit)`: `return_ty` is under one binder (`binder_count=1`).
-  - `App(func, arg, implicit)`: reduces by beta if the head is a matching-implicit `Lam`; type inference checks `Pi` and substitutes the argument into the codomain.
+  - `Lam(arg_ty, body)`: `body` is under one binder (`binder_count=1`).
+  - `Pi(arg_ty, return_ty)`: `return_ty` is under one binder (`binder_count=1`).
+  - `App(func, arg)`: reduces by beta if the head is a `Lam`; type inference checks `Pi` and substitutes the argument into the codomain.
   - `UApp(head, levels)`: universe application; `head` must be `Const`, `Ind`, `Ctor`, or local `Var`; checks `uarity` and instantiates the head type.
   - `Univ(level)`: `Type(level)` with `Type(l)` : `Type(l+1)` and level consistency checks.
   - `Let(arg_ty, value, body)`: `body` is under one binder at `Var(0)`; inference uses `Env.push_let`.
