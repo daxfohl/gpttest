@@ -33,14 +33,14 @@ def test_surface_elim_add_comm() -> None:
       (A : Type 0) ->
       (x : A) ->
       (P : (y : A) -> Id A x y -> Type 0) ->
-      P x (ctor Id.Refl A x) ->
+      P x (ctor Id.Refl) ->
       (y : A) ->
       (p : Id A x y) ->
       P y p :=
       fun (A : Type 0)
           (x : A)
           (P : (y : A) -> Id A x y -> Type 0)
-          (d : P x (ctor Id.Refl A x))
+          (d : P x (ctor Id.Refl))
           (y : A)
           (p : Id A x y) =>
         elim p return P with
@@ -54,7 +54,7 @@ def test_surface_elim_add_comm() -> None:
       fun (A : Type 0) (x : A) (y : A) (p : Id A x y) =>
         J A x
           (fun (y : A) (p : Id A x y) => Id A y x)
-          (ctor Id.Refl A x)
+          (ctor Id.Refl)
           y
           p;
     let trans :
@@ -87,13 +87,13 @@ def test_surface_elim_add_comm() -> None:
           (p : Id A x y) =>
         J A x
           (fun (y : A) (p : Id A x y) => Id B (f x) (f y))
-          (ctor Id.Refl B (f x))
+          (ctor Id.Refl)
           y
           p;
     let add_zero_right : (n : Nat) -> Id Nat (add n Nat.Zero) n :=
       fun (n : Nat) =>
         elim n return (fun (n : Nat) => Id Nat (add n Nat.Zero) n) with
-        | Zero => ctor Id.Refl Nat Nat.Zero
+        | Zero => ctor Id.Refl
         | Succ k ih =>
             ap Nat Nat
               (fun (x : Nat) => Nat.Succ x)
@@ -101,19 +101,19 @@ def test_surface_elim_add_comm() -> None:
               k
               ih;
     let add_zero_left : (n : Nat) -> Id Nat (add Nat.Zero n) n :=
-      fun (n : Nat) => ctor Id.Refl Nat (add Nat.Zero n);
+      fun (n : Nat) => ctor Id.Refl;
     let succ_add :
       (n : Nat) ->
       (m : Nat) ->
       Id Nat (add (Nat.Succ n) m) (Nat.Succ (add n m)) :=
-      fun (n : Nat) (m : Nat) => ctor Id.Refl Nat (add (Nat.Succ n) m);
+      fun (n : Nat) (m : Nat) => ctor Id.Refl;
     let add_succ_right :
       (n : Nat) ->
       (m : Nat) ->
       Id Nat (add m (Nat.Succ n)) (Nat.Succ (add m n)) :=
       fun (n : Nat) (m : Nat) =>
         elim m return (fun (m : Nat) => Id Nat (add m (Nat.Succ n)) (Nat.Succ (add m n))) with
-        | Zero => ctor Id.Refl Nat (Nat.Succ n)
+        | Zero => ctor Id.Refl
         | Succ k ih =>
             ap Nat Nat
               (fun (x : Nat) => Nat.Succ x)

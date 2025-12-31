@@ -5,10 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from types import MappingProxyType
 
-from mltt.kernel.ast import Term, Univ, UApp
+from mltt.kernel.ast import App, Pi, Term, Univ, UApp
 from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
-from mltt.kernel.tel import ArgList, Telescope, decompose_uapp
+from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_uapp
 from mltt.surface.elab_state import Constraint, ElabState
 from mltt.surface.match import _resolve_inductive_head
 from mltt.surface.sast import (
@@ -67,6 +67,40 @@ class SCtor(SurfaceTerm):
             return term, ctor.infer_type(env).inst_levels(levels)
         return ctor, ctor.infer_type(env)
 
+    def elab_check(self, env: Env, state: ElabState, expected: Term) -> Term:
+        term, term_ty = self.elab_infer(env, state)
+        expected_whnf = expected.whnf(env)
+        ctor: Ctor | None = None
+        if isinstance(term, Ctor):
+            ctor = term
+        elif isinstance(term, UApp) and isinstance(term.head, Ctor):
+            ctor = term.head
+        if ctor is not None and not ctor.field_schemas:
+            expected_head, levels, args = decompose_uapp(expected_whnf)
+            if expected_head == ctor.inductive:
+                param_count = len(ctor.inductive.param_types)
+                if len(args) >= param_count:
+                    params = args[:param_count]
+                    applied = mk_uapp(ctor, levels, params)
+                    state.add_constraint(
+                        env, applied.infer_type(env), expected, self.span
+                    )
+                    return applied
+        while True:
+            term_ty_whnf = term_ty.whnf(env)
+            if not isinstance(term_ty_whnf, Pi):
+                break
+            if term_ty_whnf.implicit:
+                meta = state.fresh_meta(
+                    env, term_ty_whnf.arg_ty, self.span, kind="implicit"
+                )
+                term = App(term, meta, implicit=True)
+                term_ty = term_ty_whnf.return_ty.subst(meta)
+                continue
+            break
+        state.add_constraint(env, term_ty, expected, self.span)
+        return term
+
     def resolve(self, env: Env, names: NameEnv) -> Term:
         raise SurfaceError("Constructor references require elaboration", self.span)
 
@@ -91,11 +125,6 @@ class SInductiveDef(SurfaceTerm):
     def elab_infer(self, env: Env, state: ElabState) -> tuple[Term, Term]:
         if env.lookup_global(self.name) is not None:
             raise SurfaceError(f"Duplicate inductive {self.name}", self.span)
-        for binder in self.params:
-            if binder.implicit:
-                raise SurfaceError(
-                    "Inductive parameters cannot be implicit", binder.span
-                )
         if len(set(self.uparams)) != len(self.uparams):
             raise SurfaceError("Duplicate universe binder", self.span)
         index_binders: tuple[SBinder, ...] = ()
