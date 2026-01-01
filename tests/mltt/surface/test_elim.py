@@ -32,17 +32,17 @@ def test_surface_elim_add_comm() -> None:
 
     let sym : {A : Type 0} -> {x : A} -> {y : A} -> Id A x y -> Id A y x :=
       fun A x y p =>
-        elim p return (fun (y : A) (p : Id A x y) => Id A y x) with
+        match p as p return Id A y x with
         | Refl => ctor Id.Refl;
 
     let trans : {A : Type 0} -> {x : A} -> {y : A} -> {z : A} -> Id A x y -> Id A y z -> Id A x z :=
       fun A x y z p q =>
-        elim q return (fun (z : A) (q : Id A y z) => Id A x z) with
+        match q as q return Id A x z with
         | Refl => p;
 
     let ap : {A : Type 0} -> {B : Type 0} -> (f : A -> B) -> {x : A} -> {y : A} -> Id A x y -> Id B (f x) (f y) :=
       fun A B (f : A -> B) x y p =>
-        elim p return (fun (y : A) (p : Id A x y) => Id B (f x) (f y)) with
+        match p as p return Id B (f x) (f y) with
         | Refl => ctor Id.Refl;
     
     let add : Nat -> Nat -> Nat :=
@@ -87,7 +87,7 @@ def test_surface_elim_as_return() -> None:
     | Succ (k : Nat);
     let pred : Nat -> Nat :=
       fun (n : Nat) =>
-        elim n as z return Nat with
+        match n as z return Nat with
         | Zero => Nat.Zero
         | Succ k => k;
     pred
