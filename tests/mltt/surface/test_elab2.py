@@ -17,13 +17,13 @@ def elab_with_state(src: str) -> ElabState:
 
 
 def test_typed_hole_unsolved() -> None:
-    state = elab_with_state("let x : Nat := (_ : Nat); x")
+    state = elab_with_state("let x: Nat := (_: Nat); x")
     with pytest.raises(SurfaceError, match="Cannot synthesize value for hole"):
         state.ensure_solved()
 
 
 def test_hole_in_check_mode_lambda_body() -> None:
-    state = elab_with_state("let k (n : Nat) : Nat := _; k")
+    state = elab_with_state("let k(n: Nat): Nat := _; k")
     with pytest.raises(SurfaceError, match="Cannot synthesize value for hole"):
         state.ensure_solved()
 

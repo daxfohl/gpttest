@@ -30,7 +30,7 @@ def elab_fails(src: str) -> None:
 
 def test_match_pred() -> None:
     src = """
-    let pred (n : Nat) : Nat :=
+    let pred(n: Nat): Nat := 
       match n with
       | Zero => ctor Nat.Zero
       | Succ k => k;
@@ -41,7 +41,7 @@ def test_match_pred() -> None:
 
 def test_match_pred_dependent() -> None:
     src = """
-    let pred (n : Nat) : Nat :=
+    let pred(n: Nat): Nat := 
       match n return Nat with
       | Zero => ctor Nat.Zero
       | Succ k => k;
@@ -52,7 +52,7 @@ def test_match_pred_dependent() -> None:
 
 def test_match_drop_succ() -> None:
     src = """
-    let drop (n : Nat) : Nat :=
+    let drop(n: Nat): Nat := 
       match n with
       | Zero => ctor Nat.Zero
       | Succ _ => ctor Nat.Zero;
@@ -63,7 +63,7 @@ def test_match_drop_succ() -> None:
 
 def test_match_missing_branch() -> None:
     src = """
-    let drop (n : Nat) : Nat :=
+    let drop(n: Nat): Nat := 
       match n with
       | Zero => ctor Nat.Zero;
     drop
@@ -73,7 +73,7 @@ def test_match_missing_branch() -> None:
 
 def test_let_destruct_sigma() -> None:
     src = """
-    let p : Sigma Nat (fun (x : Nat) => Nat) := ctor Sigma.Pair Nat (fun (x : Nat) => Nat) Nat.Zero Nat.Zero;
+    let p: Sigma(Nat, fun (x: Nat) => Nat) := ctor Sigma.Pair(Nat, fun (x: Nat) => Nat, Nat.Zero, Nat.Zero);
     let (a, b) := p;
     a
     """
@@ -82,8 +82,8 @@ def test_let_destruct_sigma() -> None:
 
 def test_match_nested_pattern() -> None:
     src = """
-    let xs : const List Nat := ctor List.Cons Nat Nat.Zero (ctor List.Cons Nat Nat.Zero (ctor List.Nil Nat));
-    let y : Nat :=
+    let xs: const List(Nat) := ctor List.Cons(Nat, Nat.Zero, ctor List.Cons(Nat, Nat.Zero, ctor List.Nil(Nat)));
+    let y: Nat := 
       match xs with
       | Cons x (Cons y ys) => y
       | _ => Nat.Zero;
@@ -94,12 +94,12 @@ def test_match_nested_pattern() -> None:
 
 def test_match_multi_scrutinee() -> None:
     src = """
-    let n : Nat := Nat.Zero;
-    let b : Bool := ctor Bool.True;
-    let m : Nat :=
+    let n: Nat := Nat.Zero;
+    let b: Bool := ctor Bool.True;
+    let m: Nat := 
       match n, b with
       | (Zero, True) => Nat.Zero
-      | _ => Nat.Succ Nat.Zero;
+      | _ => Nat.Succ(Nat.Zero);
     m
     """
     elab_ok(src)
@@ -107,8 +107,8 @@ def test_match_multi_scrutinee() -> None:
 
 def test_match_duplicate_binder_error() -> None:
     src = """
-    let xs : const List Nat := ctor List.Nil Nat;
-    let y : Nat :=
+    let xs: const List(Nat) := ctor List.Nil(Nat);
+    let y: Nat := 
       match xs with
       | Cons x x => Nat.Zero
       | _ => Nat.Zero;
@@ -119,7 +119,7 @@ def test_match_duplicate_binder_error() -> None:
 
 def test_let_destruct_refutable_error() -> None:
     src = """
-    let xs : const List Nat := ctor List.Nil Nat;
+    let xs: const List(Nat) := ctor List.Nil(Nat);
     let Cons x ys := xs;
     x
     """

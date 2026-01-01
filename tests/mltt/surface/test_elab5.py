@@ -33,34 +33,34 @@ def elab_ok_in_env(src: str, env: Env) -> None:
 
 def test_type_without_numeral() -> None:
     src = """
-    let id {A : Type} (x : A) : A := x;
-    id Nat.Zero
+    let id<A: Type>(x: A): A := x;
+    id(Nat.Zero)
     """
     elab_ok(src)
 
 
 def test_local_universe_binders_with_maybe() -> None:
     src = """
-    let mk {A : Type} : const Maybe_U A := ctor Maybe.Nothing_U A;
-    let m : const Maybe_U Nat := mk {Nat};
-    mk {Type}
+    let mk<A: Type>: const Maybe_U(A) := ctor Maybe.Nothing_U(A);
+    let m: const Maybe_U(Nat) := mk<Nat>;
+    mk<Type>
     """
     elab_ok(src)
 
 
 def test_local_universe_binders_with_id() -> None:
     src = """
-    let id {A : Type} (x : A) : A := x;
-    let x : Nat := id {Nat} Nat.Zero;
-    id {Type} Type
+    let id<A: Type>(x: A): A := x;
+    let x: Nat := id<Nat>(Nat.Zero);
+    id<Type>(Type)
     """
     elab_ok(src)
 
 
 def test_local_universe_binders_with_id_implicit() -> None:
     src = """
-    let id {A : Type} (x : A) : A := x;
-    let x : Nat := id Nat.Zero;
+    let id<A: Type>(x: A): A := x;
+    let x: Nat := id(Nat.Zero);
     x
     """
     elab_ok(src)
@@ -69,9 +69,9 @@ def test_local_universe_binders_with_id_implicit() -> None:
 def test_surface_let_universe_binders() -> None:
     env = prelude_env()
     src = """
-    let {u} id (A : Type(u)) (x : A) : A := x;
-    let x : Nat := id Nat Nat.Zero;
-    id Type Nat
+    let id{u}(A: Type(u), x: A): A := x;
+    let x: Nat := id(Nat, Nat.Zero);
+    id(Type, Nat)
     """
     elab_ok_in_env(src, env)
 
@@ -89,11 +89,11 @@ def test_surface_inductive_maybe() -> None:
         g.pop(name, None)
     env = Env(globals=MappingProxyType(g))
     src = """
-    inductive Maybe (A : Type 0) : Type 0 :=
+    inductive Maybe(A: Type 0): Type 0 := 
     | Nothing
-    | Just (x : A);
-    let mk (A : Type 0) : const Maybe A := ctor Maybe.Nothing A;
-    let m : const Maybe Nat := mk Nat;
+    | Just(x: A);
+    let mk(A: Type 0): const Maybe(A) := ctor Maybe.Nothing(A);
+    let m: const Maybe(Nat) := mk(Nat);
     m
     """
     elab_ok_in_env(src, env)
@@ -102,10 +102,10 @@ def test_surface_inductive_maybe() -> None:
 def test_surface_inductive_ctor_implicit_fields() -> None:
     env = prelude_env()
     src = """
-    inductive Wrap (A : Type 0) : Type 0 :=
-    | Mk {x : A};
-    let mk (A : Type 0) (x : A) : const Wrap A := ctor Wrap.Mk A x;
-    mk Nat Nat.Zero
+    inductive Wrap(A: Type 0): Type 0 := 
+    | Mk<x: A>;
+    let mk(A: Type 0, x: A): const Wrap(A) := ctor Wrap.Mk(A)<x>;
+    mk(Nat, Nat.Zero)
     """
     elab_ok_in_env(src, env)
 
@@ -123,11 +123,11 @@ def test_surface_inductive_maybe_universe_poly() -> None:
         g.pop(name, None)
     env = Env(globals=MappingProxyType(g))
     src = """
-    inductive Maybe {u} (A : Type(u)) : Type(u) :=
+    inductive Maybe {u} (A: Type(u)): Type(u) := 
     | Nothing
-    | Just (x : A);
-    let mk (A : Type 0) : Maybe@{0} A := ctor Maybe.Nothing@{0} A;
-    mk Nat
+    | Just(x: A);
+    let mk(A: Type 0): Maybe@{0}(A) := ctor Maybe.Nothing@{0}(A);
+    mk(Nat)
     """
     elab_ok_in_env(src, env)
 
@@ -145,10 +145,10 @@ def test_surface_inductive_maybe_universe_poly_infer() -> None:
         g.pop(name, None)
     env = Env(globals=MappingProxyType(g))
     src = """
-    inductive Maybe {u} (A : Type(u)) : Type(u) :=
+    inductive Maybe {u} (A: Type(u)): Type(u) := 
     | Nothing
-    | Just (x : A);
-    let mk (A : Type 0) : const Maybe A := ctor Maybe.Nothing A;
-    mk Nat
+    | Just(x: A);
+    let mk(A: Type 0): const Maybe(A) := ctor Maybe.Nothing(A);
+    mk(Nat)
     """
     elab_ok_in_env(src, env)

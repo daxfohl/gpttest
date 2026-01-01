@@ -21,52 +21,53 @@ def elab_ok_in_env(src: str, env: Env) -> None:
 def test_surface_elim_add_comm() -> None:
     env = Env(globals=MappingProxyType({}))
     src = """
-    inductive Nat : Type 0 :=
+    inductive Nat: Type 0 := 
     | Zero
-    | Succ (k : Nat);
+    | Succ(k: Nat);
 
-    let succ (x : Nat) : Nat := Nat.Succ x;
+    let succ(x: Nat): Nat := Nat.Succ(x);
     
-    inductive Id (A : Type 0) (x : A) : (y : A) -> Type 0 :=
-    | Refl : Id A x x;
+    inductive Id(A: Type 0) (x: A): (y: A) -> Type 0 := 
+    | Refl: Id(A, x, x);
 
-    let sym {A : Type 0} {x : A} {y : A} (p : Id A x y) : Id A y x :=
+    let sym<A: Type 0, x: A, y: A>(p: Id(A, x, y)): Id(A, y, x) := 
       match p with
       | Refl => ctor Id.Refl;
 
-    let trans {A : Type 0} {x : A} {y : A} {z : A} (p : Id A x y) (q : Id A y z) : Id A x z :=
+    let trans<A: Type 0, x: A, y: A, z: A>(p: Id(A, x, y), q: Id(A, y, z)): Id(A, x, z) := 
       match q with
       | Refl => p;
 
-    let ap {A : Type 0} {B : Type 0} (f : A -> B) {x : A} {y : A} (p : Id A x y) : Id B (f x) (f y) :=
+    let ap<A: Type 0, B: Type 0>(f: A -> B) <x: A, y: A>(p: Id(A, x, y)): Id(B, f(x), f(y)) := 
       match p with
       | Refl => ctor Id.Refl;
     
-    let add (m : Nat) (n : Nat) : Nat :=
+    let add(m: Nat, n: Nat): Nat := 
       match m with
       | Zero => n
-      | Succ k => succ (add k n);
+      | Succ k => succ(add(k, n));
 
-    let add_zero_right (n : Nat) : Id Nat (add n Nat.Zero) n :=
+    let add_zero_right(n: Nat): Id(Nat, add(n, Nat.Zero), n) := 
       match n with
       | Zero => ctor Id.Refl
-      | Succ k => ap succ (add_zero_right k);
+      | Succ k => ap(succ, add_zero_right(k));
 
-    let succ_add (n : Nat) (m : Nat) : Id Nat (add (succ n) m) (succ (add n m)) :=
+    let succ_add(n: Nat, m: Nat): Id(Nat, add(succ(n), m), succ(add(n, m))) := 
       ctor Id.Refl;
 
-    let add_succ_right (n : Nat) (m : Nat) : Id Nat (add m (succ n)) (succ (add m n)) :=
+    let add_succ_right(n: Nat, m: Nat): Id(Nat, add(m, succ(n)), succ(add(m, n))) := 
       match m with
       | Zero => ctor Id.Refl
-      | Succ k => ap succ (add_succ_right n k);
+      | Succ k => ap(succ, add_succ_right(n, k));
 
-    let add_comm (n : Nat) (m : Nat) : Id Nat (add n m) (add m n) :=
+    let add_comm(n: Nat, m: Nat): Id(Nat, add(n, m), add(m, n)) := 
       match n with
-      | Zero => sym (add_zero_right m)
+      | Zero => sym(add_zero_right(m))
       | Succ k =>
-        trans
-          (trans (succ_add k m) (ap succ (add_comm k m)))
-          (sym (add_succ_right k m));
+        trans(
+          trans(succ_add(k, m), ap(succ, add_comm(k, m))),
+          sym(add_succ_right(k, m))
+        );
     add_comm
     """
     elab_ok_in_env(src, env)
@@ -75,10 +76,10 @@ def test_surface_elim_add_comm() -> None:
 def test_surface_elim_as_return() -> None:
     env = Env(globals=MappingProxyType({}))
     src = """
-    inductive Nat : Type 0 :=
+    inductive Nat: Type 0 := 
     | Zero
-    | Succ (k : Nat);
-    let pred (n : Nat) : Nat :=
+    | Succ(k: Nat);
+    let pred(n: Nat): Nat := 
       match n return Nat with
       | Zero => Nat.Zero
       | Succ k => k;

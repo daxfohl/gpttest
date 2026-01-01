@@ -18,23 +18,23 @@ def elab_ok(src: str) -> None:
 
 def test_implicit_id_explicit() -> None:
     src = """
-    let id {A : Type 0} (x : A) : A := x;
-    id {Nat} Nat.Zero
+    let id<A: Type 0>(x: A): A := x;
+    id<Nat>(Nat.Zero)
     """
     elab_ok(src)
 
 
 def test_implicit_id_omitted() -> None:
     src = """
-    let id {A : Type 0} (x : A) : A := x;
-    id Nat.Zero
+    let id<A: Type 0>(x: A): A := x;
+    id(Nat.Zero)
     """
     elab_ok(src)
 
 
 def test_multiple_implicits() -> None:
     src = """
-    let k {A : Type 0} {B : Type 0} (a : A) (b : B) : A := a;
-    k Nat.Zero (Nat.Succ Nat.Zero)
+    let k<A: Type 0, B: Type 0>(a: A, b: B): A := a;
+    k(Nat.Zero, Nat.Succ(Nat.Zero))
     """
     elab_ok(src)
