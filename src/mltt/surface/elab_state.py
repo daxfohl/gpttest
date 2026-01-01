@@ -184,6 +184,17 @@ class ElabState:
             while queue:
                 constraint = queue.popleft()
                 result = self._solve_constraint(env, constraint)
+                if self.constraints:
+                    queue.extendleft(
+                        reversed(
+                            [
+                                c
+                                for c in self.constraints
+                                if self._constraint_has_meta(c)
+                            ]
+                        )
+                    )
+                    self.constraints = []
                 if result == "solved":
                     progress = True
                     continue
@@ -205,6 +216,14 @@ class ElabState:
                             lhs = self.zonk(smallest.lhs)
                             rhs = self.zonk(smallest.rhs)
                             raise SurfaceError(f"Stuck constraint: {lhs} ≡ {rhs}", span)
+            if self.constraints:
+                queue.extendleft(
+                    reversed(
+                        [c for c in self.constraints if self._constraint_has_meta(c)]
+                    )
+                )
+                self.constraints = []
+                progress = True
             progress = self._solve_level_constraints() or progress
 
     def zonk(self, term: Term) -> Term:
@@ -346,6 +365,28 @@ class ElabState:
         ):
             return True
         return False
+
+    def _constraint_has_meta(self, constraint: Constraint) -> bool:
+        return self._term_has_meta(constraint.lhs) or self._term_has_meta(
+            constraint.rhs
+        )
+
+    def _term_has_meta(self, term: Term) -> bool:
+        if isinstance(term, MetaVar):
+            return True
+        found = False
+
+        def walk(sub: Term, _meta: object) -> Term:
+            nonlocal found
+            if found:
+                return sub
+            if isinstance(sub, MetaVar):
+                found = True
+                return sub
+            return sub._replace_terms(walk)
+
+        term._replace_terms(walk)
+        return found
 
     def _try_solve_meta(self, env: Env, meta_term: MetaVar, rhs: Term) -> bool:
         meta = self.metas.get(meta_term.mid)

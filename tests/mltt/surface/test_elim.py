@@ -32,15 +32,15 @@ def test_surface_elim_add_comm() -> None:
         | Zero => n
         | Succ k ih => Nat.Succ ih;
     let J :
-      (A : Type 0) ->
-      (x : A) ->
+      {A : Type 0} ->
+      {x : A} ->
       (P : (y : A) -> Id A x y -> Type 0) ->
       P x (ctor Id.Refl) ->
       (y : A) ->
       (p : Id A x y) ->
       P y p :=
-      fun (A : Type 0)
-          (x : A)
+      fun {A}
+          {x}
           (P : (y : A) -> Id A x y -> Type 0)
           (d : P x (ctor Id.Refl))
           (y : A)
@@ -48,46 +48,46 @@ def test_surface_elim_add_comm() -> None:
         elim p return P with
         | Refl => d;
     let sym :
-      (A : Type 0) ->
-      (x : A) ->
-      (y : A) ->
+      {A : Type 0} ->
+      {x : A} ->
+      {y : A} ->
       Id A x y ->
       Id A y x :=
-      fun (A : Type 0) (x : A) (y : A) (p : Id A x y) =>
-        J A x
+      fun {A} {x} {y} (p : Id A x y) =>
+        J {A} {x}
           (fun (y : A) (p : Id A x y) => Id A y x)
           (ctor Id.Refl)
           y
           p;
     let trans :
-      (A : Type 0) ->
-      (x : A) ->
-      (y : A) ->
-      (z : A) ->
+      {A : Type 0} ->
+      {x : A} ->
+      {y : A} ->
+      {z : A} ->
       Id A x y ->
       Id A y z ->
       Id A x z :=
-      fun (A : Type 0) (x : A) (y : A) (z : A) (p : Id A x y) (q : Id A y z) =>
-        J A y
+      fun {A} {x} {y} {z} (p : Id A x y) (q : Id A y z) =>
+        J {A} {y}
           (fun (z : A) (q : Id A y z) => Id A x z)
           p
           z
           q;
     let ap :
-      (A : Type 0) ->
-      (B : Type 0) ->
+      {A : Type 0} ->
+      {B : Type 0} ->
       (f : A -> B) ->
-      (x : A) ->
-      (y : A) ->
+      {x : A} ->
+      {y : A} ->
       Id A x y ->
       Id B (f x) (f y) :=
-      fun (A : Type 0)
-          (B : Type 0)
+      fun {A}
+          {B}
           (f : A -> B)
-          (x : A)
-          (y : A)
+          {x}
+          {y}
           (p : Id A x y) =>
-        J A x
+        J {A} {x}
           (fun (y : A) (p : Id A x y) => Id B (f x) (f y))
           (ctor Id.Refl)
           y
@@ -97,10 +97,8 @@ def test_surface_elim_add_comm() -> None:
         elim n return (fun (n : Nat) => Id Nat (add n Nat.Zero) n) with
         | Zero => ctor Id.Refl
         | Succ k ih =>
-            ap Nat Nat
+            ap
               (fun (x : Nat) => Nat.Succ x)
-              (add k Nat.Zero)
-              k
               ih;
     let add_zero_left : (n : Nat) -> Id Nat (add Nat.Zero n) n :=
       fun (n : Nat) => ctor Id.Refl;
@@ -117,10 +115,8 @@ def test_surface_elim_add_comm() -> None:
         elim m return (fun (m : Nat) => Id Nat (add m (Nat.Succ n)) (Nat.Succ (add m n))) with
         | Zero => ctor Id.Refl
         | Succ k ih =>
-            ap Nat Nat
+            ap
               (fun (x : Nat) => Nat.Succ x)
-              (add k (Nat.Succ n))
-              (Nat.Succ (add k n))
               ih;
     let add_comm :
       (n : Nat) ->
@@ -130,27 +126,16 @@ def test_surface_elim_add_comm() -> None:
         (elim n return (fun (n : Nat) => (m : Nat) -> Id Nat (add n m) (add m n)) with
           | Zero =>
               fun (m : Nat) =>
-                sym Nat (add m Nat.Zero) m (add_zero_right m)
+                sym (add_zero_right m)
           | Succ k ih =>
               fun (m : Nat) =>
-                trans Nat
-                  (add (Nat.Succ k) m)
-                  (Nat.Succ (add m k))
-                  (add m (Nat.Succ k))
-                  (trans Nat
-                    (add (Nat.Succ k) m)
-                    (Nat.Succ (add k m))
-                    (Nat.Succ (add m k))
+                trans
+                  (trans
                     (succ_add k m)
-                    (ap Nat Nat
+                    (ap
                       (fun (x : Nat) => Nat.Succ x)
-                      (add k m)
-                      (add m k)
                       (ih m)))
-                  (sym Nat
-                    (add m (Nat.Succ k))
-                    (Nat.Succ (add m k))
-                    (add_succ_right k m))) m;
+                  (sym (add_succ_right k m))) m;
     add_comm
     """
     elab_ok_in_env(src, env)
