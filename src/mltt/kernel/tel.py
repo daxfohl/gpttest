@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Generic, TypeVar, overload, Self, Sequence, Iterable, Callable
+from typing import overload, Self, Sequence, Iterable, Callable
 
 from mltt.kernel.ast import Term, App, Lam, Pi, Var, UApp
 from mltt.kernel.levels import LevelExpr
 
-T = TypeVar("T")
-
 
 @dataclass(frozen=True)
-class SeqBase(Sequence[T], Generic[T]):
+class SeqBase[T](Sequence[T]):
     _data: tuple[T, ...] = ()
 
     @classmethod
