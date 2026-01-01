@@ -31,22 +31,6 @@ def test_surface_elim_add_comm() -> None:
         elim m return Nat with
         | Zero => n
         | Succ k ih => Nat.Succ ih;
-    let J :
-      {A : Type 0} ->
-      {x : A} ->
-      (P : (y : A) -> Id A x y -> Type 0) ->
-      P x (ctor Id.Refl) ->
-      (y : A) ->
-      (p : Id A x y) ->
-      P y p :=
-      fun {A}
-          {x}
-          (P : (y : A) -> Id A x y -> Type 0)
-          (d : P x (ctor Id.Refl))
-          (y : A)
-          (p : Id A x y) =>
-        elim p return P with
-        | Refl => d;
     let sym :
       {A : Type 0} ->
       {x : A} ->
@@ -54,11 +38,8 @@ def test_surface_elim_add_comm() -> None:
       Id A x y ->
       Id A y x :=
       fun {A} {x} {y} (p : Id A x y) =>
-        J {A} {x}
-          (fun (y : A) (p : Id A x y) => Id A y x)
-          (ctor Id.Refl)
-          y
-          p;
+        elim p return (fun (y : A) (p : Id A x y) => Id A y x) with
+        | Refl => ctor Id.Refl;
     let trans :
       {A : Type 0} ->
       {x : A} ->
@@ -68,11 +49,8 @@ def test_surface_elim_add_comm() -> None:
       Id A y z ->
       Id A x z :=
       fun {A} {x} {y} {z} (p : Id A x y) (q : Id A y z) =>
-        J {A} {y}
-          (fun (z : A) (q : Id A y z) => Id A x z)
-          p
-          z
-          q;
+        elim q return (fun (z : A) (q : Id A y z) => Id A x z) with
+        | Refl => p;
     let ap :
       {A : Type 0} ->
       {B : Type 0} ->
@@ -87,11 +65,8 @@ def test_surface_elim_add_comm() -> None:
           {x}
           {y}
           (p : Id A x y) =>
-        J {A} {x}
-          (fun (y : A) (p : Id A x y) => Id B (f x) (f y))
-          (ctor Id.Refl)
-          y
-          p;
+        elim p return (fun (y : A) (p : Id A x y) => Id B (f x) (f y)) with
+        | Refl => ctor Id.Refl;
     let add_zero_right : (n : Nat) -> Id Nat (add n Nat.Zero) n :=
       fun (n : Nat) =>
         elim n return (fun (n : Nat) => Id Nat (add n Nat.Zero) n) with
