@@ -202,6 +202,11 @@ def p_match_tail_with(p: yacc.YaccProduction) -> None:
     p[0] = (None, None, p[2])
 
 
+def p_match_tail_return(p: yacc.YaccProduction) -> None:
+    "match_tail : RETURN term WITH match_branches"
+    p[0] = (None, p[2], p[4])
+
+
 def p_match_tail_as_return(p: yacc.YaccProduction) -> None:
     "match_tail : AS IDENT RETURN term WITH match_branches"
     p[0] = (p[2], p[4], p[6])
