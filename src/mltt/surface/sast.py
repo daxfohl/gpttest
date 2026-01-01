@@ -223,7 +223,9 @@ class SLam(SurfaceTerm):
                 "Cannot infer unannotated lambda; add binder types or use check-mode",
                 self.span,
             )
-        binder_tys, binder_impls, env1 = _elab_binders(env, state, self.binders)
+        binder_tys, binder_impls, _binder_levels, env1 = _elab_binders(
+            env, state, self.binders
+        )
         body_term, body_ty = self.body.elab_infer(env1, state)
         lam_term = body_term
         lam_ty_term = body_ty.term
@@ -282,15 +284,15 @@ class SPi(SurfaceTerm):
     body: SurfaceTerm
 
     def elab_infer(self, env: ElabEnv, state: "ElabState") -> tuple[Term, ElabType]:
-        binder_tys, binder_impls, env1 = _elab_binders(env, state, self.binders)
+        binder_tys, binder_impls, binder_levels, env1 = _elab_binders(
+            env, state, self.binders
+        )
         body_term, body_ty = self.body.elab_infer(env1, state)
         body_ty_whnf = _expect_universe(body_ty.term, env1.kenv, self.body.span)
         body_level = body_ty_whnf.level
         pi_term: Term = body_term
         result_level: LevelExpr | None = None
-        for ty in reversed(binder_tys):
-            arg_ty_whnf = _expect_universe(ty.infer_type(env.kenv), env.kenv, self.span)
-            arg_level = arg_ty_whnf.level
+        for ty, arg_level in reversed(list(zip(binder_tys, binder_levels))):
             if result_level is None:
                 result_level = state.fresh_level_meta("type", self.span)
             state.add_level_constraint(arg_level, result_level, self.span)
@@ -478,14 +480,21 @@ class SLet(SurfaceTerm):
 
 def _elab_binders(
     env: ElabEnv, state: "ElabState", binders: tuple[SBinder, ...]
-) -> tuple[list[Term], list[bool], ElabEnv]:
+) -> tuple[list[Term], list[bool], list[LevelExpr], ElabEnv]:
     binder_tys: list[Term] = []
     binder_impls: list[bool] = []
+    binder_levels: list[LevelExpr] = []
     for binder in binders:
-        ty_term, env = binder.elab(env, state)
+        if binder.ty is None:
+            raise SurfaceError("Missing binder type", binder.span)
+        ty_term, ty_ty = binder.ty.elab_infer(env, state)
+        ty_ty_whnf = _expect_universe(ty_ty.term, env.kenv, binder.span)
+        implicit_spine = _implicit_spine(binder.ty)
+        env = env.push_binder(ElabType(ty_term, implicit_spine), name=binder.name)
         binder_tys.append(ty_term)
         binder_impls.append(binder.implicit)
-    return binder_tys, binder_impls, env
+        binder_levels.append(ty_ty_whnf.level)
+    return binder_tys, binder_impls, binder_levels, env
 
 
 def _implicit_spine(term: SurfaceTerm | None) -> tuple[bool, ...]:

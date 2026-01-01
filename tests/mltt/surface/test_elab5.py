@@ -33,8 +33,7 @@ def elab_ok_in_env(src: str, env: Env) -> None:
 
 def test_type_without_numeral() -> None:
     src = """
-    let id : {A : Type} -> A -> A :=
-      fun {A} (x : A) => x;
+    let id {A : Type} (x : A) : A := x;
     id Nat.Zero
     """
     elab_ok(src)
@@ -42,8 +41,7 @@ def test_type_without_numeral() -> None:
 
 def test_local_universe_binders_with_maybe() -> None:
     src = """
-    let mk : {A : Type} -> const Maybe_U A :=
-      fun {A} => ctor Maybe.Nothing_U A;
+    let mk {A : Type} : const Maybe_U A := ctor Maybe.Nothing_U A;
     let m : const Maybe_U Nat := mk {Nat};
     mk {Type}
     """
@@ -52,8 +50,7 @@ def test_local_universe_binders_with_maybe() -> None:
 
 def test_local_universe_binders_with_id() -> None:
     src = """
-    let id : {A : Type} -> A -> A :=
-      fun {A} (x : A) => x;
+    let id {A : Type} (x : A) : A := x;
     let x : Nat := id {Nat} Nat.Zero;
     id {Type} Type
     """
@@ -62,8 +59,7 @@ def test_local_universe_binders_with_id() -> None:
 
 def test_local_universe_binders_with_id_implicit() -> None:
     src = """
-    let id : {A : Type} -> A -> A :=
-      fun {A} (x : A) => x;
+    let id {A : Type} (x : A) : A := x;
     let x : Nat := id Nat.Zero;
     x
     """
@@ -73,8 +69,7 @@ def test_local_universe_binders_with_id_implicit() -> None:
 def test_surface_let_universe_binders() -> None:
     env = prelude_env()
     src = """
-    let {u} id : (A : Type(u)) -> A -> A :=
-      fun (A : Type(u)) (x : A) => x;
+    let {u} id (A : Type(u)) (x : A) : A := x;
     let x : Nat := id Nat Nat.Zero;
     id Type Nat
     """
@@ -97,8 +92,7 @@ def test_surface_inductive_maybe() -> None:
     inductive Maybe (A : Type 0) : Type 0 :=
     | Nothing
     | Just (x : A);
-    let mk : (A : Type 0) -> const Maybe A :=
-      fun (A : Type 0) => ctor Maybe.Nothing A;
+    let mk (A : Type 0) : const Maybe A := ctor Maybe.Nothing A;
     let m : const Maybe Nat := mk Nat;
     m
     """
@@ -110,8 +104,7 @@ def test_surface_inductive_ctor_implicit_fields() -> None:
     src = """
     inductive Wrap (A : Type 0) : Type 0 :=
     | Mk {x : A};
-    let mk : (A : Type 0) -> A -> const Wrap A :=
-      fun (A : Type 0) (x : A) => ctor Wrap.Mk A x;
+    let mk (A : Type 0) (x : A) : const Wrap A := ctor Wrap.Mk A x;
     mk Nat Nat.Zero
     """
     elab_ok_in_env(src, env)
@@ -133,8 +126,7 @@ def test_surface_inductive_maybe_universe_poly() -> None:
     inductive Maybe {u} (A : Type(u)) : Type(u) :=
     | Nothing
     | Just (x : A);
-    let mk : (A : Type 0) -> Maybe@{0} A :=
-      fun (A : Type 0) => ctor Maybe.Nothing@{0} A;
+    let mk (A : Type 0) : Maybe@{0} A := ctor Maybe.Nothing@{0} A;
     mk Nat
     """
     elab_ok_in_env(src, env)
@@ -156,8 +148,7 @@ def test_surface_inductive_maybe_universe_poly_infer() -> None:
     inductive Maybe {u} (A : Type(u)) : Type(u) :=
     | Nothing
     | Just (x : A);
-    let mk : (A : Type 0) -> const Maybe A :=
-      fun (A : Type 0) => ctor Maybe.Nothing A;
+    let mk (A : Type 0) : const Maybe A := ctor Maybe.Nothing A;
     mk Nat
     """
     elab_ok_in_env(src, env)

@@ -30,11 +30,10 @@ def elab_fails(src: str) -> None:
 
 def test_match_pred() -> None:
     src = """
-    let pred : Nat -> Nat :=
-      fun (n : Nat) =>
-        match n with
-        | Zero => ctor Nat.Zero
-        | Succ k => k;
+    let pred (n : Nat) : Nat :=
+      match n with
+      | Zero => ctor Nat.Zero
+      | Succ k => k;
     pred
     """
     elab_ok(src)
@@ -42,11 +41,10 @@ def test_match_pred() -> None:
 
 def test_match_pred_dependent() -> None:
     src = """
-    let pred : Nat -> Nat :=
-      fun (n : Nat) =>
-        match n as z return Nat with
-        | Zero => ctor Nat.Zero
-        | Succ k => k;
+    let pred (n : Nat) : Nat :=
+      match n return Nat with
+      | Zero => ctor Nat.Zero
+      | Succ k => k;
     pred
     """
     elab_ok(src)
@@ -54,11 +52,10 @@ def test_match_pred_dependent() -> None:
 
 def test_match_drop_succ() -> None:
     src = """
-    let drop : Nat -> Nat :=
-      fun (n : Nat) =>
-        match n with
-        | Zero => ctor Nat.Zero
-        | Succ _ => ctor Nat.Zero;
+    let drop (n : Nat) : Nat :=
+      match n with
+      | Zero => ctor Nat.Zero
+      | Succ _ => ctor Nat.Zero;
     drop
     """
     elab_ok(src)
@@ -66,10 +63,9 @@ def test_match_drop_succ() -> None:
 
 def test_match_missing_branch() -> None:
     src = """
-    let drop : Nat -> Nat :=
-      fun (n : Nat) =>
-        match n with
-        | Zero => ctor Nat.Zero;
+    let drop (n : Nat) : Nat :=
+      match n with
+      | Zero => ctor Nat.Zero;
     drop
     """
     elab_fails(src)

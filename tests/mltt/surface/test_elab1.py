@@ -21,8 +21,7 @@ def elab_ok(src: str) -> None:
 
 def test_explicit_id() -> None:
     src = """
-    let id : (A : Type 0) -> A -> A :=
-      fun (A : Type 0) => fun (x : A) => x;
+    let id (A : Type 0) (x : A) : A := x;
     id
     """
     elab_ok(src)
@@ -30,8 +29,7 @@ def test_explicit_id() -> None:
 
 def test_arrow_sugar() -> None:
     src = """
-    let k : (A : Type 0) -> (B : Type 0) -> A -> B -> A :=
-      fun (A : Type 0) (B : Type 0) => fun (a : A) (b : B) => a;
+    let k (A : Type 0) (B : Type 0) (a : A) (b : B) : A := a;
     k
     """
     elab_ok(src)
@@ -39,8 +37,7 @@ def test_arrow_sugar() -> None:
 
 def test_check_mode_unannotated_lambda() -> None:
     src = """
-    let id2 : (A : Type 0) -> A -> A :=
-      fun (A : Type 0) => fun x => x;
+    let id2 (A : Type 0) : A -> A := fun x => x;
     id2
     """
     elab_ok(src)

@@ -25,55 +25,48 @@ def test_surface_elim_add_comm() -> None:
     | Zero
     | Succ (k : Nat);
 
-    let succ : Nat -> Nat := fun x => Nat.Succ x;
+    let succ (x : Nat) : Nat := Nat.Succ x;
     
     inductive Id (A : Type 0) (x : A) : (y : A) -> Type 0 :=
     | Refl : Id A x x;
 
-    let sym : {A : Type 0} -> {x : A} -> {y : A} -> Id A x y -> Id A y x :=
-      fun A x y p =>
-        match p with
-        | Refl => ctor Id.Refl;
+    let sym {A : Type 0} {x : A} {y : A} (p : Id A x y) : Id A y x :=
+      match p with
+      | Refl => ctor Id.Refl;
 
-    let trans : {A : Type 0} -> {x : A} -> {y : A} -> {z : A} -> Id A x y -> Id A y z -> Id A x z :=
-      fun A x y z p q =>
-        match q with
-        | Refl => p;
+    let trans {A : Type 0} {x : A} {y : A} {z : A} (p : Id A x y) (q : Id A y z) : Id A x z :=
+      match q with
+      | Refl => p;
 
-    let ap : {A : Type 0} -> {B : Type 0} -> (f : A -> B) -> {x : A} -> {y : A} -> Id A x y -> Id B (f x) (f y) :=
-      fun A B (f : A -> B) x y p =>
-        match p with
-        | Refl => ctor Id.Refl;
+    let ap {A : Type 0} {B : Type 0} (f : A -> B) {x : A} {y : A} (p : Id A x y) : Id B (f x) (f y) :=
+      match p with
+      | Refl => ctor Id.Refl;
     
-    let add : Nat -> Nat -> Nat :=
-      fun m n =>
-        match m with
-        | Zero => n
-        | Succ k => succ (add k n);
+    let add (m : Nat) (n : Nat) : Nat :=
+      match m with
+      | Zero => n
+      | Succ k => succ (add k n);
 
-    let add_zero_right : (n : Nat) -> Id Nat (add n Nat.Zero) n :=
-      fun n =>
-        match n with
-        | Zero => ctor Id.Refl
-        | Succ k => ap succ (add_zero_right k);
+    let add_zero_right (n : Nat) : Id Nat (add n Nat.Zero) n :=
+      match n with
+      | Zero => ctor Id.Refl
+      | Succ k => ap succ (add_zero_right k);
 
-    let succ_add : (n : Nat) -> (m : Nat) -> Id Nat (add (succ n) m) (succ (add n m)) :=
-      fun n m => ctor Id.Refl;
+    let succ_add (n : Nat) (m : Nat) : Id Nat (add (succ n) m) (succ (add n m)) :=
+      ctor Id.Refl;
 
-    let add_succ_right : (n : Nat) -> (m : Nat) -> Id Nat (add m (succ n)) (succ (add m n)) :=
-      fun n m =>
-        match m with
-        | Zero => ctor Id.Refl
-        | Succ k => ap succ (add_succ_right n k);
+    let add_succ_right (n : Nat) (m : Nat) : Id Nat (add m (succ n)) (succ (add m n)) :=
+      match m with
+      | Zero => ctor Id.Refl
+      | Succ k => ap succ (add_succ_right n k);
 
-    let add_comm : (n : Nat) -> (m : Nat) -> Id Nat (add n m) (add m n) :=
-      fun n m =>
-        match n with
-        | Zero => sym (add_zero_right m)
-        | Succ k =>
-          trans
-            (trans (succ_add k m) (ap succ (add_comm k m)))
-            (sym (add_succ_right k m));
+    let add_comm (n : Nat) (m : Nat) : Id Nat (add n m) (add m n) :=
+      match n with
+      | Zero => sym (add_zero_right m)
+      | Succ k =>
+        trans
+          (trans (succ_add k m) (ap succ (add_comm k m)))
+          (sym (add_succ_right k m));
     add_comm
     """
     elab_ok_in_env(src, env)
@@ -85,11 +78,10 @@ def test_surface_elim_as_return() -> None:
     inductive Nat : Type 0 :=
     | Zero
     | Succ (k : Nat);
-    let pred : Nat -> Nat :=
-      fun (n : Nat) =>
-        match n return Nat with
-        | Zero => Nat.Zero
-        | Succ k => k;
+    let pred (n : Nat) : Nat :=
+      match n return Nat with
+      | Zero => Nat.Zero
+      | Succ k => k;
     pred
     """
     elab_ok_in_env(src, env)

@@ -121,8 +121,10 @@ class SInductiveDef(SurfaceTerm):
                 raise SurfaceError("Inductive indices cannot be implicit", binder.span)
         old_level_names = state.level_names
         state.level_names = list(reversed(self.uparams)) + state.level_names
-        param_tys, _param_impls, env_params = _elab_binders(env, state, self.params)
-        index_tys, _index_impls, env_indices = _elab_binders(
+        param_tys, _param_impls, _param_levels, env_params = _elab_binders(
+            env, state, self.params
+        )
+        index_tys, _index_impls, _index_levels, env_indices = _elab_binders(
             env_params, state, index_binders
         )
         level_term, level_ty = level_body.elab_infer(env_indices, state)
@@ -164,7 +166,7 @@ class SInductiveDef(SurfaceTerm):
             ctor_name = f"{self.name}.{ctor_decl.name}"
             if env.lookup_global(ctor_name) is not None:
                 raise SurfaceError(f"Duplicate constructor {ctor_name}", ctor_decl.span)
-            field_tys, _field_impls, env_fields = _elab_binders(
+            field_tys, _field_impls, _field_levels, env_fields = _elab_binders(
                 env_params_with_ind, state, ctor_decl.fields
             )
             result_indices = ArgList.empty()

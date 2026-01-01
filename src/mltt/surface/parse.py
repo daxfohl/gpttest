@@ -149,6 +149,23 @@ def p_term_let(p: yacc.YaccProduction) -> None:
     )
 
 
+def p_term_let_binders(p: yacc.YaccProduction) -> None:
+    "term : LET IDENT let_binders COLON term DEFINE term SEMI term"
+    span = _span(p, 1, 9)
+    ty_span = Span(p[3][0].span.start, p[5].span.end)
+    val_span = Span(p[3][0].span.start, p[7].span.end)
+    ty = SPi(span=ty_span, binders=p[3], body=p[5])
+    val = SLam(span=val_span, binders=p[3], body=p[7])
+    p[0] = SLet(
+        span=span,
+        uparams=(),
+        name=p[2],
+        ty=ty,
+        val=val,
+        body=p[9],
+    )
+
+
 def p_term_let_uparams(p: yacc.YaccProduction) -> None:
     "term : LET u_binders_nonempty IDENT COLON term DEFINE term SEMI term"
     span = _span(p, 1, 9)
@@ -159,6 +176,23 @@ def p_term_let_uparams(p: yacc.YaccProduction) -> None:
         ty=p[5],
         val=p[7],
         body=p[9],
+    )
+
+
+def p_term_let_uparams_binders(p: yacc.YaccProduction) -> None:
+    "term : LET u_binders_nonempty IDENT let_binders COLON term DEFINE term SEMI term"
+    span = _span(p, 1, 10)
+    ty_span = Span(p[4][0].span.start, p[6].span.end)
+    val_span = Span(p[4][0].span.start, p[8].span.end)
+    ty = SPi(span=ty_span, binders=p[4], body=p[6])
+    val = SLam(span=val_span, binders=p[4], body=p[8])
+    p[0] = SLet(
+        span=span,
+        uparams=p[2],
+        name=p[3],
+        ty=ty,
+        val=val,
+        body=p[10],
     )
 
 
@@ -296,6 +330,16 @@ def p_u_binders_nonempty_single(p: yacc.YaccProduction) -> None:
 def p_u_binder(p: yacc.YaccProduction) -> None:
     "u_binder : LBRACE IDENT RBRACE"
     p[0] = p[2]
+
+
+def p_let_binders_multi(p: yacc.YaccProduction) -> None:
+    "let_binders : let_binders binder"
+    p[0] = p[1] + (p[2],)
+
+
+def p_let_binders_single(p: yacc.YaccProduction) -> None:
+    "let_binders : binder"
+    p[0] = (p[1],)
 
 
 def p_lam_binders_multi(p: yacc.YaccProduction) -> None:
