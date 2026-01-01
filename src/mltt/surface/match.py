@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from mltt.kernel.ast import App, Lam, Term
+from mltt.kernel.ast import App, Lam, Term, Var
 from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
@@ -62,6 +62,19 @@ def _elab_scrutinee_info(
     scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
     head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
     return scrut_term, scrut_ty_whnf, head, level_actuals, args
+
+
+def _abstract_var(term: Term, target: int) -> Term:
+    shifted = term.shift(1)
+
+    def replace_var(t: Term, depth: int) -> Term:
+        if isinstance(t, Var) and t.k == target + depth + 1:
+            return Var(depth)
+        return t._replace_terms(
+            lambda sub, meta: replace_var(sub, depth + meta.binder_count)
+        )
+
+    return replace_var(shifted, 0)
 
 
 def _case_telescope_with_ih(
@@ -194,7 +207,11 @@ class SMatch(SurfaceTerm):
         indices_actual = args[p:]
         branch_map, default_branch = self._branch_map(env, ind)
         cases: list[Term] = []
-        motive = Lam(scrut_ty_whnf, expected.term.shift(1))
+        if isinstance(scrut_term, Var):
+            motive_body = _abstract_var(expected.term, scrut_term.k)
+        else:
+            motive_body = expected.term.shift(1)
+        motive = Lam(scrut_ty_whnf, motive_body)
         for ctor in ind.constructors:
             branch = branch_map.get(ctor) or default_branch
             if branch is None:

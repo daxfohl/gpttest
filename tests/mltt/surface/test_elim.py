@@ -68,12 +68,12 @@ def test_surface_elim_add_comm() -> None:
 
     let add_comm : (n : Nat) -> (m : Nat) -> Id Nat (add n m) (add m n) :=
       fun n m =>
-        (match n return (m : Nat) -> Id Nat (add n m) (add m n) with
-          | Zero => fun m => sym (add_zero_right m)
-          | Succ k => fun m =>
-            trans 
-              (trans (succ_add k m) (ap succ (add_comm k m)))
-              (sym (add_succ_right k m))) m;
+        match n with
+        | Zero => sym (add_zero_right m)
+        | Succ k =>
+          trans
+            (trans (succ_add k m) (ap succ (add_comm k m)))
+            (sym (add_succ_right k m));
     add_comm
     """
     elab_ok_in_env(src, env)
