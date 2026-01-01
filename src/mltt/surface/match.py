@@ -71,6 +71,56 @@ def _elab_scrutinee_info(
     return scrut_term, scrut_ty_whnf, head, level_actuals, args
 
 
+def _case_telescope_with_ih(
+    ind: Ind,
+    ctor: Ctor,
+    level_actuals: tuple[LevelExpr, ...],
+    params_actual: ArgList,
+    indices_actual: ArgList,
+    motive: Term,
+    span: Span,
+) -> tuple[Telescope, Term]:
+    p = len(ind.param_types)
+    q = len(ind.index_types)
+    ctor_field_types = Telescope.of(
+        *[
+            t.inst_levels(level_actuals).instantiate(params_actual, depth_above=i)
+            for i, t in enumerate(ctor.field_schemas)
+        ]
+    )
+    m = len(ctor_field_types)
+    params_in_fields_ctx = params_actual.shift(m)
+    motive_in_fields_ctx = motive.shift(m)
+    field_vars = ArgList.vars(m)
+    scrut_like = mk_uapp(ctor, level_actuals, params_in_fields_ctx, field_vars)
+    result_indices = ArgList.of(
+        *[
+            t.inst_levels(level_actuals).instantiate(params_actual, m)
+            for t in ctor.result_indices
+        ]
+    )
+    ihs: list[Term] = []
+    for ri, j in enumerate(ctor.rps):
+        rec_head, rec_levels, rec_field_args = decompose_uapp(
+            ctor_field_types[j].shift(m - j)
+        )
+        if rec_head != ind:
+            raise SurfaceError("Recursive field head mismatch", span)
+        if level_actuals and rec_levels and rec_levels != level_actuals:
+            raise SurfaceError("Recursive field universe mismatch", span)
+        rec_params = rec_field_args[:p]
+        rec_indices = rec_field_args[p : p + q]
+        _ = rec_params
+        ih_type = mk_app(motive_in_fields_ctx, rec_indices, field_vars[j])
+        ihs.append(ih_type.shift(ri))
+    ih_types = Telescope.of(*ihs)
+    codomain = mk_app(motive_in_fields_ctx, result_indices, scrut_like).shift(
+        len(ih_types)
+    )
+    tel = ctor_field_types + ih_types
+    return tel, codomain
+
+
 @dataclass(frozen=True)
 class Pat:
     span: Span
@@ -148,8 +198,10 @@ class SMatch(SurfaceTerm):
         if len(args) != p + q:
             raise SurfaceError("Match scrutinee has wrong arity", self.span)
         params_actual = args[:p]
+        indices_actual = args[p:]
         branch_map, default_branch = self._branch_map(env, ind)
         cases: list[Term] = []
+        motive = Lam(scrut_ty_whnf, expected.term.shift(1))
         for ctor in ind.constructors:
             branch = branch_map.get(ctor) or default_branch
             if branch is None:
@@ -157,22 +209,31 @@ class SMatch(SurfaceTerm):
                     f"Missing branch for constructor {ctor.name}", self.span
                 )
             field_tys = self._field_types(ctor, level_actuals, params_actual)
-            binder_names = self._branch_binders(branch.pat, ctor, field_tys)
+            tel, codomain = _case_telescope_with_ih(
+                ind,
+                ctor,
+                level_actuals,
+                params_actual,
+                indices_actual,
+                motive,
+                branch.span,
+            )
+            ih_count = len(tel) - len(field_tys)
+            binder_names = self._branch_binders(branch.pat, ctor, field_tys, ih_count)
             env_branch = env
-            for binder_name, field_ty in zip(binder_names, field_tys, strict=True):
+            for binder_name, binder_ty in zip(binder_names, tel, strict=True):
                 env_branch = env_branch.push_binder(
-                    ElabType(field_ty), name=binder_name
+                    ElabType(binder_ty), name=binder_name
                 )
             rhs_term = branch.rhs.elab_check(
                 env_branch,
                 state,
-                ElabType(expected.term.shift(len(field_tys)), expected.implicit_spine),
+                ElabType(codomain.shift(len(tel)), expected.implicit_spine),
             )
             case_term = rhs_term
-            for field_ty in reversed(list(field_tys)):
-                case_term = Lam(field_ty, case_term)
+            for binder_ty in reversed(list(tel)):
+                case_term = Lam(binder_ty, case_term)
             cases.append(case_term)
-        motive = Lam(scrut_ty_whnf, expected.term.shift(1))
         return Elim(ind, motive, tuple(cases), scrut_term)
 
     def _elab_with_motive(
@@ -194,6 +255,7 @@ class SMatch(SurfaceTerm):
         if len(args) != p + q:
             raise SurfaceError("Match scrutinee has wrong arity", self.span)
         params_actual = args[:p]
+        indices_actual = args[p:]
         as_name = self.as_names[0] if self.as_names else None
         env_motive = env.push_binder(ElabType(scrut_ty_whnf), name=as_name or "_")
         motive_term, motive_ty = self.motive.elab_infer(env_motive, state)
@@ -209,28 +271,28 @@ class SMatch(SurfaceTerm):
                     f"Missing branch for constructor {ctor.name}", self.span
                 )
             field_tys = self._field_types(ctor, level_actuals, params_actual)
-            m = len(field_tys)
-            binder_names = self._branch_binders(branch.pat, ctor, field_tys)
-            env_branch = env
-            for binder_name, field_ty in zip(binder_names, field_tys, strict=True):
-                env_branch = env_branch.push_binder(
-                    ElabType(field_ty), name=binder_name
-                )
-            params_in_fields_ctx = params_actual.shift(m)
-            field_vars = ArgList.vars(m)
-            scrut_like = mk_uapp(
+            tel, codomain = _case_telescope_with_ih(
+                ind,
                 ctor,
                 level_actuals,
-                params_in_fields_ctx,
-                field_vars,
+                params_actual,
+                indices_actual,
+                motive,
+                branch.span,
             )
-            expected_branch = motive_term.shift(m).subst(scrut_like, m)
+            ih_count = len(tel) - len(field_tys)
+            binder_names = self._branch_binders(branch.pat, ctor, field_tys, ih_count)
+            env_branch = env
+            for binder_name, binder_ty in zip(binder_names, tel, strict=True):
+                env_branch = env_branch.push_binder(
+                    ElabType(binder_ty), name=binder_name
+                )
             rhs_term = branch.rhs.elab_check(
-                env_branch, state, ElabType(expected_branch)
+                env_branch, state, ElabType(codomain.shift(len(tel)))
             )
             case_term = rhs_term
-            for field_ty in reversed(list(field_tys)):
-                case_term = Lam(field_ty, case_term)
+            for binder_ty in reversed(list(tel)):
+                case_term = Lam(binder_ty, case_term)
             cases.append(case_term)
         return Elim(ind, motive, tuple(cases), scrut_term), ElabType(match_ty)
 
@@ -291,16 +353,17 @@ class SMatch(SurfaceTerm):
         return branches, default
 
     def _branch_binders(
-        self, pat: Pat, ctor: Ctor, field_tys: Telescope
+        self, pat: Pat, ctor: Ctor, field_tys: Telescope, ih_count: int
     ) -> list[str | None]:
+        total = len(field_tys) + ih_count
         if isinstance(pat, PatWild):
-            return [None for _ in field_tys]
+            return [None for _ in range(total)]
         if isinstance(pat, PatVar):
-            if len(field_tys) != 0:
+            if len(field_tys) != 0 or ih_count != 0:
                 raise SurfaceError("Match pattern must be constructor or _", pat.span)
             return []
         if isinstance(pat, PatCtor):
-            if len(pat.args) != len(field_tys):
+            if len(pat.args) not in (len(field_tys), total):
                 raise SurfaceError(f"Wrong number of binders for {ctor.name}", pat.span)
             names: list[str | None] = []
             for arg in pat.args:
@@ -310,6 +373,8 @@ class SMatch(SurfaceTerm):
                     names.append(None)
                 else:
                     raise SurfaceError("Nested patterns must be desugared", arg.span)
+            if len(names) == len(field_tys):
+                names.extend(None for _ in range(ih_count))
             return names
         raise SurfaceError("Unsupported match pattern", pat.span)
 

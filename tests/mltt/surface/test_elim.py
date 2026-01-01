@@ -47,32 +47,32 @@ def test_surface_elim_add_comm() -> None:
     
     let add : Nat -> Nat -> Nat :=
       fun m n =>
-        elim m return Nat with
+        match m with
         | Zero => n
-        | Succ k ih => succ ih;
+        | Succ k => succ (add k n);
 
     let add_zero_right : (n : Nat) -> Id Nat (add n Nat.Zero) n :=
       fun n =>
-        elim n return (fun (n : Nat) => Id Nat (add n Nat.Zero) n) with
+        match n with
         | Zero => ctor Id.Refl
-        | Succ k ih => ap succ ih;
+        | Succ k => ap succ (add_zero_right k);
 
     let succ_add : (n : Nat) -> (m : Nat) -> Id Nat (add (succ n) m) (succ (add n m)) :=
       fun n m => ctor Id.Refl;
 
     let add_succ_right : (n : Nat) -> (m : Nat) -> Id Nat (add m (succ n)) (succ (add m n)) :=
       fun n m =>
-        elim m return (fun (m : Nat) => Id Nat (add m (succ n)) (succ (add m n))) with
+        match m with
         | Zero => ctor Id.Refl
-        | Succ k ih => ap succ ih;
+        | Succ k => ap succ (add_succ_right n k);
 
     let add_comm : (n : Nat) -> (m : Nat) -> Id Nat (add n m) (add m n) :=
       fun n m =>
-        (elim n return (fun (n : Nat) => (m : Nat) -> Id Nat (add n m) (add m n)) with
+        (match n as n return (m : Nat) -> Id Nat (add n m) (add m n) with
           | Zero => fun m => sym (add_zero_right m)
-          | Succ k ih => fun m =>
+          | Succ k => fun m =>
             trans 
-              (trans (succ_add k m) (ap succ (ih m)))
+              (trans (succ_add k m) (ap succ (add_comm k m)))
               (sym (add_succ_right k m))) m;
     add_comm
     """
