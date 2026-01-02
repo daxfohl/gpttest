@@ -50,6 +50,7 @@ reserved = {
     "ind": "IND",
     "ctor": "CTOR",
     "inductive": "INDUCTIVE",
+    "impl": "IMPL",
 }
 
 tokens = (
@@ -200,6 +201,78 @@ def p_term_let_binders_suffix_uparams(p: yacc.YaccProduction) -> None:
     )
 
 
+def p_term_let_type_params(p: yacc.YaccProduction) -> None:
+    "term : LET IDENT type_params COLON term DEFINE term SEMI term"
+    span = _span(p, 1, 9)
+    binders = p[3]
+    ty_span = Span(binders[0].span.start, p[5].span.end)
+    val_span = Span(binders[0].span.start, p[7].span.end)
+    ty = SPi(span=ty_span, binders=binders, body=p[5])
+    val = SLam(span=val_span, binders=binders, body=p[7])
+    p[0] = SLet(
+        span=span,
+        uparams=(),
+        name=p[2],
+        ty=ty,
+        val=val,
+        body=p[9],
+    )
+
+
+def p_term_let_type_params_binders(p: yacc.YaccProduction) -> None:
+    "term : LET IDENT type_params let_binders COLON term DEFINE term SEMI term"
+    span = _span(p, 1, 10)
+    binders = p[3] + p[4]
+    ty_span = Span(binders[0].span.start, p[6].span.end)
+    val_span = Span(binders[0].span.start, p[8].span.end)
+    ty = SPi(span=ty_span, binders=binders, body=p[6])
+    val = SLam(span=val_span, binders=binders, body=p[8])
+    p[0] = SLet(
+        span=span,
+        uparams=(),
+        name=p[2],
+        ty=ty,
+        val=val,
+        body=p[10],
+    )
+
+
+def p_term_let_type_params_uparams(p: yacc.YaccProduction) -> None:
+    "term : LET IDENT u_binder type_params let_binders COLON term DEFINE term SEMI term"
+    span = _span(p, 1, 11)
+    binders = p[4] + p[5]
+    ty_span = Span(binders[0].span.start, p[7].span.end)
+    val_span = Span(binders[0].span.start, p[9].span.end)
+    ty = SPi(span=ty_span, binders=binders, body=p[7])
+    val = SLam(span=val_span, binders=binders, body=p[9])
+    p[0] = SLet(
+        span=span,
+        uparams=p[3],
+        name=p[2],
+        ty=ty,
+        val=val,
+        body=p[11],
+    )
+
+
+def p_term_let_uparams_type_params(p: yacc.YaccProduction) -> None:
+    "term : LET u_binders_nonempty IDENT type_params let_binders COLON term DEFINE term SEMI term"
+    span = _span(p, 1, 11)
+    binders = p[4] + p[5]
+    ty_span = Span(binders[0].span.start, p[7].span.end)
+    val_span = Span(binders[0].span.start, p[9].span.end)
+    ty = SPi(span=ty_span, binders=binders, body=p[7])
+    val = SLam(span=val_span, binders=binders, body=p[9])
+    p[0] = SLet(
+        span=span,
+        uparams=p[2],
+        name=p[3],
+        ty=ty,
+        val=val,
+        body=p[11],
+    )
+
+
 def p_term_let_uparams(p: yacc.YaccProduction) -> None:
     "term : LET u_binders_nonempty IDENT COLON term DEFINE term SEMI term"
     span = _span(p, 1, 9)
@@ -279,6 +352,34 @@ def p_term_inductive_uparams(p: yacc.YaccProduction) -> None:
     )
 
 
+def p_term_inductive_type_params(p: yacc.YaccProduction) -> None:
+    "term : INDUCTIVE IDENT type_params ind_binders COLON term DEFINE ctor_decls SEMI term"
+    span = _span(p, 1, 10)
+    p[0] = SInductiveDef(
+        span=span,
+        name=p[2],
+        uparams=(),
+        params=p[3] + p[4],
+        level=p[6],
+        ctors=p[8],
+        body=p[10],
+    )
+
+
+def p_term_inductive_uparams_type_params(p: yacc.YaccProduction) -> None:
+    "term : INDUCTIVE IDENT LBRACE u_list RBRACE type_params ind_binders COLON term DEFINE ctor_decls SEMI term"
+    span = _span(p, 1, 14)
+    p[0] = SInductiveDef(
+        span=span,
+        name=p[2],
+        uparams=p[4],
+        params=p[6] + p[7],
+        level=p[9],
+        ctors=p[11],
+        body=p[13],
+    )
+
+
 def p_match_tail_with(p: yacc.YaccProduction) -> None:
     "match_tail : WITH match_branches"
     p[0] = (None, None, p[2])
@@ -310,6 +411,12 @@ def p_term_fun(p: yacc.YaccProduction) -> None:
     p[0] = SLam(span=span, binders=p[2], body=p[4])
 
 
+def p_term_fun_type_params(p: yacc.YaccProduction) -> None:
+    "term : FUN type_params lam_binders DARROW term"
+    span = _span(p, 1, 5)
+    p[0] = SLam(span=span, binders=p[2] + p[3], body=p[5])
+
+
 def p_term_pi(p: yacc.YaccProduction) -> None:
     "term : pi"
     p[0] = p[1]
@@ -332,7 +439,7 @@ def p_term_hole_ann(p: yacc.YaccProduction) -> None:
     p[0] = SAnn(span=span, term=SHole(span=_item_span(p, 1)), ty=p[3])
 
 
-def p_pi_binders(p: yacc.YaccProduction) -> None:
+def p_pi_tower(p: yacc.YaccProduction) -> None:
     "pi : pi_binders ARROW term"
     span = Span(p[1][0].span.start, p[3].span.end)
     p[0] = SPi(span=span, binders=p[1], body=p[3])
@@ -352,19 +459,14 @@ def p_pi_app(p: yacc.YaccProduction) -> None:
     p[0] = p[1]
 
 
-def p_pi_binders_multi(p: yacc.YaccProduction) -> None:
-    "pi_binders : pi_binders param_group"
-    p[0] = p[1] + p[2]
-
-
-def p_pi_binders_single(p: yacc.YaccProduction) -> None:
+def p_pi_binders(p: yacc.YaccProduction) -> None:
     "pi_binders : param_group"
     p[0] = p[1]
 
 
-def p_ind_binders_multi(p: yacc.YaccProduction) -> None:
-    "ind_binders : ind_binders param_group"
-    p[0] = p[1] + p[2]
+def p_ind_binders(p: yacc.YaccProduction) -> None:
+    "ind_binders : param_group"
+    p[0] = p[1]
 
 
 def p_ind_binders_empty(p: yacc.YaccProduction) -> None:
@@ -372,24 +474,30 @@ def p_ind_binders_empty(p: yacc.YaccProduction) -> None:
     p[0] = ()
 
 
-def p_u_binders_multi(p: yacc.YaccProduction) -> None:
-    "u_binders : u_binders u_binder"
-    p[0] = p[1] + p[2]
-
-
-def p_u_binders_empty(p: yacc.YaccProduction) -> None:
-    "u_binders : empty"
-    p[0] = ()
-
-
-def p_u_binders_nonempty_multi(p: yacc.YaccProduction) -> None:
-    "u_binders_nonempty : u_binders_nonempty u_binder"
-    p[0] = p[1] + p[2]
-
-
 def p_u_binders_nonempty_single(p: yacc.YaccProduction) -> None:
     "u_binders_nonempty : u_binder"
     p[0] = p[1]
+
+
+def p_type_params(p: yacc.YaccProduction) -> None:
+    "type_params : LANGLE type_param_list RANGLE"
+    binders: tuple[SBinder, ...] = tuple(
+        SBinder(name, SUniv(span=span, level=None), span, implicit=True)
+        for name, span in p[2]
+    )
+    p[0] = binders
+
+
+def p_type_param_list_multi(p: yacc.YaccProduction) -> None:
+    "type_param_list : type_param_list COMMA IDENT"
+    span = _span(p, 3, 3)
+    p[0] = p[1] + ((p[3], span),)
+
+
+def p_type_param_list_single(p: yacc.YaccProduction) -> None:
+    "type_param_list : IDENT"
+    span = _span(p, 1, 1)
+    p[0] = ((p[1], span),)
 
 
 def p_u_binder(p: yacc.YaccProduction) -> None:
@@ -407,63 +515,21 @@ def p_u_list_single(p: yacc.YaccProduction) -> None:
     p[0] = (p[1],)
 
 
-def p_let_binders_multi(p: yacc.YaccProduction) -> None:
-    "let_binders : let_binders param_group"
-    p[0] = p[1] + p[2]
-
-
-def p_let_binders_single(p: yacc.YaccProduction) -> None:
+def p_let_binders(p: yacc.YaccProduction) -> None:
     "let_binders : param_group"
     p[0] = p[1]
 
 
-def p_lam_binders_multi(p: yacc.YaccProduction) -> None:
-    "lam_binders : lam_binders lam_binder"
-    p[0] = p[1] + p[2]
-
-
-def p_lam_binders_single(p: yacc.YaccProduction) -> None:
-    "lam_binders : lam_binder"
+def p_lam_binders(p: yacc.YaccProduction) -> None:
+    "lam_binders : param_group"
     p[0] = p[1]
 
 
-def p_lam_binder_annotated(p: yacc.YaccProduction) -> None:
-    "lam_binder : param_group"
-    p[0] = p[1]
-
-
-def p_lam_binder_ident(p: yacc.YaccProduction) -> None:
-    "lam_binder : IDENT"
-    span = _span(p, 1, 1)
-    p[0] = (SBinder(p[1], None, span, implicit=False),)
-
-
-def p_lam_binder_hole(p: yacc.YaccProduction) -> None:
-    "lam_binder : HOLE"
-    span = _span(p, 1, 1)
-    p[0] = (SBinder("_", None, span, implicit=False),)
-
-
-def p_lam_binder_implicit(p: yacc.YaccProduction) -> None:
-    "lam_binder : LANGLE IDENT RANGLE"
-    span = _span(p, 1, 3)
-    p[0] = (SBinder(p[2], None, span, implicit=True),)
-
-
-def p_lam_binder_implicit_hole(p: yacc.YaccProduction) -> None:
-    "lam_binder : LANGLE HOLE RANGLE"
-    span = _span(p, 1, 3)
-    p[0] = (SBinder("_", None, span, implicit=True),)
-
-
-def p_param_group_explicit(p: yacc.YaccProduction) -> None:
+def p_param_group(p: yacc.YaccProduction) -> None:
     "param_group : LPAREN param_list RPAREN"
-    p[0] = tuple(SBinder(name, ty, span, implicit=False) for name, ty, span in p[2])
-
-
-def p_param_group_implicit(p: yacc.YaccProduction) -> None:
-    "param_group : LANGLE param_list RANGLE"
-    p[0] = tuple(SBinder(name, ty, span, implicit=True) for name, ty, span in p[2])
+    p[0] = tuple(
+        SBinder(name, ty, span, implicit=implicit) for name, ty, span, implicit in p[2]
+    )
 
 
 def p_param_list_multi(p: yacc.YaccProduction) -> None:
@@ -479,13 +545,25 @@ def p_param_list_single(p: yacc.YaccProduction) -> None:
 def p_param_entry(p: yacc.YaccProduction) -> None:
     "param_entry : IDENT COLON term"
     span = _span(p, 1, 3)
-    p[0] = (p[1], p[3], span)
+    p[0] = (p[1], p[3], span, False)
+
+
+def p_param_entry_impl(p: yacc.YaccProduction) -> None:
+    "param_entry : IMPL IDENT COLON term"
+    span = _span(p, 1, 4)
+    p[0] = (p[2], p[4], span, True)
 
 
 def p_param_entry_hole(p: yacc.YaccProduction) -> None:
     "param_entry : HOLE COLON term"
     span = _span(p, 1, 3)
-    p[0] = ("_", p[3], span)
+    p[0] = ("_", p[3], span, False)
+
+
+def p_param_entry_hole_impl(p: yacc.YaccProduction) -> None:
+    "param_entry : IMPL HOLE COLON term"
+    span = _span(p, 1, 4)
+    p[0] = ("_", p[4], span, True)
 
 
 def p_ctor_decls_multi(p: yacc.YaccProduction) -> None:
@@ -642,12 +720,7 @@ def p_ctor_decl_fields_result(p: yacc.YaccProduction) -> None:
     p[0] = SConstructorDecl(name=p[2], fields=p[3], result=p[5], span=span)
 
 
-def p_ctor_binders_multi(p: yacc.YaccProduction) -> None:
-    "ctor_binders : ctor_binders param_group"
-    p[0] = p[1] + p[2]
-
-
-def p_ctor_binders_single(p: yacc.YaccProduction) -> None:
+def p_ctor_binders(p: yacc.YaccProduction) -> None:
     "ctor_binders : param_group"
     p[0] = p[1]
 
@@ -680,10 +753,31 @@ def p_call_groups_empty(p: yacc.YaccProduction) -> None:
     p[0] = ()
 
 
+def _apply_type_args(head: SurfaceTerm, args: tuple[SurfaceTerm, ...]) -> SurfaceTerm:
+    if not args:
+        return head
+    return SApp(
+        span=Span(head.span.start, args[-1].span.end),
+        fn=head,
+        args=tuple(SArg(arg, implicit=True) for arg in args),
+    )
+
+
 def p_atom_uapp(p: yacc.YaccProduction) -> None:
     "atom : atom_base AT LBRACE level_list RBRACE"
     span = _span(p, 1, 5)
     p[0] = SUApp(span=span, head=p[1], levels=tuple(p[4]))
+
+
+def p_atom_type_args(p: yacc.YaccProduction) -> None:
+    "atom : atom_base type_args"
+    p[0] = _apply_type_args(p[1], p[2])
+
+
+def p_atom_uapp_type_args(p: yacc.YaccProduction) -> None:
+    "atom : atom_base AT LBRACE level_list RBRACE type_args"
+    head = SUApp(span=_span(p, 1, 5), head=p[1], levels=tuple(p[4]))
+    p[0] = _apply_type_args(head, p[6])
 
 
 def p_atom_base(p: yacc.YaccProduction) -> None:
@@ -691,24 +785,44 @@ def p_atom_base(p: yacc.YaccProduction) -> None:
     p[0] = p[1]
 
 
+def p_type_args(p: yacc.YaccProduction) -> None:
+    "type_args : LANGLE type_arg_list RANGLE"
+    p[0] = p[2]
+
+
+def p_type_arg_list_multi(p: yacc.YaccProduction) -> None:
+    "type_arg_list : type_arg_list COMMA term"
+    p[0] = p[1] + (p[3],)
+
+
+def p_type_arg_list_single(p: yacc.YaccProduction) -> None:
+    "type_arg_list : term"
+    p[0] = (p[1],)
+
+
 def p_call_group_explicit(p: yacc.YaccProduction) -> None:
     "call_group : LPAREN call_args RPAREN"
-    p[0] = tuple(SArg(arg, implicit=False) for arg in p[2])
-
-
-def p_call_group_implicit(p: yacc.YaccProduction) -> None:
-    "call_group : LANGLE call_args RANGLE"
-    p[0] = tuple(SArg(arg, implicit=True) for arg in p[2])
+    p[0] = p[2]
 
 
 def p_call_args_multi(p: yacc.YaccProduction) -> None:
-    "call_args : call_args COMMA term"
+    "call_args : call_args COMMA call_arg"
     p[0] = p[1] + (p[3],)
 
 
 def p_call_args_single(p: yacc.YaccProduction) -> None:
-    "call_args : term"
+    "call_args : call_arg"
     p[0] = (p[1],)
+
+
+def p_call_arg(p: yacc.YaccProduction) -> None:
+    "call_arg : term"
+    p[0] = SArg(p[1], implicit=False)
+
+
+def p_call_arg_impl(p: yacc.YaccProduction) -> None:
+    "call_arg : IMPL term"
+    p[0] = SArg(p[2], implicit=True)
 
 
 def p_level_list_single(p: yacc.YaccProduction) -> None:

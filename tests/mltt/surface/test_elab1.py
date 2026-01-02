@@ -1,9 +1,9 @@
 import pytest
 
 from mltt.surface.elab_state import ElabState
+from mltt.surface.etype import ElabEnv
 from mltt.surface.parse import parse_term
 from mltt.surface.sast import SurfaceError
-from mltt.surface.etype import ElabEnv
 from mltt.surface.prelude import prelude_env
 
 
@@ -35,9 +35,17 @@ def test_arrow_sugar() -> None:
     elab_ok(src)
 
 
-def test_check_mode_unannotated_lambda() -> None:
+def test_check_mode_lambda() -> None:
     src = """
-    let id2(A: Type 0): A -> A := fun x => x;
+    let id2(A: Type 0): A -> A := fun (x: A) => x;
+    id2
+    """
+    elab_ok(src)
+
+
+def test_lambda_type_params() -> None:
+    src = """
+    let id2: (impl A: Type 0) -> A -> A := fun<A>(impl x: A) => x;
     id2
     """
     elab_ok(src)
@@ -45,11 +53,8 @@ def test_check_mode_unannotated_lambda() -> None:
 
 def test_reject_infer_mode_unannotated_lambda() -> None:
     src = "fun x => x"
-    term = parse_term(src)
-    env = ElabEnv.from_env(prelude_env())
-    state = ElabState()
-    with pytest.raises(SurfaceError, match="Cannot infer unannotated lambda"):
-        term.elab_infer(env, state)
+    with pytest.raises(SurfaceError, match="Unexpected token"):
+        parse_term(src)
 
 
 def test_typed_let() -> None:
