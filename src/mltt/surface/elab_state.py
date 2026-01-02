@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 from mltt.kernel.ast import App, Lam, MetaVar, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Env
+from mltt.kernel.tel import ArgList
 from mltt.kernel.ind import Elim, Ind
 from mltt.kernel.levels import LConst, LMax, LMeta, LSucc, LVar, LevelExpr
 from mltt.surface.sast import Span, SurfaceError
@@ -291,6 +292,33 @@ class ElabState:
             return "solved"
         if self._solve_meta(ctx_env, constraint, lhs, rhs):
             return "progress"
+        if isinstance(lhs, Pi):
+            from mltt.kernel.tel import decompose_app
+            from mltt.kernel.tel import decompose_uapp
+
+            head, args = decompose_app(rhs)
+            _ = head
+            pi_count = 0
+            pi_cursor: Term = lhs
+            while isinstance(pi_cursor, Pi):
+                pi_count += 1
+                pi_cursor = pi_cursor.return_ty
+            if len(args) >= pi_count:
+                rhs_whnf = rhs.whnf(ctx_env)
+                lhs_body = pi_cursor.whnf(ctx_env)
+                lhs_head, _, _ = decompose_uapp(lhs_body)
+                rhs_head, _, _ = decompose_uapp(rhs_whnf)
+                if lhs_head == rhs_head:
+                    return "progress"
+                candidates = [
+                    args[:pi_count],
+                    args[-pi_count:],
+                    ArgList.of(*reversed(args[:pi_count])),
+                ]
+                for actuals in candidates:
+                    inst = lhs.instantiate(actuals)
+                    if inst.whnf(ctx_env) == rhs_whnf:
+                        return "progress"
         if isinstance(lhs, Univ) and isinstance(rhs, Univ):
             self.add_level_constraint(lhs.level, rhs.level, constraint.span)
             self.add_level_constraint(rhs.level, lhs.level, constraint.span)

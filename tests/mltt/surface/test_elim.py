@@ -30,15 +30,15 @@ def test_surface_elim_add_comm() -> None:
     inductive Id{u}(A: Type(u)) (x: A): (y: A) -> Type(u) :=
     | Refl: Id@{u}(A, x, x);
 
-    let sym{u}<A: Type(u), x: A, y: A>(p: Id@{u}(A, x, y)): Id@{u}(A, y, x) :=
+    let sym{u}<A: Type(u), x: A, y: A>(p: Id(A, x, y)): Id(A, y, x) :=
       match p with
       | Refl => ctor Id.Refl;
 
-    let trans{u}<A: Type(u), x: A, y: A, z: A>(p: Id@{u}(A, x, y), q: Id@{u}(A, y, z)): Id@{u}(A, x, z) :=
+    let trans{u}<A: Type(u), x: A, y: A, z: A>(p: Id(A, x, y), q: Id(A, y, z)): Id(A, x, z) :=
       match q with
       | Refl => p;
 
-    let ap{u}<A: Type(u), B: Type(u)>(f: A -> B) <x: A, y: A>(p: Id@{u}(A, x, y)): Id@{u}(B, f(x), f(y)) :=
+    let ap{u}<A: Type(u), B: Type(u)>(f: A -> B) <x: A, y: A>(p: Id(A, x, y)): Id(B, f(x), f(y)) :=
       match p with
       | Refl => ctor Id.Refl;
     
@@ -47,20 +47,20 @@ def test_surface_elim_add_comm() -> None:
       | Zero => n
       | Succ k => succ(add(k, n));
 
-    let add_zero_right(n: Nat): Id@{0}(Nat, add(n, Nat.Zero), n) :=
+    let add_zero_right(n: Nat): Id(Nat, add(n, Nat.Zero), n) :=
       match n with
       | Zero => ctor Id.Refl
       | Succ k => ap(succ, add_zero_right(k));
 
-    let succ_add(n: Nat, m: Nat): Id@{0}(Nat, add(succ(n), m), succ(add(n, m))) :=
+    let succ_add(n: Nat, m: Nat): Id(Nat, add(succ(n), m), succ(add(n, m))) :=
       ctor Id.Refl;
 
-    let add_succ_right(n: Nat, m: Nat): Id@{0}(Nat, add(m, succ(n)), succ(add(m, n))) :=
+    let add_succ_right(n: Nat, m: Nat): Id(Nat, add(m, succ(n)), succ(add(m, n))) :=
       match m with
       | Zero => ctor Id.Refl
       | Succ k => ap(succ, add_succ_right(n, k));
 
-    let add_comm(n: Nat, m: Nat): Id@{0}(Nat, add(n, m), add(m, n)) :=
+    let add_comm(n: Nat, m: Nat): Id(Nat, add(n, m), add(m, n)) :=
       match n with
       | Zero => sym(add_zero_right(m))
       | Succ k =>

@@ -80,18 +80,15 @@ class SCtor(SurfaceTerm):
             expected_head, levels, args = decompose_uapp(expected.term)
             if not levels:
                 expected_head, levels, args = decompose_uapp(expected_whnf)
-            if expected_head == ctor.inductive or (
-                isinstance(expected_head, Const)
-                and expected_head.name == ctor.inductive.name
-            ):
-                param_count = len(ctor.inductive.param_types)
-                if len(args) >= param_count:
-                    params = args[:param_count]
-                    applied = mk_uapp(ctor, levels, params)
-                    state.add_constraint(
-                        env.kenv, applied.infer_type(env.kenv), expected.term, self.span
-                    )
-                    return applied
+            param_count = len(ctor.inductive.param_types)
+            if len(args) >= param_count:
+                params = args[:param_count]
+                applied = mk_uapp(ctor, levels, params)
+                applied_ty = (
+                    ctor.infer_type(env.kenv).inst_levels(levels).instantiate(params)
+                )
+                state.add_constraint(env.kenv, applied_ty, expected.term, self.span)
+                return applied
         state.add_constraint(env.kenv, term_ty.term, expected.term, self.span)
         return term
 
