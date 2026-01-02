@@ -166,3 +166,25 @@ def test_positional_dependent_call() -> None:
     """
     zero = _get_ctor("Nat.Zero")
     assert elab_eval(src) == zero
+
+
+def test_named_args_dependent_type1() -> None:
+    src = """
+    inductive Id<A>(x: A): (y: A) -> Type :=
+    | Refl: Id(x, x);
+    let refl<A>(x: A): Id(x, x) := ctor Id.Refl;
+    let keep<A>(x: A, y: A, p: Id(x, y)): A := x;
+    keep<Nat>(Nat.Zero, y := Nat.Zero, p := refl<Nat>(Nat.Zero))
+    """
+    elab_ok(src)
+
+
+def test_named_args_dependent_all_named1() -> None:
+    src = """
+    inductive Id<A>(x: A): (y: A) -> Type :=
+    | Refl: Id(x, x);
+    let refl<A>(x: A): Id(x, x) := ctor Id.Refl;
+    let keep<A>(x: A, y: A, p: Id(x, y)): A := x;
+    keep<Nat>(p := refl<Nat>(Nat.Zero), y := Nat.Zero, x := Nat.Zero)
+    """
+    elab_ok(src)
