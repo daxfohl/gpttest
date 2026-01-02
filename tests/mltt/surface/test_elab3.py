@@ -1,6 +1,9 @@
+from operator import methodcaller
+
 import pytest
 
 from mltt.kernel.ast import Let, Term
+from mltt.kernel.env import Env
 from mltt.kernel.tel import mk_app
 from mltt.surface.elab_state import ElabState
 from mltt.surface.parse import parse_term
@@ -22,7 +25,8 @@ def elab_ok(src: str) -> None:
 
 
 def elab_eval(src: str) -> Term:
-    env = ElabEnv.from_env(prelude_env())
+    kenv = prelude_env()
+    env = ElabEnv.from_env(kenv)
     state = ElabState()
     term = parse_term(src)
     term_k, _ty_k = term.elab_infer(env, state)
@@ -30,8 +34,16 @@ def elab_eval(src: str) -> Term:
     term_k = state.zonk(term_k)
     state.ensure_solved()
     while isinstance(term_k, Let):
-        term_k = term_k.body.subst(term_k.value)
-    return term_k.normalize()
+        kenv = kenv.push_let(term_k.arg_ty, term_k.value)
+        term_k = term_k.body
+    return _normalize_with_env(term_k, kenv)
+
+
+def _normalize_with_env(term: Term, env: Env) -> Term:
+    reduced = term._reduce_inside_step(methodcaller("whnf_step", env))
+    if reduced != term:
+        return _normalize_with_env(reduced, env)
+    return reduced
 
 
 def _get_ctor(name: str) -> Term:
@@ -176,7 +188,8 @@ def test_named_args_dependent_type1() -> None:
     let keep<A>(x: A, y: A, p: Id(x, y)): A := x;
     keep<Nat>(Nat.Zero, y := Nat.Zero, p := refl<Nat>(Nat.Zero))
     """
-    elab_ok(src)
+    zero = _get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
 
 
 def test_named_args_dependent_all_named1() -> None:
@@ -187,4 +200,5 @@ def test_named_args_dependent_all_named1() -> None:
     let keep<A>(x: A, y: A, p: Id(x, y)): A := x;
     keep<Nat>(p := refl<Nat>(Nat.Zero), y := Nat.Zero, x := Nat.Zero)
     """
-    elab_ok(src)
+    zero = _get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
