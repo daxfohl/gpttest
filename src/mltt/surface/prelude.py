@@ -11,6 +11,7 @@ from mltt.inductive import (
 )
 from mltt.kernel.ast import Term
 from mltt.kernel.env import GlobalDecl, Env
+from mltt.kernel.ind import Ctor, Ind
 
 
 def register_value(g: dict[str, GlobalDecl], name: str, value: Term) -> None:
@@ -18,7 +19,13 @@ def register_value(g: dict[str, GlobalDecl], name: str, value: Term) -> None:
         raise ValueError("dup")
     ty = value.infer_type(Env(globals=MappingProxyType(g)))
     uarity = getattr(value, "uarity", 0)
-    g[name] = GlobalDecl(ty=ty, value=value, reducible=True, uarity=uarity)
+    reducible = not isinstance(value, (Ind, Ctor))
+    g[name] = GlobalDecl(
+        ty=ty,
+        value=value,
+        reducible=reducible,
+        uarity=uarity,
+    )
 
 
 def prelude_globals() -> dict[str, GlobalDecl]:

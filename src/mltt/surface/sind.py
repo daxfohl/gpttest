@@ -35,9 +35,12 @@ class SInd(SurfaceTerm):
         )
         if decl.value is None:
             raise SurfaceError(f"Unknown inductive {self.name}", self.span)
-        if not isinstance(decl.value, Ind):
+        if isinstance(decl.value, UApp) and isinstance(decl.value.head, Ind):
+            ind = decl.value.head
+        elif isinstance(decl.value, Ind):
+            ind = decl.value
+        else:
             raise SurfaceError(f"{self.name} is not an inductive", self.span)
-        ind = decl.value
         term, levels = state.apply_implicit_levels(ind, decl.uarity, self.span)
         return term, gty.inst_levels(levels)
 
@@ -56,7 +59,9 @@ class SCtor(SurfaceTerm):
         if decl.value is None:
             raise SurfaceError(f"Unknown constructor {self.name}", self.span)
         if isinstance(decl.value, UApp) and isinstance(decl.value.head, Ctor):
-            return decl.value, gty
+            ctor = decl.value.head
+            term, levels = state.apply_implicit_levels(ctor, decl.uarity, self.span)
+            return term, gty.inst_levels(levels)
         if not isinstance(decl.value, Ctor):
             raise SurfaceError(f"{self.name} is not a constructor", self.span)
         ctor = decl.value
@@ -72,8 +77,13 @@ class SCtor(SurfaceTerm):
         elif isinstance(term, UApp) and isinstance(term.head, Ctor):
             ctor = term.head
         if ctor is not None and not ctor.field_schemas:
-            expected_head, levels, args = decompose_uapp(expected_whnf)
-            if expected_head == ctor.inductive:
+            expected_head, levels, args = decompose_uapp(expected.term)
+            if not levels:
+                expected_head, levels, args = decompose_uapp(expected_whnf)
+            if expected_head == ctor.inductive or (
+                isinstance(expected_head, Const)
+                and expected_head.name == ctor.inductive.name
+            ):
                 param_count = len(ctor.inductive.param_types)
                 if len(args) >= param_count:
                     params = args[:param_count]
@@ -145,7 +155,7 @@ class SInductiveDef(SurfaceTerm):
         globals_dict[self.name] = GlobalDecl(
             ty=ind_ty,
             value=ind,
-            reducible=True,
+            reducible=False,
             uarity=ind.uarity,
         )
         env_with_ind = ElabEnv(
@@ -223,7 +233,7 @@ class SInductiveDef(SurfaceTerm):
             globals_dict[ctor_name] = GlobalDecl(
                 ty=ctor_ty,
                 value=ctor,
-                reducible=True,
+                reducible=False,
                 uarity=ctor.uarity,
             )
         env1 = ElabEnv(

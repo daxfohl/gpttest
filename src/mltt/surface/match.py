@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from mltt.kernel.ast import App, Lam, Term, Var
+from mltt.kernel.ast import App, Lam, Term, UApp, Var
 from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
-from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_app, mk_uapp
+from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_app, mk_lams, mk_uapp
 from mltt.surface.elab_state import ElabState
 from mltt.surface.etype import ElabEnv, ElabType
 from mltt.surface.sast import (
@@ -24,10 +24,15 @@ from mltt.surface.sast import (
 def _resolve_inductive_head(env: Env, head: Term) -> Ind | None:
     if isinstance(head, Ind):
         return head
+    if isinstance(head, UApp) and isinstance(head.head, Ind):
+        return head.head
     if isinstance(head, Const):
         decl = env.lookup_global(head.name)
-        if decl is not None and isinstance(decl.value, Ind):
-            return decl.value
+        if decl is not None:
+            if isinstance(decl.value, Ind):
+                return decl.value
+            if isinstance(decl.value, UApp) and isinstance(decl.value.head, Ind):
+                return decl.value.head
     return None
 
 
@@ -70,6 +75,22 @@ def _abstract_var(term: Term, target: int) -> Term:
     def replace_var(t: Term, depth: int) -> Term:
         if isinstance(t, Var) and t.k == target + depth + 1:
             return Var(depth)
+        return t._replace_terms(
+            lambda sub, meta: replace_var(sub, depth + meta.binder_count)
+        )
+
+    return replace_var(shifted, 0)
+
+
+def _abstract_vars(term: Term, targets: dict[int, int], binder_count: int) -> Term:
+    shifted = term.shift(binder_count)
+
+    def replace_var(t: Term, depth: int) -> Term:
+        if isinstance(t, Var):
+            mapped = targets.get(t.k - depth - binder_count)
+            if mapped is not None:
+                return Var(mapped + depth)
+            return t
         return t._replace_terms(
             lambda sub, meta: replace_var(sub, depth + meta.binder_count)
         )
@@ -207,11 +228,25 @@ class SMatch(SurfaceTerm):
         indices_actual = args[p:]
         branch_map, default_branch = self._branch_map(env, ind)
         cases: list[Term] = []
-        if isinstance(scrut_term, Var):
-            motive_body = _abstract_var(expected.term, scrut_term.k)
+        if q > 0 and isinstance(scrut_term, Var):
+            index_vars = [idx for idx in indices_actual if isinstance(idx, Var)]
+            if len(index_vars) != len(indices_actual):
+                raise SurfaceError(
+                    "Cannot infer motive with non-variable indices", self.span
+                )
+            targets = {idx.k: q - i for i, idx in enumerate(index_vars)}
+            targets[scrut_term.k] = 0
+            motive_body = _abstract_vars(expected.term, targets, q + 1)
+            index_tys = ind.index_types.inst_levels(level_actuals).instantiate(
+                params_actual
+            )
+            motive = mk_lams(*index_tys, scrut_ty_whnf, body=motive_body)
         else:
-            motive_body = expected.term.shift(1)
-        motive = Lam(scrut_ty_whnf, motive_body)
+            if isinstance(scrut_term, Var):
+                motive_body = _abstract_var(expected.term, scrut_term.k)
+            else:
+                motive_body = expected.term.shift(1)
+            motive = Lam(scrut_ty_whnf, motive_body)
         for ctor in ind.constructors:
             branch = branch_map.get(ctor) or default_branch
             if branch is None:

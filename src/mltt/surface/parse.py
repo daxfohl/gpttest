@@ -252,16 +252,30 @@ def p_term_match(p: yacc.YaccProduction) -> None:
 
 
 def p_term_inductive(p: yacc.YaccProduction) -> None:
-    "term : INDUCTIVE IDENT u_binders ind_binders COLON term DEFINE ctor_decls SEMI term"
-    span = _span(p, 1, 10)
+    "term : INDUCTIVE IDENT ind_binders COLON term DEFINE ctor_decls SEMI term"
+    span = _span(p, 1, 9)
     p[0] = SInductiveDef(
         span=span,
         name=p[2],
-        uparams=p[3],
-        params=p[4],
-        level=p[6],
-        ctors=p[8],
-        body=p[10],
+        uparams=(),
+        params=p[3],
+        level=p[5],
+        ctors=p[7],
+        body=p[9],
+    )
+
+
+def p_term_inductive_uparams(p: yacc.YaccProduction) -> None:
+    "term : INDUCTIVE IDENT LBRACE u_list RBRACE ind_binders COLON term DEFINE ctor_decls SEMI term"
+    span = _span(p, 1, 12)
+    p[0] = SInductiveDef(
+        span=span,
+        name=p[2],
+        uparams=p[4],
+        params=p[6],
+        level=p[8],
+        ctors=p[10],
+        body=p[12],
     )
 
 
@@ -698,13 +712,23 @@ def p_call_args_single(p: yacc.YaccProduction) -> None:
 
 
 def p_level_list_single(p: yacc.YaccProduction) -> None:
-    "level_list : INT"
+    "level_list : level_atom"
     p[0] = [p[1]]
 
 
 def p_level_list_multi(p: yacc.YaccProduction) -> None:
-    "level_list : level_list COMMA INT"
+    "level_list : level_list COMMA level_atom"
     p[0] = p[1] + [p[3]]
+
+
+def p_level_atom_int(p: yacc.YaccProduction) -> None:
+    "level_atom : INT"
+    p[0] = p[1]
+
+
+def p_level_atom_ident(p: yacc.YaccProduction) -> None:
+    "level_atom : IDENT"
+    p[0] = p[1]
 
 
 def p_atom_base_ident(p: yacc.YaccProduction) -> None:

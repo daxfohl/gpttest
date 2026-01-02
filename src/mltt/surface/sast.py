@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Const, Env, GlobalDecl
+from mltt.kernel.ind import Ctor, Ind
 from mltt.kernel.levels import LConst, LevelExpr
 from mltt.surface.etype import ElabEnv, ElabType
 
@@ -129,16 +130,22 @@ class SVar(SurfaceTerm):
         decl, gty = _require_global_info(
             env, self.name, self.span, f"Unknown identifier {self.name}"
         )
-        term, levels = state.apply_implicit_levels(
-            Const(self.name), decl.uarity, self.span
-        )
+        head: Term
+        if isinstance(decl.value, (Ind, Ctor)):
+            head = decl.value
+        else:
+            head = Const(self.name)
+        term, levels = state.apply_implicit_levels(head, decl.uarity, self.span)
         return term, gty.inst_levels(levels)
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         idx = names.lookup(self.name)
         if idx is not None:
             return Var(idx)
-        if env.lookup_global(self.name) is not None:
+        decl = env.lookup_global(self.name)
+        if decl is not None:
+            if isinstance(decl.value, (Ind, Ctor)):
+                return decl.value
             return Const(self.name)
         raise SurfaceError(f"Unknown identifier {self.name}", self.span)
 
@@ -406,7 +413,10 @@ class SUApp(SurfaceTerm):
                 decl = env.lookup_global(name)
                 if decl is None:
                     raise SurfaceError(f"Unknown identifier {name}", self.span)
-                head_term = Const(name)
+                if isinstance(decl.value, (Ind, Ctor)):
+                    head_term = decl.value
+                else:
+                    head_term = Const(name)
             case SConst(name=name):
                 decl = env.lookup_global(name)
                 if decl is None:
@@ -417,16 +427,27 @@ class SUApp(SurfaceTerm):
                 if decl is None or decl.value is None:
                     raise SurfaceError(f"Unknown inductive {name}", self.span)
                 head_term = decl.value
+                if isinstance(head_term, UApp) and isinstance(head_term.head, Ind):
+                    head_term = head_term.head
             case SCtor(name=name):
                 decl = env.lookup_global(name)
                 if decl is None or decl.value is None:
                     raise SurfaceError(f"Unknown constructor {name}", self.span)
                 head_term = decl.value
+                if isinstance(head_term, UApp) and isinstance(head_term.head, Ctor):
+                    head_term = head_term.head
             case _:
                 head_term, _ = self.head.elab_infer(env, state)
                 if isinstance(head_term, UApp):
                     head_term = head_term.head
-        level_terms = tuple(LConst(level) for level in self.levels)
+        level_terms: tuple[LevelExpr, ...] = tuple(
+            (
+                LConst(level)
+                if isinstance(level, int)
+                else state.lookup_level(level, self.span)
+            )
+            for level in self.levels
+        )
         uapp = UApp(head_term, level_terms)
         return uapp, ElabType(uapp.infer_type(env.kenv))
 
