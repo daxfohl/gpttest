@@ -134,13 +134,8 @@ def test_named_args_with_implicit() -> None:
 
 def test_named_args_dependent_type() -> None:
     src = """
-    let apply_dep(impl A: Type 0, B: A -> Type 0, f: (x: A) -> B(x), x: A): B(x) :=
-      f(x);
-    apply_dep<Nat>(
-      B := fun (x: Nat) => Nat,
-      f := fun (x: Nat) => x,
-      x := Nat.Zero
-    )
+    let dep(impl A: Type 0, x: A, P: (y: A) -> Type 0, p: P(x)): P(x) := p;
+    dep<Nat>(x := Nat.Zero, P := fun (y: Nat) => Nat, p := x)
     """
     zero = _get_ctor("Nat.Zero")
     assert elab_eval(src) == zero
@@ -148,9 +143,8 @@ def test_named_args_dependent_type() -> None:
 
 def test_named_args_dependent_all_named() -> None:
     src = """
-    let apply_dep(impl A: Type 0, B: A -> Type 0, f: (x: A) -> B(x), x: A): B(x) :=
-      f(x);
-    apply_dep<Nat>(fun (x: Nat) => Nat, f := fun (x: Nat) => x, x := Nat.Zero)
+    let dep(impl A: Type 0, x: A, P: (y: A) -> Type 0, p: P(x)): P(x) := p;
+    dep<Nat>(P := fun (y: Nat) => Nat, p := x, x := Nat.Zero)
     """
     zero = _get_ctor("Nat.Zero")
     assert elab_eval(src) == zero
