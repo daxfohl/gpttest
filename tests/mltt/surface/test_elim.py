@@ -27,18 +27,18 @@ def test_surface_elim_add_comm() -> None:
 
     let succ(x: Nat): Nat := Nat.Succ(x);
     
-    inductive Id{u}<A: Type(u)> (x: A): (y: A) -> Type(u) :=
+    inductive Id<A: Type> (x: A): (y: A) -> Type :=
     | Refl: Id(x, x);
 
-    let sym{u}<A: Type(u), x: A, y: A>(p: Id(x, y)): Id(y, x) :=
+    let sym<A: Type, x: A, y: A>(p: Id(x, y)): Id(y, x) :=
       match p with
       | Refl => ctor Id.Refl;
 
-    let trans{u}<A: Type(u), x: A, y: A, z: A>(p: Id(x, y), q: Id(y, z)): Id(x, z) :=
+    let trans<A: Type, x: A, y: A, z: A>(p: Id(x, y), q: Id(y, z)): Id(x, z) :=
       match q with
       | Refl => p;
 
-    let ap{u}<A: Type(u), B: Type(u)>(f: A -> B) <x: A, y: A>(p: Id(x, y)): Id(f(x), f(y)) :=
+    let ap<A: Type, B: Type>(f: A -> B) <x: A, y: A>(p: Id(x, y)): Id(f(x), f(y)) :=
       match p with
       | Refl => ctor Id.Refl;
     

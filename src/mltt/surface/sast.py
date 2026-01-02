@@ -480,6 +480,8 @@ class SLet(SurfaceTerm):
         val_term = _desugar_equation_rec(self.name, self.val).elab_check(
             env, state, ElabType(ty_term)
         )
+        if not self.uparams:
+            ty_term, val_term = state.merge_type_level_metas([ty_term, val_term])
         state.level_names = old_level_names
         uarity, ty_term, val_term = state.generalize_levels_for_let(ty_term, val_term)
         implicit_spine = _implicit_spine(self.ty)

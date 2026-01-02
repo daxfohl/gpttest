@@ -177,6 +177,119 @@ class ElabState:
                 self.level_metas.pop(mid, None)
         return len(to_generalize), ty_gen, value_gen
 
+    def merge_type_level_metas(self, terms: list[Term]) -> list[Term]:
+        meta_ids: list[int] = []
+        for term in terms:
+            meta_ids.extend(self._collect_level_metas(term))
+        type_metas = [
+            mid
+            for mid in meta_ids
+            if (info := self.level_metas.get(mid)) is not None
+            and info.solution is None
+            and info.origin == "type"
+        ]
+        if len(type_metas) <= 1:
+            return terms
+        root = type_metas[0]
+        mapping: dict[int, LevelExpr] = {mid: LMeta(root) for mid in type_metas[1:]}
+        terms = [self._replace_level_metas(term, mapping) for term in terms]
+        if mapping:
+            self.constraints = [
+                Constraint(
+                    c.ctx_len,
+                    self._replace_level_metas(c.lhs, mapping),
+                    self._replace_level_metas(c.rhs, mapping),
+                    c.span,
+                    c.kind,
+                )
+                for c in self.constraints
+            ]
+            self.level_constraints = [
+                LevelConstraint(
+                    self._replace_level_expr(c.lhs, mapping),
+                    self._replace_level_expr(c.rhs, mapping),
+                    c.span,
+                    c.reason,
+                )
+                for c in self.level_constraints
+            ]
+        for mid in type_metas[1:]:
+            self.level_metas.pop(mid, None)
+        return terms
+
+    def generalize_levels(self, terms: list[Term]) -> tuple[int, list[Term]]:
+        meta_ids: set[int] = set()
+        for term in terms:
+            meta_ids |= self._collect_level_metas(term)
+        if not meta_ids:
+            return 0, terms
+        equalities = self._level_meta_equalities()
+        parent: dict[int, int] = {mid: mid for mid in meta_ids}
+
+        def find(mid: int) -> int:
+            while parent[mid] != mid:
+                parent[mid] = parent[parent[mid]]
+                mid = parent[mid]
+            return mid
+
+        def union(a: int, b: int) -> None:
+            ra = find(a)
+            rb = find(b)
+            if ra != rb:
+                parent[rb] = ra
+
+        for a, b in equalities:
+            if a in parent and b in parent:
+                union(a, b)
+
+        groups: dict[int, list[int]] = {}
+        for mid in meta_ids:
+            groups.setdefault(find(mid), []).append(mid)
+
+        to_generalize: list[list[int]] = []
+        for members in groups.values():
+            infos = [self.level_metas.get(mid) for mid in members]
+            if any(info is None or info.solution is not None for info in infos):
+                continue
+            if any(info.upper_bounds for info in infos if info is not None):
+                continue
+            if any(info.lower_bound != LConst(0) for info in infos if info is not None):
+                continue
+            to_generalize.append(sorted(members))
+
+        if not to_generalize:
+            return 0, terms
+
+        mapping: dict[int, LevelExpr] = {}
+        for idx, group in enumerate(to_generalize):
+            for mid in group:
+                mapping[mid] = LVar(idx)
+        terms_gen = [self._replace_level_metas(term, mapping) for term in terms]
+        if mapping:
+            self.constraints = [
+                Constraint(
+                    c.ctx_len,
+                    self._replace_level_metas(c.lhs, mapping),
+                    self._replace_level_metas(c.rhs, mapping),
+                    c.span,
+                    c.kind,
+                )
+                for c in self.constraints
+            ]
+            self.level_constraints = [
+                LevelConstraint(
+                    self._replace_level_expr(c.lhs, mapping),
+                    self._replace_level_expr(c.rhs, mapping),
+                    c.span,
+                    c.reason,
+                )
+                for c in self.level_constraints
+            ]
+        for group in to_generalize:
+            for mid in group:
+                self.level_metas.pop(mid, None)
+        return len(to_generalize), terms_gen
+
     def solve(self, env: Env) -> None:
         queue: deque[Constraint] = deque(self.constraints)
         postponed: list[Constraint] = []

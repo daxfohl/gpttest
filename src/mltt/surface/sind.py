@@ -141,12 +141,22 @@ class SInductiveDef(SurfaceTerm):
         _expect_universe(level_ty.term, env_indices.kenv, level_body.span)
         if not isinstance(level_term, Univ):
             raise SurfaceError("Inductive level must be a Type", level_body.span)
+        uarity = len(self.uparams)
+        if uarity == 0:
+            terms = [*param_tys, *index_tys, level_term]
+            terms = state.merge_type_level_metas(terms)
+            uarity, generalized = state.generalize_levels(terms)
+            param_tys = generalized[: len(param_tys)]
+            index_tys = generalized[len(param_tys) : len(param_tys) + len(index_tys)]
+            level_term = generalized[-1]
+        if not isinstance(level_term, Univ):
+            raise SurfaceError("Inductive level must be a Type", level_body.span)
         ind = Ind(
             name=self.name,
             param_types=Telescope.of(*param_tys),
             index_types=Telescope.of(*index_tys),
             level=level_term.level,
-            uarity=len(self.uparams),
+            uarity=uarity,
         )
         param_impls = tuple(binder.implicit for binder in self.params)
         mapping: dict[str, Term] = {self.name: ind}
