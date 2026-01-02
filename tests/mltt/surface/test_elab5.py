@@ -70,8 +70,8 @@ def test_surface_let_universe_binders() -> None:
     env = prelude_env()
     src = """
     let id{u}(impl A: Type(u), x: A): A := x;
-    let x: Nat := id(impl Nat, Nat.Zero);
-    id(impl Type, Nat)
+    let x: Nat := id<Nat>(Nat.Zero);
+    id<Type>(Nat)
     """
     elab_ok_in_env(src, env)
 
@@ -104,7 +104,7 @@ def test_surface_inductive_ctor_implicit_fields() -> None:
     src = """
     inductive Wrap(A: Type 0): Type 0 := 
     | Mk(impl x: A);
-    let mk(A: Type 0, x: A): const Wrap(A) := ctor Wrap.Mk(A, impl x);
+    let mk(A: Type 0, x: A): const Wrap(A) := ctor Wrap.Mk(A, x := x);
     mk(Nat, Nat.Zero)
     """
     elab_ok_in_env(src, env)

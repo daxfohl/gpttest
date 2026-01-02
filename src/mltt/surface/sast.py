@@ -394,28 +394,14 @@ class SApp(SurfaceTerm):
             consume_positional = False
             if binder_name is not None and binder_name in named:
                 arg = named.pop(binder_name)
-                if binder_is_implicit and not arg.implicit:
-                    raise SurfaceError(
-                        f"Implicit argument {binder_name} must be marked impl",
-                        arg.term.span,
-                    )
             elif pos_index < len(positional):
-                arg = positional[pos_index]
-                consume_positional = True
-            if arg is not None and binder_is_implicit and not arg.implicit:
-                meta = state.fresh_meta(
-                    env.kenv, fn_ty_whnf.arg_ty, self.span, kind="implicit"
-                )
-                fn_term = App(fn_term, meta)
-                fn_ty = ElabType(
-                    fn_ty_whnf.return_ty.subst(meta),
-                    fn_ty.implicit_spine[1:],
-                    fn_ty.binder_names[1:],
-                )
-                spine_index += 1
-                if arg is not None and consume_positional:
-                    consume_positional = False
-                continue
+                candidate = positional[pos_index]
+                if binder_is_implicit and candidate.implicit:
+                    arg = candidate
+                    consume_positional = True
+                elif not binder_is_implicit:
+                    arg = candidate
+                    consume_positional = True
             if arg is None:
                 if binder_is_implicit:
                     meta = state.fresh_meta(
