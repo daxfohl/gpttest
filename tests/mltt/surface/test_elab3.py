@@ -134,11 +134,13 @@ def test_named_args_with_implicit() -> None:
 
 def test_named_args_dependent_type() -> None:
     src = """
-    inductive Id<A>(x: A): (y: A) -> Type :=
-    | Refl: Id(x, x);
-    let refl<A>(x: A): Id(x, x) := ctor Id.Refl;
-    let keep<A>(x: A, y: A, p: Id(x, y)): A := x;
-    keep<Nat>(Nat.Zero, y := Nat.Zero, p := refl<Nat>(Nat.Zero))
+    let apply_dep(impl A: Type 0, B: A -> Type 0, f: (x: A) -> B(x), x: A): B(x) :=
+      f(x);
+    apply_dep<Nat>(
+      B := fun (x: Nat) => Nat,
+      f := fun (x: Nat) => x,
+      x := Nat.Zero
+    )
     """
     zero = _get_ctor("Nat.Zero")
     assert elab_eval(src) == zero
@@ -146,11 +148,9 @@ def test_named_args_dependent_type() -> None:
 
 def test_named_args_dependent_all_named() -> None:
     src = """
-    inductive Id<A>(x: A): (y: A) -> Type :=
-    | Refl: Id(x, x);
-    let refl<A>(x: A): Id(x, x) := ctor Id.Refl;
-    let keep<A>(x: A, y: A, p: Id(x, y)): A := x;
-    keep<Nat>(p := refl<Nat>(Nat.Zero), y := Nat.Zero, x := Nat.Zero)
+    let apply_dep(impl A: Type 0, B: A -> Type 0, f: (x: A) -> B(x), x: A): B(x) :=
+      f(x);
+    apply_dep<Nat>(fun (x: Nat) => Nat, f := fun (x: Nat) => x, x := Nat.Zero)
     """
     zero = _get_ctor("Nat.Zero")
     assert elab_eval(src) == zero
