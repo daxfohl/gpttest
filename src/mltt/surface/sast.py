@@ -352,6 +352,10 @@ class SApp(SurfaceTerm):
         applied_args: list[Term] = []
         applied_arg_types: list[Term] = []
         applied_arg_names: list[str | None] = []
+        context_args: list[Term] = []
+        context_arg_types: list[Term] = []
+        context_arg_names: list[str | None] = []
+        use_context = any(arg.name is not None for arg in pending)
         named_seen = False
         for item in pending:
             if item.name is not None:
@@ -429,17 +433,17 @@ class SApp(SurfaceTerm):
                 )
             arg_env = env
             arg_ty = fn_ty_whnf.arg_ty
-            if applied_args:
+            if use_context and context_args:
                 allow_names = arg.name is not None
                 for prev_ty, prev_name in zip(
-                    applied_arg_types, applied_arg_names, strict=True
+                    context_arg_types, context_arg_names, strict=True
                 ):
                     name = prev_name if allow_names else None
                     arg_env = arg_env.push_binder(ElabType(prev_ty), name=name)
-                arg_ty = arg_ty.shift(len(applied_args))
+                arg_ty = arg_ty.shift(len(context_args))
             arg_term = arg.term.elab_check(arg_env, state, ElabType(arg_ty))
-            if applied_args:
-                arg_term = arg_term.instantiate(ArgList.of(*applied_args))
+            if use_context and context_args:
+                arg_term = arg_term.instantiate(ArgList.of(*context_args))
             fn_term = App(fn_term, arg_term)
             fn_ty = ElabType(
                 fn_ty_whnf.return_ty.subst(arg_term),
@@ -449,6 +453,9 @@ class SApp(SurfaceTerm):
             applied_args.append(arg_term)
             applied_arg_types.append(fn_ty_whnf.arg_ty)
             applied_arg_names.append(binder_name)
+            context_args.append(arg_term)
+            context_arg_types.append(fn_ty_whnf.arg_ty)
+            context_arg_names.append(binder_name)
             spine_index += 1
             if consume_positional:
                 pos_index += 1
