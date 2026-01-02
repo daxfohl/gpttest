@@ -202,3 +202,21 @@ def test_named_args_dependent_all_named1() -> None:
     """
     zero = _get_ctor("Nat.Zero")
     assert elab_eval(src) == zero
+
+
+def test_positional_dependent_scope_ordering() -> None:
+    src = """
+    let dep(impl A: Type 0, x: A, P: (y: A) -> Type 0, p: P(x)): P(x) := p;
+    dep<Nat>(Nat.Zero, fun (y: Nat) => Nat, x)
+    """
+    zero = _get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
+
+
+def test_positional_dependent_scope_reorder() -> None:
+    src = """
+    let dep(impl A: Type 0, x: A, P: (y: A) -> Type 0, p: P(x)): P(x) := p;
+    dep<Nat>(Nat.Zero, fun (y: Nat) => Nat, p := x)
+    """
+    zero = _get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
