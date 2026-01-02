@@ -28,7 +28,7 @@ def test_surface_elim_add_comm() -> None:
     let succ(x: Nat): Nat := Nat.Succ(x);
     
     inductive Id{u}(A: Type(u)) (x: A): (y: A) -> Type(u) :=
-    | Refl: Id@{u}(A, x, x);
+    | Refl: Id(A, x, x);
 
     let sym{u}<A: Type(u), x: A, y: A>(p: Id(A, x, y)): Id(A, y, x) :=
       match p with
