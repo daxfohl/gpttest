@@ -14,6 +14,7 @@ class ElabType:
 
     term: Term
     implicit_spine: tuple[bool, ...] = ()
+    binder_names: tuple[str | None, ...] = ()
 
     def whnf(self, env: Env) -> Term:
         return self.term.whnf(env)
@@ -21,7 +22,9 @@ class ElabType:
     def inst_levels(self, levels: tuple) -> "ElabType":
         if not levels:
             return self
-        return ElabType(self.term.inst_levels(levels), self.implicit_spine)
+        return ElabType(
+            self.term.inst_levels(levels), self.implicit_spine, self.binder_names
+        )
 
 
 @dataclass(frozen=True)
@@ -62,7 +65,9 @@ class ElabEnv:
         if k < 0 or k >= len(self.locals):
             raise IndexError(f"Unbound variable {k}")
         local = self.locals[k]
-        return ElabType(local.term.shift(k + 1), local.implicit_spine)
+        return ElabType(
+            local.term.shift(k + 1), local.implicit_spine, local.binder_names
+        )
 
     def push_binder(
         self, ty: ElabType, name: str | None = None, uarity: int = 0

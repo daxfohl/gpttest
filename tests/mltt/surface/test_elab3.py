@@ -38,3 +38,11 @@ def test_multiple_implicits() -> None:
     k(Nat.Zero, Nat.Succ(Nat.Zero))
     """
     elab_ok(src)
+
+
+def test_named_args() -> None:
+    src = """
+    let k<A, B, C>(a: A, b: B, c: C): A := a;
+    k<Nat, Nat>(Nat.Zero, c := Nat.Zero, b := Nat.Zero)
+    """
+    elab_ok(src)

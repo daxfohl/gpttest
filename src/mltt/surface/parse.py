@@ -825,6 +825,16 @@ def p_call_arg_impl(p: yacc.YaccProduction) -> None:
     p[0] = SArg(p[2], implicit=True)
 
 
+def p_call_arg_named(p: yacc.YaccProduction) -> None:
+    "call_arg : IDENT DEFINE term"
+    p[0] = SArg(p[3], implicit=False, name=p[1])
+
+
+def p_call_arg_named_impl(p: yacc.YaccProduction) -> None:
+    "call_arg : IMPL IDENT DEFINE term"
+    p[0] = SArg(p[4], implicit=True, name=p[2])
+
+
 def p_level_list_single(p: yacc.YaccProduction) -> None:
     "level_list : level_atom"
     p[0] = [p[1]]

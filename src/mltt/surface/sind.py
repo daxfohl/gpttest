@@ -43,7 +43,7 @@ class SInd(SurfaceTerm):
             raise SurfaceError(f"{self.name} is not an inductive", self.span)
         term, levels = state.apply_implicit_levels(ind, decl.uarity, self.span)
         ty = gty.inst_levels(levels)
-        return term, ElabType(state.zonk(ty.term), ty.implicit_spine)
+        return term, ElabType(state.zonk(ty.term), ty.implicit_spine, ty.binder_names)
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         raise SurfaceError("Inductive references require elaboration", self.span)
@@ -63,13 +63,15 @@ class SCtor(SurfaceTerm):
             ctor = decl.value.head
             term, levels = state.apply_implicit_levels(ctor, decl.uarity, self.span)
             ty = gty.inst_levels(levels)
-            return term, ElabType(state.zonk(ty.term), ty.implicit_spine)
+            return term, ElabType(
+                state.zonk(ty.term), ty.implicit_spine, ty.binder_names
+            )
         if not isinstance(decl.value, Ctor):
             raise SurfaceError(f"{self.name} is not a constructor", self.span)
         ctor = decl.value
         term, levels = state.apply_implicit_levels(ctor, decl.uarity, self.span)
         ty = gty.inst_levels(levels)
-        return term, ElabType(state.zonk(ty.term), ty.implicit_spine)
+        return term, ElabType(state.zonk(ty.term), ty.implicit_spine, ty.binder_names)
 
     def elab_check(self, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
         term, term_ty = self.elab_infer(env, state)
@@ -159,6 +161,9 @@ class SInductiveDef(SurfaceTerm):
             uarity=uarity,
         )
         param_impls = tuple(binder.implicit for binder in self.params)
+        param_names = tuple(binder.name for binder in self.params)
+        index_names = tuple(binder.name for binder in index_binders)
+        binder_names = param_names + index_names
         mapping: dict[str, Term] = {self.name: ind}
         globals_dict = dict(env.kenv.globals)
         ind_ty = ind.infer_type(env.kenv)
@@ -171,7 +176,10 @@ class SInductiveDef(SurfaceTerm):
         env_with_ind = ElabEnv(
             kenv=Env(binders=env.kenv.binders, globals=MappingProxyType(globals_dict)),
             locals=env.locals,
-            eglobals={**env.eglobals, self.name: ElabType(ind_ty, param_impls)},
+            eglobals={
+                **env.eglobals,
+                self.name: ElabType(ind_ty, param_impls, binder_names),
+            },
         )
         env_params_with_ind = ElabEnv(
             kenv=Env(
@@ -182,6 +190,7 @@ class SInductiveDef(SurfaceTerm):
         )
         ctors: list[Ctor] = []
         ctor_impls_map: dict[str, tuple[bool, ...]] = {}
+        ctor_names_map: dict[str, tuple[str | None, ...]] = {}
         for ctor_decl in self.ctors:
             ctor_name = f"{self.name}.{ctor_decl.name}"
             if env.lookup_global(ctor_name) is not None:
@@ -231,6 +240,9 @@ class SInductiveDef(SurfaceTerm):
             ctor_impls_map[ctor_decl.name] = param_impls + tuple(
                 binder.implicit for binder in ctor_decl.fields
             )
+            ctor_names_map[ctor_decl.name] = param_names + tuple(
+                binder.name for binder in ctor_decl.fields
+            )
         object.__setattr__(ind, "constructors", tuple(ctors))
         state.level_names = old_level_names
         for ctor in ctors:
@@ -248,11 +260,12 @@ class SInductiveDef(SurfaceTerm):
             locals=env.locals,
             eglobals={
                 **env.eglobals,
-                self.name: ElabType(ind_ty, param_impls),
+                self.name: ElabType(ind_ty, param_impls, binder_names),
                 **{
                     f"{self.name}.{ctor.name}": ElabType(
                         ctor.infer_type(env.kenv),
                         ctor_impls_map.get(ctor.name, ()),
+                        ctor_names_map.get(ctor.name, ()),
                     )
                     for ctor in ctors
                 },
@@ -261,7 +274,9 @@ class SInductiveDef(SurfaceTerm):
         body_term, body_ty = self.body.elab_infer(env1, state)
         body_term = self._replace_defined(body_term, mapping)
         body_ty = ElabType(
-            self._replace_defined(body_ty.term, mapping), body_ty.implicit_spine
+            self._replace_defined(body_ty.term, mapping),
+            body_ty.implicit_spine,
+            body_ty.binder_names,
         )
         state.constraints = [
             Constraint(

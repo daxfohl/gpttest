@@ -30,11 +30,11 @@ def test_surface_elim_add_comm() -> None:
     inductive Id<A>(x: A): (y: A) -> Type :=
     | Refl: Id(x, x);
 
-    let sym<A>(x: A, y: A, p: Id(x, y)): Id(y, x) :=
+    let sym<A>(impl x: A, impl y: A, p: Id(x, y)): Id(y, x) :=
       match p with
       | Refl => ctor Id.Refl;
 
-    let trans<A>(x: A, y: A, z: A, p: Id(x, y), q: Id(y, z)): Id(x, z) :=
+    let trans<A>(impl x: A, impl y: A, impl z: A, p: Id(x, y), q: Id(y, z)): Id(x, z) :=
       match q with
       | Refl => p;
 

@@ -92,6 +92,7 @@ class SBinder:
 class SArg:
     term: SurfaceTerm
     implicit: bool = False
+    name: str | None = None
 
 
 @dataclass
@@ -127,7 +128,9 @@ class SVar(SurfaceTerm):
                 Var(idx), binder.uarity, self.span
             )
             ty = env.local_type(idx).inst_levels(levels)
-            return term, ElabType(state.zonk(ty.term), ty.implicit_spine)
+            return term, ElabType(
+                state.zonk(ty.term), ty.implicit_spine, ty.binder_names
+            )
         decl, gty = _require_global_info(
             env, self.name, self.span, f"Unknown identifier {self.name}"
         )
@@ -138,7 +141,7 @@ class SVar(SurfaceTerm):
             head = Const(self.name)
         term, levels = state.apply_implicit_levels(head, decl.uarity, self.span)
         ty = gty.inst_levels(levels)
-        return term, ElabType(state.zonk(ty.term), ty.implicit_spine)
+        return term, ElabType(state.zonk(ty.term), ty.implicit_spine, ty.binder_names)
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         idx = names.lookup(self.name)
@@ -164,7 +167,7 @@ class SConst(SurfaceTerm):
             Const(self.name), decl.uarity, self.span
         )
         ty = gty.inst_levels(levels)
-        return term, ElabType(state.zonk(ty.term), ty.implicit_spine)
+        return term, ElabType(state.zonk(ty.term), ty.implicit_spine, ty.binder_names)
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         if env.lookup_global(self.name) is None:
@@ -204,7 +207,7 @@ class SAnn(SurfaceTerm):
         ty_term, ty_ty = self.ty.elab_infer(env, state)
         _expect_universe(ty_ty.term, env.kenv, self.span)
         term = self.term.elab_check(env, state, ElabType(ty_term))
-        return term, ElabType(ty_term)
+        return term, ElabType(ty_term, _implicit_spine(self.ty), _binder_names(self.ty))
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         return self.term.resolve(env, names)
@@ -240,11 +243,15 @@ class SLam(SurfaceTerm):
         lam_term = body_term
         lam_ty_term = body_ty.term
         implicit_spine = body_ty.implicit_spine
-        for ty, implicit in reversed(list(zip(binder_tys, binder_impls))):
+        binder_names = body_ty.binder_names
+        for ty, implicit, name in reversed(
+            list(zip(binder_tys, binder_impls, (b.name for b in self.binders)))
+        ):
             lam_term = Lam(ty, lam_term)
             lam_ty_term = Pi(ty, lam_ty_term)
             implicit_spine = (implicit,) + implicit_spine
-        return lam_term, ElabType(lam_ty_term, implicit_spine)
+            binder_names = (name,) + binder_names
+        return lam_term, ElabType(lam_ty_term, implicit_spine, binder_names)
 
     def elab_check(self, env: ElabEnv, state: "ElabState", expected: ElabType) -> Term:
         binder_tys: list[Term] = []
@@ -338,17 +345,64 @@ class SApp(SurfaceTerm):
     def elab_infer(self, env: ElabEnv, state: "ElabState") -> tuple[Term, ElabType]:
         fn_term, fn_ty = self.fn.elab_infer(env, state)
         implicit_spine = _implicit_spine_for_term(fn_term, env)
+        binder_names = fn_ty.binder_names
         spine_index = 0
         pending = list(self.args)
-        while pending:
+        named_seen = False
+        for item in pending:
+            if item.name is not None:
+                named_seen = True
+                continue
+            if named_seen:
+                raise SurfaceError(
+                    "Positional arguments must come before named arguments",
+                    item.term.span,
+                )
+        if any(arg.name is not None for arg in pending) and not binder_names:
+            raise SurfaceError("Named arguments require binder names", self.span)
+        positional = [arg for arg in pending if arg.name is None]
+        named: dict[str, SArg] = {}
+        for item in pending:
+            if item.name is None:
+                continue
+            if item.name in named:
+                raise SurfaceError(
+                    f"Duplicate named argument {item.name}", item.term.span
+                )
+            named[item.name] = item
+        pos_index = 0
+        while True:
             fn_ty_whnf = fn_ty.term.whnf(env.kenv)
             if not isinstance(fn_ty_whnf, Pi):
-                raise SurfaceError("Application of non-function", pending[0].term.span)
+                if pos_index < len(positional) or named:
+                    raise SurfaceError(
+                        "Application of non-function",
+                        (
+                            positional[pos_index].term.span
+                            if pos_index < len(positional)
+                            else next(iter(named.values())).term.span
+                        ),
+                    )
+                break
             binder_is_implicit = False
             if implicit_spine is not None and spine_index < len(implicit_spine):
                 binder_is_implicit = implicit_spine[spine_index]
-            arg = pending.pop(0)
-            if binder_is_implicit and not arg.implicit:
+            binder_name = (
+                binder_names[spine_index] if spine_index < len(binder_names) else None
+            )
+            arg: SArg | None = None
+            consume_positional = False
+            if binder_name is not None and binder_name in named:
+                arg = named.pop(binder_name)
+                if binder_is_implicit and not arg.implicit:
+                    raise SurfaceError(
+                        f"Implicit argument {binder_name} must be marked impl",
+                        arg.term.span,
+                    )
+            elif pos_index < len(positional):
+                arg = positional[pos_index]
+                consume_positional = True
+            if arg is not None and binder_is_implicit and not arg.implicit:
                 meta = state.fresh_meta(
                     env.kenv, fn_ty_whnf.arg_ty, self.span, kind="implicit"
                 )
@@ -356,10 +410,26 @@ class SApp(SurfaceTerm):
                 fn_ty = ElabType(
                     fn_ty_whnf.return_ty.subst(meta),
                     fn_ty.implicit_spine[1:],
+                    fn_ty.binder_names[1:],
                 )
                 spine_index += 1
-                pending.insert(0, arg)
+                if arg is not None and consume_positional:
+                    consume_positional = False
                 continue
+            if arg is None:
+                if binder_is_implicit:
+                    meta = state.fresh_meta(
+                        env.kenv, fn_ty_whnf.arg_ty, self.span, kind="implicit"
+                    )
+                    fn_term = App(fn_term, meta)
+                    fn_ty = ElabType(
+                        fn_ty_whnf.return_ty.subst(meta),
+                        fn_ty.implicit_spine[1:],
+                        fn_ty.binder_names[1:],
+                    )
+                    spine_index += 1
+                    continue
+                raise SurfaceError("Missing explicit argument", self.span)
             if not binder_is_implicit and arg.implicit and implicit_spine is not None:
                 raise SurfaceError(
                     "Implicit argument provided where explicit expected", arg.term.span
@@ -369,8 +439,14 @@ class SApp(SurfaceTerm):
             fn_ty = ElabType(
                 fn_ty_whnf.return_ty.subst(arg_term),
                 fn_ty.implicit_spine[1:],
+                fn_ty.binder_names[1:],
             )
             spine_index += 1
+            if consume_positional:
+                pos_index += 1
+        if named:
+            unknown = next(iter(named.keys()))
+            raise SurfaceError(f"Unknown named argument {unknown}", self.span)
         while True:
             fn_ty_whnf = fn_ty.term.whnf(env.kenv)
             if not isinstance(fn_ty_whnf, Pi):
@@ -378,7 +454,7 @@ class SApp(SurfaceTerm):
             if implicit_spine is None or spine_index >= len(implicit_spine):
                 break
             if not implicit_spine[spine_index]:
-                break
+                raise SurfaceError("Missing explicit argument", self.span)
             meta = state.fresh_meta(
                 env.kenv, fn_ty_whnf.arg_ty, self.span, kind="implicit"
             )
@@ -386,6 +462,7 @@ class SApp(SurfaceTerm):
             fn_ty = ElabType(
                 fn_ty_whnf.return_ty.subst(meta),
                 fn_ty.implicit_spine[1:],
+                fn_ty.binder_names[1:],
             )
             spine_index += 1
         return fn_term, fn_ty
@@ -485,13 +562,14 @@ class SLet(SurfaceTerm):
         state.level_names = old_level_names
         uarity, ty_term, val_term = state.generalize_levels_for_let(ty_term, val_term)
         implicit_spine = _implicit_spine(self.ty)
+        binder_names = _binder_names(self.ty)
         env1 = env.push_let(
-            ElabType(ty_term, implicit_spine),
+            ElabType(ty_term, implicit_spine, binder_names),
             val_term,
             name=self.name,
             uarity=uarity,
         )
-        env1.eglobals[self.name] = ElabType(ty_term, implicit_spine)
+        env1.eglobals[self.name] = ElabType(ty_term, implicit_spine, binder_names)
         body_term, body_ty = self.body.elab_infer(env1, state)
         return Let(ty_term, val_term, body_term), body_ty
 
@@ -516,7 +594,10 @@ def _elab_binders(
         ty_term, ty_ty = binder.ty.elab_infer(env, state)
         ty_ty_whnf = _expect_universe(ty_ty.term, env.kenv, binder.span)
         implicit_spine = _implicit_spine(binder.ty)
-        env = env.push_binder(ElabType(ty_term, implicit_spine), name=binder.name)
+        binder_names = _binder_names(binder.ty)
+        env = env.push_binder(
+            ElabType(ty_term, implicit_spine, binder_names), name=binder.name
+        )
         binder_tys.append(ty_term)
         binder_impls.append(binder.implicit)
         binder_levels.append(ty_ty_whnf.level)
@@ -532,6 +613,17 @@ def _implicit_spine(term: SurfaceTerm | None) -> tuple[bool, ...]:
         spine.extend(b.implicit for b in current.binders)
         current = current.body
     return tuple(spine)
+
+
+def _binder_names(term: SurfaceTerm | None) -> tuple[str | None, ...]:
+    if term is None:
+        return ()
+    names: list[str | None] = []
+    current = term
+    while isinstance(current, SPi):
+        names.extend(b.name for b in current.binders)
+        current = current.body
+    return tuple(names)
 
 
 def _implicit_spine_for_term(term: Term, env: ElabEnv) -> tuple[bool, ...] | None:
@@ -696,7 +788,8 @@ def _replace_recursive_call(
                     span=t.span,
                     fn=SVar(span=t.span, name=ih_name),
                     args=tuple(
-                        SArg(term=arg.term, implicit=arg.implicit) for arg in ih_args
+                        SArg(term=arg.term, implicit=arg.implicit, name=arg.name)
+                        for arg in ih_args
                     ),
                 )
             return SVar(span=t.span, name=ih_name)
@@ -707,7 +800,7 @@ def _replace_recursive_call(
             for arg in t.args:
                 new_term = replace(arg.term)
                 changed = changed or new_term is not arg.term
-                new_args.append(SArg(new_term, implicit=arg.implicit))
+                new_args.append(SArg(new_term, implicit=arg.implicit, name=arg.name))
             if changed:
                 return SApp(span=t.span, fn=new_fn, args=tuple(new_args))
             return t
