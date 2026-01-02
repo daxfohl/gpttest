@@ -89,7 +89,10 @@ class ElabState:
         return UApp(head, levels), levels
 
     def add_constraint(self, env: Env, lhs: Term, rhs: Term, span: Span | None) -> None:
-        self.constraints.append(Constraint(len(env.binders), lhs, rhs, span))
+        constraint = Constraint(len(env.binders), lhs, rhs, span)
+        if self._solve_meta(env, constraint, lhs, rhs):
+            return
+        self.constraints.append(constraint)
 
     def add_level_constraint(
         self,

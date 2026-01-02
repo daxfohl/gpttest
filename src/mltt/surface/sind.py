@@ -42,7 +42,8 @@ class SInd(SurfaceTerm):
         else:
             raise SurfaceError(f"{self.name} is not an inductive", self.span)
         term, levels = state.apply_implicit_levels(ind, decl.uarity, self.span)
-        return term, gty.inst_levels(levels)
+        ty = gty.inst_levels(levels)
+        return term, ElabType(state.zonk(ty.term), ty.implicit_spine)
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         raise SurfaceError("Inductive references require elaboration", self.span)
@@ -61,12 +62,14 @@ class SCtor(SurfaceTerm):
         if isinstance(decl.value, UApp) and isinstance(decl.value.head, Ctor):
             ctor = decl.value.head
             term, levels = state.apply_implicit_levels(ctor, decl.uarity, self.span)
-            return term, gty.inst_levels(levels)
+            ty = gty.inst_levels(levels)
+            return term, ElabType(state.zonk(ty.term), ty.implicit_spine)
         if not isinstance(decl.value, Ctor):
             raise SurfaceError(f"{self.name} is not a constructor", self.span)
         ctor = decl.value
         term, levels = state.apply_implicit_levels(ctor, decl.uarity, self.span)
-        return term, gty.inst_levels(levels)
+        ty = gty.inst_levels(levels)
+        return term, ElabType(state.zonk(ty.term), ty.implicit_spine)
 
     def elab_check(self, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
         term, term_ty = self.elab_infer(env, state)
@@ -197,11 +200,8 @@ class SInductiveDef(SurfaceTerm):
                         "Constructor result has wrong arity", ctor_decl.span
                     )
                 param_vars = ArgList.vars(p, len(field_tys))
-                if args[:p] != param_vars:
-                    raise SurfaceError(
-                        "Constructor result parameters must be unchanged",
-                        ctor_decl.span,
-                    )
+                for arg, expected in zip(args[:p], param_vars):
+                    state.add_constraint(env_fields.kenv, arg, expected, ctor_decl.span)
                 result_indices = args[p:]
             field_tys = [
                 self._replace_defined(field_ty, mapping) for field_ty in field_tys

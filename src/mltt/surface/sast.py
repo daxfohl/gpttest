@@ -126,7 +126,8 @@ class SVar(SurfaceTerm):
             term, levels = state.apply_implicit_levels(
                 Var(idx), binder.uarity, self.span
             )
-            return term, env.local_type(idx).inst_levels(levels)
+            ty = env.local_type(idx).inst_levels(levels)
+            return term, ElabType(state.zonk(ty.term), ty.implicit_spine)
         decl, gty = _require_global_info(
             env, self.name, self.span, f"Unknown identifier {self.name}"
         )
@@ -136,7 +137,8 @@ class SVar(SurfaceTerm):
         else:
             head = Const(self.name)
         term, levels = state.apply_implicit_levels(head, decl.uarity, self.span)
-        return term, gty.inst_levels(levels)
+        ty = gty.inst_levels(levels)
+        return term, ElabType(state.zonk(ty.term), ty.implicit_spine)
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         idx = names.lookup(self.name)
@@ -161,7 +163,8 @@ class SConst(SurfaceTerm):
         term, levels = state.apply_implicit_levels(
             Const(self.name), decl.uarity, self.span
         )
-        return term, gty.inst_levels(levels)
+        ty = gty.inst_levels(levels)
+        return term, ElabType(state.zonk(ty.term), ty.implicit_spine)
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
         if env.lookup_global(self.name) is None:
@@ -542,6 +545,17 @@ def _implicit_spine_for_term(term: Term, env: ElabEnv) -> tuple[bool, ...] | Non
     elif isinstance(head, Const):
         gty = env.global_type(head.name)
         assert gty is not None
+        implicit_spine = gty.implicit_spine
+    elif isinstance(head, Ind):
+        gty = env.global_type(head.name)
+        if gty is None:
+            return None
+        implicit_spine = gty.implicit_spine
+    elif isinstance(head, Ctor):
+        ctor_name = f"{head.inductive.name}.{head.name}"
+        gty = env.global_type(ctor_name)
+        if gty is None:
+            return None
         implicit_spine = gty.implicit_spine
     else:
         return None
