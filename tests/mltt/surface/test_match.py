@@ -73,7 +73,7 @@ def test_match_missing_branch() -> None:
 
 def test_let_destruct_sigma() -> None:
     src = """
-    let p: Sigma(Nat, fun (x: Nat) => Nat) := ctor Sigma.Pair(Nat, fun (x: Nat) => Nat, Nat.Zero, Nat.Zero);
+    let p := ctor Sigma.Pair(Nat, fun (x: Nat) => Nat, Nat.Zero, Nat.Zero);
     let (a, b) := p;
     a
     """
@@ -82,7 +82,7 @@ def test_let_destruct_sigma() -> None:
 
 def test_match_nested_pattern() -> None:
     src = """
-    let xs: const List(Nat) := ctor List.Cons(Nat, Nat.Zero, ctor List.Cons(Nat, Nat.Zero, ctor List.Nil(Nat)));
+    let xs := ctor List.Cons(Nat, Nat.Zero, ctor List.Cons(Nat, Nat.Zero, ctor List.Nil(Nat)));
     let y: Nat := 
       match xs with
       | Cons x (Cons y ys) => y
@@ -94,8 +94,8 @@ def test_match_nested_pattern() -> None:
 
 def test_match_multi_scrutinee() -> None:
     src = """
-    let n: Nat := Nat.Zero;
-    let b: Bool := ctor Bool.True;
+    let n := Nat.Zero;
+    let b := ctor Bool.True;
     let m: Nat := 
       match n, b with
       | (Zero, True) => Nat.Zero
@@ -107,7 +107,7 @@ def test_match_multi_scrutinee() -> None:
 
 def test_match_duplicate_binder_error() -> None:
     src = """
-    let xs: const List(Nat) := ctor List.Nil(Nat);
+    let xs := ctor List.Nil(Nat);
     let y: Nat := 
       match xs with
       | Cons x x => Nat.Zero
@@ -119,7 +119,7 @@ def test_match_duplicate_binder_error() -> None:
 
 def test_let_destruct_refutable_error() -> None:
     src = """
-    let xs: const List(Nat) := ctor List.Nil(Nat);
+    let xs := ctor List.Nil(Nat);
     let Cons x ys := xs;
     x
     """

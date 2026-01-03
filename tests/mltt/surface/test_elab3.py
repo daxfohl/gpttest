@@ -225,7 +225,7 @@ def test_positional_dependent_scope_reorder() -> None:
 def test_partial_positional() -> None:
     src = """
     let k(a: Nat, b: Nat): Nat := a;
-    let f: Nat -> Nat := partial k(Nat.Zero);
+    let f := partial k(Nat.Zero);
     f(Nat.Succ(Nat.Zero))
     """
     zero = _get_ctor("Nat.Zero")
@@ -235,7 +235,7 @@ def test_partial_positional() -> None:
 def test_partial_named_gap() -> None:
     src = """
     let k(a: Nat, b: Nat): Nat := a;
-    let f: Nat -> Nat := partial k(b := Nat.Zero);
+    let f := partial k(b := Nat.Zero);
     f(Nat.Succ(Nat.Zero))
     """
     zero = _get_ctor("Nat.Zero")
@@ -246,7 +246,7 @@ def test_partial_named_gap() -> None:
 def test_partial_named_gap_named() -> None:
     src = """
     let k(a: Nat, b: Nat): Nat := a;
-    let f: Nat -> Nat := partial k(b := Nat.Zero);
+    let f := partial k(b := Nat.Zero);
     f(a := Nat.Succ(Nat.Zero))
     """
     zero = _get_ctor("Nat.Zero")
@@ -257,8 +257,7 @@ def test_partial_named_gap_named() -> None:
 def test_partial_dependent_named_gap() -> None:
     src = """
     let dep<A>(x: A, P: (y: A) -> Type, p: P(x)): P(x) := p;
-    let f: (x: Nat) -> Nat :=
-      partial dep(P := fun (y: Nat) => Nat, p := x);
+    let f := partial dep(P := fun (y: Nat) => Nat, p := x);
     f(Nat.Zero)
     """
     zero = _get_ctor("Nat.Zero")
@@ -268,7 +267,7 @@ def test_partial_dependent_named_gap() -> None:
 def test_partial_dependent_vec() -> None:
     src = """
     let dep<A>(x: A, P: (y: A) -> Type, p: P(x)): P(x) := p;
-    let f: (x: Nat) -> Vec(Nat, x) :=
+    let f :=
         partial dep(
             P := fun (y: Nat) => Vec(Nat, y),
             p :=
@@ -344,7 +343,7 @@ def test_let_infer_uparams() -> None:
 def test_partial_generic_inferred() -> None:
     src = """
     let k<A>(a: A, b: A): A := a;
-    let f: Nat -> Nat := partial k(Nat.Zero);
+    let f := partial k(Nat.Zero);
     f(Nat.Zero)
     """
     zero = _get_ctor("Nat.Zero")
@@ -354,7 +353,7 @@ def test_partial_generic_inferred() -> None:
 def test_partial_generic_applied_as_param() -> None:
     src = """
     let k<A>(a: A, b: A): A := a;
-    let f: (a: Nat, b: Nat) -> Nat := partial k(A := Nat);
+    let f := partial k(A := Nat);
     f(Nat.Zero, Nat.Zero)
     """
     zero = _get_ctor("Nat.Zero")
@@ -364,7 +363,7 @@ def test_partial_generic_applied_as_param() -> None:
 def test_partial_generic_applied_as_generic() -> None:
     src = """
     let k<A>(a: A, b: A): A := a;
-    let f: (a: Nat, b: Nat) -> Nat := partial k<Nat>();
+    let f := partial k<Nat>();
     f(Nat.Zero, Nat.Zero)
     """
     zero = _get_ctor("Nat.Zero")
@@ -374,7 +373,7 @@ def test_partial_generic_applied_as_generic() -> None:
 def test_partial_fully_applied() -> None:
     src = """
     let k(a: Nat): Nat := a;
-    let f: Nat := partial k(Nat.Zero);
+    let f := partial k(Nat.Zero);
     f()
     """
     zero = _get_ctor("Nat.Zero")
