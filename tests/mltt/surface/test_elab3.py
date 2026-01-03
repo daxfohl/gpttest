@@ -2,7 +2,7 @@ from operator import methodcaller
 
 import pytest
 
-from mltt.kernel.ast import Let, Term
+from mltt.kernel.ast import Let, Term, UApp
 from mltt.kernel.env import Env
 from mltt.kernel.tel import mk_app
 from mltt.surface.elab_state import ElabState
@@ -263,6 +263,25 @@ def test_partial_dependent_named_gap() -> None:
     """
     zero = _get_ctor("Nat.Zero")
     assert elab_eval(src) == zero
+
+
+def test_partial_dependent_vec() -> None:
+    src = """
+    let dep<A>(x: A, P: (y: A) -> Type, p: P(x)): P(x) := p;
+    let f: (x: Nat) -> Vec(Nat, x) :=
+        partial dep(
+            P := fun (y: Nat) => Vec(Nat, y),
+            p :=
+              match x with
+              | Zero => ctor Vec.Nil(Nat)
+              | Succ k => ctor Vec.Cons(Nat, k, Nat.Zero, ctor Vec.Nil(Nat))
+        );
+    f(Nat.Zero)
+    """
+    nat = _get_ctor("Nat")
+    nil = _get_ctor("Vec.Nil")
+    nil_head = nil.head if isinstance(nil, UApp) else nil
+    assert elab_eval(src) == mk_app(nil_head, nat)
 
 
 def test_partial_generic_inferred() -> None:
