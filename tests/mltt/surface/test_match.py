@@ -108,8 +108,8 @@ def test_match_multi_scrutinee() -> None:
 def test_match_duplicate_binder_error() -> None:
     src = """
     let xs := ctor List.Nil(Nat);
-    let y: Nat := 
-      match xs with
+    let y := 
+      match xs return Nat with
       | Cons x x => Nat.Zero
       | _ => Nat.Zero;
     y

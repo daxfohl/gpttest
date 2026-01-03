@@ -267,14 +267,13 @@ def test_partial_dependent_named_gap() -> None:
 def test_partial_dependent_vec() -> None:
     src = """
     let dep<A>(x: A, P: (y: A) -> Type, p: P(x)): P(x) := p;
-    let f :=
-        partial dep(
-            P := fun (y: Nat) => Vec(Nat, y),
-            p :=
-              match x with
-              | Zero => ctor Vec.Nil(Nat)
-              | Succ k => ctor Vec.Cons(Nat, k, Nat.Zero, ctor Vec.Nil(Nat))
-        );
+    let f := partial dep(
+        P := fun (y: Nat) => Vec(Nat, y),
+        p :=
+          match x with
+          | Zero => ctor Vec.Nil(Nat)
+          | Succ k => ctor Vec.Cons(Nat, k, Nat.Zero, ctor Vec.Nil(Nat))
+    );
     f(Nat.Zero)
     """
     nat = _get_ctor("Nat")
