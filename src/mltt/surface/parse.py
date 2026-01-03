@@ -813,6 +813,11 @@ def p_call_group_explicit(p: yacc.YaccProduction) -> None:
     p[0] = p[2]
 
 
+def p_call_group_empty(p: yacc.YaccProduction) -> None:
+    "call_group : LPAREN RPAREN"
+    p[0] = ()
+
+
 def p_call_args_multi(p: yacc.YaccProduction) -> None:
     "call_args : call_args COMMA call_arg"
     p[0] = p[1] + (p[3],)

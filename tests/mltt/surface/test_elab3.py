@@ -293,3 +293,13 @@ def test_partial_generic_applied_as_generic() -> None:
     """
     zero = _get_ctor("Nat.Zero")
     assert elab_eval(src) == zero
+
+
+def test_partial_fully_applied() -> None:
+    src = """
+    let k(a: Nat): Nat := a;
+    let f: Nat := partial k(Nat.Zero);
+    f()
+    """
+    zero = _get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
