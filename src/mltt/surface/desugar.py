@@ -290,6 +290,11 @@ def _replace_recursive_call(
                     branches=tuple(new_branches),
                 )
             return t
+        if isinstance(t, SInductiveDef):
+            new_body = replace_term(t.body)
+            if new_body is not t.body:
+                return replace(t, body=new_body)
+            return t
         return t
 
     replaced = replace_term(term)

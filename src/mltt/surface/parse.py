@@ -1075,7 +1075,7 @@ def p_error(p: lex.LexToken | None) -> None:
 _PARSER = None
 
 
-def parse_term(source: str) -> SurfaceTerm:
+def parse_term_raw(source: str) -> SurfaceTerm:
     global _SOURCE, _PARSER
     _SOURCE = source
     lexer = lex.lex()
@@ -1085,6 +1085,11 @@ def parse_term(source: str) -> SurfaceTerm:
     if term is None:
         span = Span(len(source), len(source))
         raise SurfaceError("Unexpected end of input", span, source)
+    return term
+
+
+def parse_term(source: str) -> SurfaceTerm:
+    term = parse_term_raw(source)
     from mltt.surface.desugar import desugar
 
     return desugar(term)
