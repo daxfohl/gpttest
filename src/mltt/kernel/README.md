@@ -35,7 +35,7 @@
   - `Ctor(name, inductive, field_schemas, result_indices, uarity)` stores ctor metadata; `infer_ctor_type` builds a Pi-tower with parameters outermost, then ctor fields, returning the inductive head applied to params/indices.
   - `Elim(inductive, motive, cases, scrutinee)` performs iota-reduction when the scrutinee WHNF is a fully-applied constructor; `infer_elim_type` checks motive/cases and constructs expected branch types with fields then IHs.
   - `recursive_positions(ctor)` returns recursive-field indices, used to build IHs for eliminators.
-- `mltt.surface.prelude`:
+- `mltt.kernel.prelude`:
   - `register_value` adds a `GlobalDecl` for a computed value by inferring its type in an env built from current globals; `uarity` is copied from the value when present.
   - `prelude_globals` builds the default global environment mapping names like `Nat`, `Bool`, `List`, `Vec`, `Fin`, `Maybe`, and `Sigma` (plus their constructors) to `GlobalDecl` entries.
   - `prelude_env` returns an `Env` seeded with the prelude globals.

@@ -1,4 +1,4 @@
-from mltt.surface.prelude import prelude_env
+from mltt.kernel.prelude import prelude_env
 from elab_helpers import elab_ok, elab_ok_in_env
 
 

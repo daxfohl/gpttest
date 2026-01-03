@@ -1,7 +1,7 @@
 from types import MappingProxyType
 
 from mltt.kernel.env import Env
-from mltt.surface.prelude import prelude_env, prelude_globals
+from mltt.kernel.prelude import prelude_env, prelude_globals
 from elab_helpers import elab_ok_in_env
 
 

@@ -5,7 +5,7 @@ from mltt.elab.elab_state import ElabState
 from mltt.elab.sast import elab_infer
 from mltt.surface.parse import parse_term
 from mltt.surface.sast import SurfaceError
-from mltt.surface.prelude import prelude_env
+from mltt.kernel.prelude import prelude_env
 from elab_helpers import elab_with_state
 
 

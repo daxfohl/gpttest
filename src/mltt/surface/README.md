@@ -8,7 +8,6 @@ Capabilities:
 - Support type-argument sugar via `<A, B>` and universe application via `@{...}`.
 - Desugar equation-style recursion into match-with-IH form where applicable.
 - Desugar multi-scrutinee and tuple-pattern matches into nested matches.
-- Provide the surface prelude (globals for Nat, Bool, List, Vec, Fin, Maybe, Sigma, etc.).
 
 Non-goals:
 - Type checking, constraint solving, or elaboration.
@@ -17,4 +16,3 @@ Non-goals:
 Entry points:
 - `parse_term` / `parse_term_raw` for parsing.
 - `desugar` for surface-level rewrites.
-- `prelude_env` / `prelude_globals` for a basic environment.

@@ -3,7 +3,7 @@ from mltt.elab.etype import ElabEnv
 from mltt.elab.sast import elab_infer
 from mltt.surface.sast import SurfaceError
 from mltt.surface.parse import parse_term
-from mltt.surface.prelude import prelude_env
+from mltt.kernel.prelude import prelude_env
 
 
 def elab_ok(src: str) -> None:
