@@ -284,6 +284,55 @@ def test_partial_dependent_vec() -> None:
     assert elab_eval(src) == mk_app(nil_head, nat)
 
 
+def test_let_infer_partial() -> None:
+    src = """
+    let k(a: Nat, b: Nat): Nat := a;
+    let f := partial k(Nat.Zero);
+    f(Nat.Succ(Nat.Zero))
+    """
+    zero = _get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
+
+
+def test_let_infer_simple() -> None:
+    src = """
+    let id := fun (x: Nat) => x;
+    id(Nat.Succ(Nat.Zero))
+    """
+    succ = _get_ctor("Nat.Succ")
+    zero = _get_ctor("Nat.Zero")
+    assert elab_eval(src) == mk_app(succ, zero).normalize()
+
+
+def test_let_infer_value() -> None:
+    src = """
+    let x := Nat.Zero;
+    x
+    """
+    zero = _get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
+
+
+def test_let_infer_generic() -> None:
+    src = """
+    let id<A>(x: A) := x;
+    id(Nat.Zero)
+    """
+    zero = _get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
+
+
+def test_let_infer_requires_check_mode() -> None:
+    src = """
+    let x := match Nat.Zero with
+      | Zero => Nat.Zero
+      | Succ _ => Nat.Zero;
+    x
+    """
+    with pytest.raises(SurfaceError, match="Cannot infer match result type"):
+        elab_eval(src)
+
+
 def test_partial_generic_inferred() -> None:
     src = """
     let k<A>(a: A, b: A): A := a;

@@ -455,7 +455,7 @@ class SPartial(SurfaceTerm):
 class SLet(SurfaceTerm):
     uparams: tuple[str, ...]
     name: str
-    ty: SurfaceTerm
+    ty: SurfaceTerm | None
     val: SurfaceTerm
     body: SurfaceTerm
 
@@ -464,23 +464,31 @@ class SLet(SurfaceTerm):
             raise SurfaceError("Duplicate universe binder", self.span)
         old_level_names = state.level_names
         state.level_names = list(reversed(self.uparams)) + state.level_names
-        ty_term, ty_ty = self.ty.elab_infer(env, state)
-        _expect_universe(ty_ty.term, env.kenv, self.span)
-        implicit_spine = _implicit_spine(self.ty)
-        binder_names = _binder_names(self.ty)
         val_src = _desugar_equation_rec(self.name, self.val)
-        if not any(binder_names):
-            try:
-                val_term, val_ty = val_src.elab_infer(env, state)
-            except SurfaceError:
-                val_term = val_src.elab_check(env, state, ElabType(ty_term))
-            else:
-                state.add_constraint(env.kenv, val_ty.term, ty_term, self.span)
-                binder_names = val_ty.binder_names
+        if self.ty is None:
+            val_term, val_ty = val_src.elab_infer(env, state)
+            ty_term = val_ty.term
+            implicit_spine = val_ty.implicit_spine
+            binder_names = val_ty.binder_names
+            if not self.uparams:
+                ty_term, val_term = state.merge_type_level_metas([ty_term, val_term])
         else:
-            val_term = val_src.elab_check(env, state, ElabType(ty_term))
-        if not self.uparams:
-            ty_term, val_term = state.merge_type_level_metas([ty_term, val_term])
+            ty_term, ty_ty = self.ty.elab_infer(env, state)
+            _expect_universe(ty_ty.term, env.kenv, self.span)
+            implicit_spine = _implicit_spine(self.ty)
+            binder_names = _binder_names(self.ty)
+            if not any(binder_names):
+                try:
+                    val_term, val_ty = val_src.elab_infer(env, state)
+                except SurfaceError:
+                    val_term = val_src.elab_check(env, state, ElabType(ty_term))
+                else:
+                    state.add_constraint(env.kenv, val_ty.term, ty_term, self.span)
+                    binder_names = val_ty.binder_names
+            else:
+                val_term = val_src.elab_check(env, state, ElabType(ty_term))
+            if not self.uparams:
+                ty_term, val_term = state.merge_type_level_metas([ty_term, val_term])
         state.level_names = old_level_names
         uarity, ty_term, val_term = state.generalize_levels_for_let(ty_term, val_term)
         if not any(binder_names):
@@ -496,6 +504,8 @@ class SLet(SurfaceTerm):
         return Let(ty_term, val_term, body_term), body_ty
 
     def resolve(self, env: Env, names: NameEnv) -> Term:
+        if self.ty is None:
+            raise SurfaceError("Missing let type; needs elaboration", self.span)
         ty = self.ty.resolve(env, names)
         val = self.val.resolve(env, names)
         names.push(self.name)
