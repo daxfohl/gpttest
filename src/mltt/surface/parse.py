@@ -1085,4 +1085,6 @@ def parse_term(source: str) -> SurfaceTerm:
     if term is None:
         span = Span(len(source), len(source))
         raise SurfaceError("Unexpected end of input", span, source)
-    return term
+    from mltt.surface.desugar import desugar
+
+    return desugar(term)
