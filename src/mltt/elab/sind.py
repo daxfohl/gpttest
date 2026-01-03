@@ -9,10 +9,10 @@ from mltt.kernel.ast import Term, Univ, UApp
 from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
 from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_uapp
-from mltt.surface.elab_state import Constraint, ElabState
-from mltt.surface.etype import ElabEnv, ElabType
-from mltt.surface.match import _resolve_inductive_head
-from mltt.surface.sast import (
+from mltt.elab.elab_state import Constraint, ElabState
+from mltt.elab.etype import ElabEnv, ElabType
+from mltt.elab.match import _resolve_inductive_head
+from mltt.elab.sast import (
     NameEnv,
     SBinder,
     SPi,

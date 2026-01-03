@@ -1,8 +1,8 @@
 from types import MappingProxyType
 
 from mltt.kernel.env import Env
-from mltt.surface.etype import ElabEnv
-from mltt.surface.elab_state import ElabState
+from mltt.elab.etype import ElabEnv
+from mltt.elab.elab_state import ElabState
 from mltt.surface.parse import parse_term
 
 

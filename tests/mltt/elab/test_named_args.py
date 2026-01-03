@@ -1,0 +1,172 @@
+import pytest
+
+from mltt.kernel.tel import mk_app
+from mltt.elab.sast import SurfaceError
+from elab_helpers import elab_eval, elab_ok, get_ctor
+
+
+def test_implicit_id_explicit() -> None:
+    src = """
+    let id(impl A: Type 0, x: A): A := x;
+    id(Nat.Zero)
+    """
+    elab_ok(src)
+
+
+def test_implicit_id_omitted() -> None:
+    src = """
+    let id(impl A: Type 0, x: A): A := x;
+    id(Nat.Zero)
+    """
+    elab_ok(src)
+
+
+def test_multiple_implicits() -> None:
+    src = """
+    let k(impl A: Type 0, impl B: Type 0, a: A, b: B): A := a;
+    k(Nat.Zero, Nat.Succ(Nat.Zero))
+    """
+    elab_ok(src)
+
+
+def test_named_args() -> None:
+    src = """
+    let k<A, B>(a: A, b: B): A := a;
+    k(Nat.Zero, b := Nat.Zero)
+    """
+    elab_ok(src)
+
+
+def test_named_args_evaluates() -> None:
+    src = """
+    let k(a: Nat, b: Nat): Nat := a;
+    k(b := Nat.Succ(Nat.Zero), a := Nat.Zero)
+    """
+    zero = get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
+
+
+def test_named_args_before_positional_rejected() -> None:
+    src = """
+    let k<A, B>(a: A, b: B): A := a;
+    k(a := Nat.Zero, Nat.Zero)
+    """
+    with pytest.raises(
+        SurfaceError, match="Positional arguments must come before named"
+    ):
+        elab_eval(src)
+
+
+def test_duplicate_named_args_rejected() -> None:
+    src = """
+    let k<A, B>(a: A, b: B): A := a;
+    k(a := Nat.Zero, a := Nat.Succ(Nat.Zero))
+    """
+    with pytest.raises(SurfaceError, match="Duplicate named argument a"):
+        elab_eval(src)
+
+
+def test_too_few_args_rejected() -> None:
+    src = """
+    let k<A, B>(a: A, b: B): A := a;
+    k(Nat.Zero)
+    """
+    with pytest.raises(SurfaceError, match="Missing explicit argument"):
+        elab_eval(src)
+
+
+def test_too_many_args_rejected() -> None:
+    src = """
+    let k<A, B>(a: A, b: B): A := a;
+    k(Nat.Zero, Nat.Zero, Nat.Zero)
+    """
+    with pytest.raises(SurfaceError, match="Application of non-function"):
+        elab_eval(src)
+
+
+def test_named_args_with_implicit() -> None:
+    src = """
+    let k(impl x: Nat, y: Nat): Nat := y;
+    k(x := Nat.Zero, y := Nat.Succ(Nat.Zero))
+    """
+    zero = get_ctor("Nat.Zero")
+    succ = get_ctor("Nat.Succ")
+    assert elab_eval(src) == mk_app(succ, zero).normalize()
+
+
+def test_named_args_dependent_type() -> None:
+    src = """
+    let dep(impl A: Type 0, x: A, P: (y: A) -> Type 0, p: P(x)): P(x) := p;
+    dep(x := Nat.Zero, P := fun (y: Nat) => Nat, p := x)
+    """
+    zero = get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
+
+
+def test_named_args_dependent_all_named() -> None:
+    src = """
+    let dep(impl A: Type 0, x: A, P: (y: A) -> Type 0, p: P(x)): P(x) := p;
+    dep(P := fun (y: Nat) => Nat, p := x, x := Nat.Zero)
+    """
+    zero = get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
+
+
+def test_named_args_dependent_mixed_positional() -> None:
+    src = """
+    let dep(impl A: Type 0, x: A, P: (y: A) -> Type 0, p: P(x)): P(x) := p;
+    dep(Nat.Zero, P := fun (y: Nat) => Nat, p := x)
+    """
+    zero = get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
+
+
+def test_positional_dependent_call() -> None:
+    src = """
+    let dep(impl A: Type 0, x: A, P: (y: A) -> Type 0, p: P(x)): P(x) := p;
+    dep(Nat.Zero, fun (y: Nat) => Nat, Nat.Zero)
+    """
+    zero = get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
+
+
+def test_named_args_dependent_type1() -> None:
+    src = """
+    inductive Id<A>(x: A): (y: A) -> Type :=
+    | Refl: Id(x, x);
+    let refl<A>(x: A): Id(x, x) := ctor Id.Refl;
+    let keep<A>(x: A, y: A, p: Id(x, y)): A := x;
+    keep(Nat.Zero, y := Nat.Zero, p := refl(Nat.Zero))
+    """
+    zero = get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
+
+
+def test_named_args_dependent_all_named1() -> None:
+    src = """
+    inductive Id<A>(x: A): (y: A) -> Type :=
+    | Refl: Id(x, x);
+    let refl<A>(x: A): Id(x, x) := ctor Id.Refl;
+    let keep<A>(x: A, y: A, p: Id(x, y)): A := x;
+    keep(p := refl(Nat.Zero), y := Nat.Zero, x := Nat.Zero)
+    """
+    zero = get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
+
+
+def test_positional_dependent_scope_ordering() -> None:
+    src = """
+    let dep(impl A: Type 0, x: A, P: (y: A) -> Type 0, p: P(x)): P(x) := p;
+    dep(Nat.Zero, fun (y: Nat) => Nat, x)
+    """
+    zero = get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
+
+
+def test_positional_dependent_scope_reorder() -> None:
+    src = """
+    let dep(impl A: Type 0, x: A, P: (y: A) -> Type 0, p: P(x)): P(x) := p;
+    dep(Nat.Zero, fun (y: Nat) => Nat, p := x)
+    """
+    zero = get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero

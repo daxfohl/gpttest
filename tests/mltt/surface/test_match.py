@@ -1,8 +1,8 @@
-from mltt.surface.elab_state import ElabState
+from mltt.elab.elab_state import ElabState
+from mltt.elab.etype import ElabEnv
+from mltt.elab.sast import SurfaceError
 from mltt.surface.parse import parse_term
-from mltt.surface.etype import ElabEnv
 from mltt.surface.prelude import prelude_env
-from mltt.surface.sast import SurfaceError
 
 
 def elab_ok(src: str) -> None:

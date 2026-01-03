@@ -1,19 +1,11 @@
 import pytest
 
-from mltt.surface.elab_state import ElabState
+from mltt.elab.etype import ElabEnv
+from mltt.elab.elab_state import ElabState
 from mltt.surface.parse import parse_term
-from mltt.surface.sast import SurfaceError
-from mltt.surface.etype import ElabEnv
+from mltt.elab.sast import SurfaceError
 from mltt.surface.prelude import prelude_env
-
-
-def elab_with_state(src: str) -> ElabState:
-    env = ElabEnv.from_env(prelude_env())
-    state = ElabState()
-    term = parse_term(src)
-    term.elab_infer(env, state)
-    state.solve(env.kenv)
-    return state
+from elab_helpers import elab_with_state
 
 
 def test_typed_hole_unsolved() -> None:

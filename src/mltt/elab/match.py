@@ -9,9 +9,9 @@ from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
 from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_app, mk_lams, mk_uapp
-from mltt.surface.elab_state import ElabState
-from mltt.surface.etype import ElabEnv, ElabType
-from mltt.surface.sast import (
+from mltt.elab.elab_state import ElabState
+from mltt.elab.etype import ElabEnv, ElabType
+from mltt.elab.sast import (
     NameEnv,
     SVar,
     Span,

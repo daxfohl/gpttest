@@ -9,7 +9,7 @@ from mltt.kernel.ast import App, Lam, MetaVar, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Env
 from mltt.kernel.ind import Elim, Ind
 from mltt.kernel.levels import LConst, LMax, LMeta, LSucc, LVar, LevelExpr
-from mltt.surface.sast import Span, SurfaceError
+from mltt.elab.sast import Span, SurfaceError
 
 
 @dataclass

@@ -9,11 +9,11 @@ from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
 from mltt.kernel.levels import LConst, LevelExpr
-from mltt.surface.etype import ElabEnv, ElabType
+from mltt.elab.etype import ElabEnv, ElabType
 
 if TYPE_CHECKING:
-    from mltt.surface.elab_state import ElabState
-    from mltt.surface.match import PatCtor
+    from mltt.elab.elab_state import ElabState
+    from mltt.elab.match import PatCtor
 
 
 @dataclass(frozen=True)
@@ -374,7 +374,7 @@ class SUApp(SurfaceTerm):
 
     def elab_infer(self, env: ElabEnv, state: "ElabState") -> tuple[Term, ElabType]:
         from mltt.kernel.ast import UApp
-        from mltt.surface.sind import SInd, SCtor
+        from mltt.elab.sind import SInd, SCtor
 
         head_term: Term
         match self.head:
