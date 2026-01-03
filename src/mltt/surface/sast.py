@@ -466,15 +466,25 @@ class SLet(SurfaceTerm):
         state.level_names = list(reversed(self.uparams)) + state.level_names
         ty_term, ty_ty = self.ty.elab_infer(env, state)
         _expect_universe(ty_ty.term, env.kenv, self.span)
-        val_term = _desugar_equation_rec(self.name, self.val).elab_check(
-            env, state, ElabType(ty_term)
-        )
+        implicit_spine = _implicit_spine(self.ty)
+        binder_names = _binder_names(self.ty)
+        val_src = _desugar_equation_rec(self.name, self.val)
+        if not any(binder_names):
+            try:
+                val_term, val_ty = val_src.elab_infer(env, state)
+            except SurfaceError:
+                val_term = val_src.elab_check(env, state, ElabType(ty_term))
+            else:
+                state.add_constraint(env.kenv, val_ty.term, ty_term, self.span)
+                binder_names = val_ty.binder_names
+        else:
+            val_term = val_src.elab_check(env, state, ElabType(ty_term))
         if not self.uparams:
             ty_term, val_term = state.merge_type_level_metas([ty_term, val_term])
         state.level_names = old_level_names
         uarity, ty_term, val_term = state.generalize_levels_for_let(ty_term, val_term)
-        implicit_spine = _implicit_spine(self.ty)
-        binder_names = _binder_names(self.ty)
+        if not any(binder_names):
+            binder_names = _binder_names_from_term(self.val)
         env1 = env.push_let(
             ElabType(ty_term, implicit_spine, binder_names),
             val_term,
@@ -695,9 +705,26 @@ def _binder_names(term: SurfaceTerm | None) -> tuple[str | None, ...]:
     names: list[str | None] = []
     current = term
     while isinstance(current, SPi):
-        names.extend(b.name for b in current.binders)
+        names.extend(_normalize_binder_name(b.name) for b in current.binders)
         current = current.body
     return tuple(names)
+
+
+def _binder_names_from_term(term: SurfaceTerm | None) -> tuple[str | None, ...]:
+    if term is None:
+        return ()
+    match term:
+        case SLam(binders=binders):
+            return tuple(_normalize_binder_name(b.name) for b in binders)
+        case SPi():
+            return _binder_names(term)
+    return ()
+
+
+def _normalize_binder_name(name: str | None) -> str | None:
+    if name == "_":
+        return None
+    return name
 
 
 def _implicit_spine_for_term(term: Term, env: ElabEnv) -> tuple[bool, ...] | None:
