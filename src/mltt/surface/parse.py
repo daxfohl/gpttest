@@ -23,6 +23,7 @@ from mltt.surface.sast import (
     SUApp,
     SHole,
     SLet,
+    SPartial,
 )
 from mltt.surface.match import (
     Pat,
@@ -51,6 +52,7 @@ reserved = {
     "ctor": "CTOR",
     "inductive": "INDUCTIVE",
     "impl": "IMPL",
+    "partial": "PARTIAL",
 }
 
 tokens = (
@@ -415,6 +417,12 @@ def p_term_fun_type_params(p: yacc.YaccProduction) -> None:
     "term : FUN type_params lam_binders DARROW term"
     span = _span(p, 1, 5)
     p[0] = SLam(span=span, binders=p[2] + p[3], body=p[5])
+
+
+def p_term_partial(p: yacc.YaccProduction) -> None:
+    "term : PARTIAL app"
+    span = _span(p, 1, 2)
+    p[0] = SPartial(span=span, term=p[2])
 
 
 def p_term_pi(p: yacc.YaccProduction) -> None:

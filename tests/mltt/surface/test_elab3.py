@@ -220,3 +220,35 @@ def test_positional_dependent_scope_reorder() -> None:
     """
     zero = _get_ctor("Nat.Zero")
     assert elab_eval(src) == zero
+
+
+def test_partial_positional() -> None:
+    src = """
+    let k(a: Nat, b: Nat): Nat := a;
+    let f: Nat -> Nat := partial k(Nat.Zero);
+    f(Nat.Succ(Nat.Zero))
+    """
+    zero = _get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero
+
+
+def test_partial_named_gap() -> None:
+    src = """
+    let k(a: Nat, b: Nat): Nat := a;
+    let f: Nat -> Nat := partial k(b := Nat.Zero);
+    f(Nat.Succ(Nat.Zero))
+    """
+    zero = _get_ctor("Nat.Zero")
+    succ = _get_ctor("Nat.Succ")
+    assert elab_eval(src) == mk_app(succ, zero).normalize()
+
+
+def test_partial_dependent_named_gap() -> None:
+    src = """
+    let dep<A>(x: A, P: (y: A) -> Type, p: P(x)): P(x) := p;
+    let f: (x: Nat) -> Nat :=
+      partial dep(P := fun (y: Nat) => Nat, p := x);
+    f(Nat.Zero)
+    """
+    zero = _get_ctor("Nat.Zero")
+    assert elab_eval(src) == zero

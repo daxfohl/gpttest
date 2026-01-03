@@ -370,6 +370,12 @@ class UApp(Term):
             levels=tuple(level.instantiate(actuals) for level in self.levels),
         )
 
+    def shift(self, by: int, cutoff: int = 0) -> Term:
+        return UApp(self.head.shift(by, cutoff), self.levels)
+
+    def subst(self, sub: Term, j: int = 0) -> Term:
+        return UApp(self.head.subst(sub, j), self.levels)
+
     # Reduction ----------------------------------------------------------------
     def _whnf_step(self, env: Env) -> Term:
         from mltt.kernel.env import Const
@@ -381,7 +387,7 @@ class UApp(Term):
         if isinstance(self.head, Var):
             value = env.local_value(self.head.k)
             if value is not None:
-                return value.inst_levels(self.levels)
+                return value.shift(self.head.k + 1).inst_levels(self.levels)
         return self
 
     # Typing -------------------------------------------------------------------
