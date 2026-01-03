@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from mltt.elab.sast import (
+from mltt.surface.sast import (
     SAnn,
     SApp,
     SArg,
@@ -18,8 +18,14 @@ from mltt.elab.sast import (
     SurfaceTerm,
 )
 
-from mltt.elab.match import PatCtor, PatVar, PatWild, SBranch, SMatch
-from mltt.elab.sind import SInductiveDef
+from mltt.surface.sast import (
+    PatCtor,
+    PatVar,
+    PatWild,
+    SBranch,
+    SInductiveDef,
+    SMatch,
+)
 
 
 def desugar(term: SurfaceTerm) -> SurfaceTerm:

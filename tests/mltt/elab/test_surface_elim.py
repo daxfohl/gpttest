@@ -3,6 +3,7 @@ from types import MappingProxyType
 from mltt.kernel.env import Env
 from mltt.elab.etype import ElabEnv
 from mltt.elab.elab_state import ElabState
+from mltt.elab.sast import elab_infer
 from mltt.surface.parse import parse_term
 
 
@@ -10,7 +11,7 @@ def elab_ok_in_env(src: str, env: Env) -> None:
     elab_env = ElabEnv.from_env(env)
     state = ElabState()
     term = parse_term(src)
-    term_k, ty_k = term.elab_infer(elab_env, state)
+    term_k, ty_k = elab_infer(term, elab_env, state)
     state.solve(elab_env.kenv)
     term_k = state.zonk(term_k)
     ty_term = state.zonk(ty_k.term)

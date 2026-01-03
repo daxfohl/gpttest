@@ -2,22 +2,29 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from mltt.kernel.ast import App, Lam, Term, UApp, Var
 from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
 from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_app, mk_lams, mk_uapp
 from mltt.elab.elab_state import ElabState
+from mltt.elab.names import NameEnv
 from mltt.elab.etype import ElabEnv, ElabType
-from mltt.elab.sast import (
-    NameEnv,
+from mltt.elab.sast import _expect_universe, elab_check, elab_infer
+from mltt.surface.sast import (
+    Pat,
+    PatCtor,
+    PatTuple,
+    PatVar,
+    PatWild,
+    SBranch,
+    SLet,
+    SLetPat,
+    SMatch,
     SVar,
     Span,
     SurfaceError,
     SurfaceTerm,
-    _expect_universe,
 )
 
 
@@ -63,7 +70,7 @@ def _looks_like_ctor(name: str) -> bool:
 def _elab_scrutinee_info(
     scrutinee: SurfaceTerm, env: ElabEnv, state: ElabState
 ) -> tuple[Term, Term, Term, tuple[LevelExpr, ...], ArgList]:
-    scrut_term, scrut_ty = scrutinee.elab_infer(env, state)
+    scrut_term, scrut_ty = elab_infer(scrutinee, env, state)
     scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
     head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
     return scrut_term, scrut_ty_whnf, head, level_actuals, args
@@ -82,38 +89,39 @@ def _abstract_var(term: Term, target: int) -> Term:
     return replace_var(shifted, 0)
 
 
-def _abstract_vars(term: Term, targets: dict[int, int], binder_count: int) -> Term:
-    shifted = term.shift(binder_count)
-
-    def replace_var(t: Term, depth: int) -> Term:
-        if isinstance(t, Var):
-            mapped = targets.get(t.k - depth - binder_count)
-            if mapped is not None:
-                return Var(mapped + depth)
-            return t
-        return t._replace_terms(
-            lambda sub, meta: replace_var(sub, depth + meta.binder_count)
-        )
-
-    return replace_var(shifted, 0)
+def _apply_as_name(
+    as_name: str | None, scrut: Term, scrut_ty: Term
+) -> tuple[Term, Term]:
+    if as_name is None:
+        return scrut, scrut_ty
+    return Var(0), scrut_ty.shift(1)
 
 
-def _case_telescope_with_ih(
+def _mk_ctor_indices(
     ind: Ind,
     ctor: Ctor,
     level_actuals: tuple[LevelExpr, ...],
     params_actual: ArgList,
-    indices_actual: ArgList,
+    field_vars: ArgList,
+) -> ArgList:
+    return ArgList.of(
+        *[
+            t.inst_levels(level_actuals).instantiate(params_actual, len(field_vars))
+            for t in ctor.result_indices
+        ]
+    )
+
+
+def _match_branch_types(
+    ind: Ind,
+    ctor: Ctor,
     motive: Term,
+    level_actuals: tuple[LevelExpr, ...],
+    params_actual: ArgList,
     span: Span,
 ) -> tuple[Telescope, Term]:
-    p = len(ind.param_types)
-    q = len(ind.index_types)
-    ctor_field_types = Telescope.of(
-        *[
-            t.inst_levels(level_actuals).instantiate(params_actual, depth_above=i)
-            for i, t in enumerate(ctor.field_schemas)
-        ]
+    ctor_field_types = ctor.field_schemas.inst_levels(level_actuals).instantiate(
+        params_actual
     )
     m = len(ctor_field_types)
     params_in_fields_ctx = params_actual.shift(m)
@@ -126,6 +134,8 @@ def _case_telescope_with_ih(
             for t in ctor.result_indices
         ]
     )
+    p = len(ind.param_types)
+    q = len(ind.index_types)
     ihs: list[Term] = []
     for ri, j in enumerate(ctor.rps):
         rec_head, rec_levels, rec_field_args = decompose_uapp(
@@ -148,589 +158,566 @@ def _case_telescope_with_ih(
     return tel, codomain
 
 
-@dataclass(frozen=True)
-class Pat:
-    span: Span
-
-
-@dataclass(frozen=True)
-class PatVar(Pat):
-    name: str
-
-
-@dataclass(frozen=True)
-class PatWild(Pat):
-    pass
-
-
-@dataclass(frozen=True)
-class PatCtor(Pat):
-    ctor: str
-    args: tuple[Pat, ...]
-
-
-@dataclass(frozen=True)
-class PatTuple(Pat):
-    elts: tuple[Pat, ...]
-
-
-@dataclass(frozen=True)
-class SBranch:
-    pat: Pat
-    rhs: SurfaceTerm
-    span: Span
-
-
-@dataclass(frozen=True)
-class SMatch(SurfaceTerm):
-    scrutinees: tuple[SurfaceTerm, ...]
-    as_names: tuple[str | None, ...]
-    motive: SurfaceTerm | None
-    branches: tuple[SBranch, ...]
-
-    def elab_infer(self, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
-        if len(self.scrutinees) != 1:
-            return self._desugar().elab_infer(env, state)
-        if self.motive is None and all(n is None for n in self.as_names):
-            raise SurfaceError(
-                "Cannot infer match result type; use check-mode", self.span
+def _branch_binders(
+    pat: Pat,
+    ctor: Ctor,
+    tel: Telescope,
+    field_count: int,
+) -> list[tuple[str | None, Term]]:
+    binders: list[tuple[str | None, Term]] = []
+    if isinstance(pat, PatCtor):
+        if len(pat.args) not in {field_count, len(tel)}:
+            raise SurfaceError("Match pattern has wrong arity", pat.span)
+        if len(pat.args) == field_count:
+            full_args = pat.args + tuple(
+                PatWild(pat.span) for _ in range(len(tel) - field_count)
             )
-        return self._elab_with_motive(env, state)
-
-    def elab_check(self, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
-        if len(self.scrutinees) != 1:
-            return self._desugar().elab_check(env, state, expected)
-        if self.motive is not None or any(n is not None for n in self.as_names):
-            term, term_ty = self._elab_with_motive(env, state)
-            state.add_constraint(env.kenv, term_ty.term, expected.term, self.span)
-            return term
-        desugared = self._desugar()
-        if desugared is not self:
-            return desugared.elab_check(env, state, expected)
-        return self._elab_core(env, state, expected)
-
-    def resolve(self, env: Env, names: NameEnv) -> Term:
-        raise SurfaceError("Match requires elaboration", self.span)
-
-    def _elab_core(self, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
-        self._check_duplicate_binders(self.branches)
-        scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
-            self.scrutinees[0], env, state
-        )
-        ind = _resolve_inductive_head(env.kenv, head)
-        if ind is None:
-            raise SurfaceError("Match scrutinee is not an inductive type", self.span)
-        p = len(ind.param_types)
-        q = len(ind.index_types)
-        if len(args) != p + q:
-            raise SurfaceError("Match scrutinee has wrong arity", self.span)
-        params_actual = args[:p]
-        indices_actual = args[p:]
-        branch_map, default_branch = self._branch_map(env, ind)
-        cases: list[Term] = []
-        if q > 0 and isinstance(scrut_term, Var):
-            index_vars = [idx for idx in indices_actual if isinstance(idx, Var)]
-            if len(index_vars) != len(indices_actual):
-                raise SurfaceError(
-                    "Cannot infer motive with non-variable indices", self.span
-                )
-            targets = {idx.k: q - i for i, idx in enumerate(index_vars)}
-            targets[scrut_term.k] = 0
-            motive_body = _abstract_vars(expected.term, targets, q + 1)
-            index_tys = ind.index_types.inst_levels(level_actuals).instantiate(
-                params_actual
-            )
-            motive = mk_lams(*index_tys, scrut_ty_whnf, body=motive_body)
         else:
-            if isinstance(scrut_term, Var):
-                motive_body = _abstract_var(expected.term, scrut_term.k)
+            full_args = pat.args
+        for arg, ty in zip(full_args, tel, strict=True):
+            if isinstance(arg, PatVar):
+                binders.append((arg.name, ty))
+            elif isinstance(arg, PatWild):
+                binders.append((None, ty))
             else:
-                motive_body = expected.term.shift(1)
-            motive = Lam(scrut_ty_whnf, motive_body)
-        for ctor in ind.constructors:
-            branch = branch_map.get(ctor) or default_branch
-            if branch is None:
-                raise SurfaceError(
-                    f"Missing branch for constructor {ctor.name}", self.span
-                )
-            field_tys = self._field_types(ctor, level_actuals, params_actual)
-            tel, codomain = _case_telescope_with_ih(
-                ind,
-                ctor,
-                level_actuals,
-                params_actual,
-                indices_actual,
-                motive,
-                branch.span,
-            )
-            ih_count = len(tel) - len(field_tys)
-            binder_names = self._branch_binders(branch.pat, ctor, field_tys, ih_count)
-            env_branch = env
-            for binder_name, binder_ty in zip(binder_names, tel, strict=True):
-                env_branch = env_branch.push_binder(
-                    ElabType(binder_ty), name=binder_name
-                )
-            rhs_term = branch.rhs.elab_check(
-                env_branch,
-                state,
-                ElabType(codomain.shift(len(tel)), expected.implicit_spine),
-            )
-            case_term = rhs_term
-            for binder_ty in reversed(list(tel)):
-                case_term = Lam(binder_ty, case_term)
-            cases.append(case_term)
-        return Elim(ind, motive, tuple(cases), scrut_term)
+                raise SurfaceError("Match pattern must be constructor or _", arg.span)
+        return binders
+    if isinstance(pat, PatVar):
+        if _looks_like_ctor(pat.name):
+            if len(tel) == 0:
+                return []
+            raise SurfaceError("Constructor pattern needs fields", pat.span)
+        return [(pat.name, ty) for ty in tel]
+    if isinstance(pat, PatWild):
+        return [(None, ty) for ty in tel]
+    raise SurfaceError("Unsupported match pattern", pat.span)
 
-    def _elab_with_motive(
-        self, env: ElabEnv, state: ElabState
-    ) -> tuple[Term, ElabType]:
-        if self.motive is None:
-            raise SurfaceError("Match motive missing", self.span)
-        if len(self.scrutinees) != 1:
-            raise SurfaceError("Dependent match needs one scrutinee", self.span)
-        self._check_duplicate_binders(self.branches)
-        scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
-            self.scrutinees[0], env, state
-        )
-        ind = _resolve_inductive_head(env.kenv, head)
-        if ind is None:
-            raise SurfaceError("Match scrutinee is not an inductive type", self.span)
-        p = len(ind.param_types)
-        q = len(ind.index_types)
-        if len(args) != p + q:
-            raise SurfaceError("Match scrutinee has wrong arity", self.span)
-        params_actual = args[:p]
-        indices_actual = args[p:]
-        as_name = self.as_names[0] if self.as_names else None
-        env_motive = env.push_binder(ElabType(scrut_ty_whnf), name=as_name or "_")
-        motive_term, motive_ty = self.motive.elab_infer(env_motive, state)
-        _expect_universe(motive_ty.term, env_motive.kenv, self.motive.span)
-        motive = Lam(scrut_ty_whnf, motive_term)
-        match_ty = App(motive, scrut_term)
-        branch_map, default_branch = self._branch_map(env, ind)
-        cases: list[Term] = []
-        for ctor in ind.constructors:
-            branch = branch_map.get(ctor) or default_branch
-            if branch is None:
-                raise SurfaceError(
-                    f"Missing branch for constructor {ctor.name}", self.span
-                )
-            field_tys = self._field_types(ctor, level_actuals, params_actual)
-            tel, codomain = _case_telescope_with_ih(
-                ind,
-                ctor,
-                level_actuals,
-                params_actual,
-                indices_actual,
-                motive,
-                branch.span,
-            )
-            ih_count = len(tel) - len(field_tys)
-            binder_names = self._branch_binders(branch.pat, ctor, field_tys, ih_count)
-            env_branch = env
-            for binder_name, binder_ty in zip(binder_names, tel, strict=True):
-                env_branch = env_branch.push_binder(
-                    ElabType(binder_ty), name=binder_name
-                )
-            rhs_term = branch.rhs.elab_check(
-                env_branch, state, ElabType(codomain.shift(len(tel)))
-            )
-            case_term = rhs_term
-            for binder_ty in reversed(list(tel)):
-                case_term = Lam(binder_ty, case_term)
-            cases.append(case_term)
-        return Elim(ind, motive, tuple(cases), scrut_term), ElabType(match_ty)
 
-    def _field_types(
-        self,
-        ctor: Ctor,
-        level_actuals: tuple[LevelExpr, ...],
-        params_actual: ArgList,
-    ) -> Telescope:
-        return Telescope.of(
-            *[
-                t.inst_levels(level_actuals).instantiate(params_actual, depth_above=i)
-                for i, t in enumerate(ctor.field_schemas)
-            ]
-        )
+def _check_duplicate_binders(branches: tuple[SBranch, ...]) -> None:
+    for branch in branches:
+        names: list[str] = []
+        for name in _pat_bindings(branch.pat):
+            if name in names:
+                raise SurfaceError(f"Duplicate binder {name}", branch.span)
+            names.append(name)
 
-    def _branch_map(
-        self, env: ElabEnv, ind: Ind
-    ) -> tuple[dict[Ctor, SBranch], SBranch | None]:
-        branches: dict[Ctor, SBranch] = {}
-        default: SBranch | None = None
-        ctor_by_name = {ctor.name: ctor for ctor in ind.constructors}
-        ctor_by_qual = {f"{ind.name}.{ctor.name}": ctor for ctor in ind.constructors}
-        seen: set[Ctor] = set()
-        for branch in self.branches:
-            if isinstance(branch.pat, PatWild):
-                if default is not None:
-                    raise SurfaceError("Duplicate wildcard branch", branch.span)
-                default = branch
-                continue
-            pat = branch.pat
-            if isinstance(pat, PatVar):
-                ctor = ctor_by_name.get(pat.name) or ctor_by_qual.get(pat.name)
-                if ctor is None or len(ctor.field_schemas) != 0:
-                    raise SurfaceError(
-                        "Match pattern must be constructor or _", branch.span
-                    )
-                pat = PatCtor(span=pat.span, ctor=pat.name, args=())
-            if not isinstance(pat, PatCtor):
-                raise SurfaceError("Unsupported match pattern", branch.span)
-            ctor = None
-            if pat.ctor in ctor_by_qual:
-                ctor = ctor_by_qual[pat.ctor]
-            elif pat.ctor in ctor_by_name:
-                ctor = ctor_by_name[pat.ctor]
-            else:
-                decl = env.lookup_global(pat.ctor)
-                if decl is not None and isinstance(decl.value, Ctor):
-                    ctor = decl.value
-            if ctor is None or ctor.inductive != ind:
-                raise SurfaceError(f"Unknown constructor {pat.ctor}", branch.span)
-            if ctor in seen:
-                raise SurfaceError(
-                    f"Duplicate branch for constructor {ctor.name}", branch.span
-                )
-            seen.add(ctor)
-            branches[ctor] = branch
-        return branches, default
 
-    def _branch_binders(
-        self, pat: Pat, ctor: Ctor, field_tys: Telescope, ih_count: int
-    ) -> list[str | None]:
-        total = len(field_tys) + ih_count
-        if isinstance(pat, PatWild):
-            return [None for _ in range(total)]
-        if isinstance(pat, PatVar):
-            if len(field_tys) != 0 or ih_count != 0:
-                raise SurfaceError("Match pattern must be constructor or _", pat.span)
-            return []
-        if isinstance(pat, PatCtor):
-            if len(pat.args) not in (len(field_tys), total):
-                raise SurfaceError(f"Wrong number of binders for {ctor.name}", pat.span)
-            names: list[str | None] = []
-            for arg in pat.args:
-                if isinstance(arg, PatVar):
-                    names.append(arg.name)
-                elif isinstance(arg, PatWild):
-                    names.append(None)
-                else:
-                    raise SurfaceError("Nested patterns must be desugared", arg.span)
-            if len(names) == len(field_tys):
-                names.extend(None for _ in range(ih_count))
-            return names
-        raise SurfaceError("Unsupported match pattern", pat.span)
-
-    def _desugar(self) -> SurfaceTerm:
-        if len(self.scrutinees) != 1:
-            return self._desugar_multi()
-        expanded = self._expand_tuple_branches(self.branches)
-        if self._needs_nested(expanded):
-            return self._compile_nested(self.scrutinees[0], expanded)
-        if expanded != self.branches:
-            return SMatch(
-                span=self.span,
-                scrutinees=self.scrutinees,
-                as_names=self.as_names,
-                motive=self.motive,
-                branches=expanded,
-            )
-        return self
-
-    def _expand_tuple_branches(
-        self, branches: tuple[SBranch, ...]
-    ) -> tuple[SBranch, ...]:
-        return tuple(
-            SBranch(_expand_tuple_pat(branch.pat), branch.rhs, branch.span)
-            for branch in branches
-        )
-
-    def _needs_nested(self, branches: tuple[SBranch, ...]) -> bool:
-        return any(self._pat_nested(branch.pat) for branch in branches)
-
-    def _pat_nested(self, pat: Pat) -> bool:
-        if isinstance(pat, PatCtor):
-            for arg in pat.args:
-                if isinstance(arg, (PatCtor, PatTuple)):
-                    return True
-                if self._pat_nested(arg):
-                    return True
-        if isinstance(pat, PatTuple):
-            return True
-        return False
-
-    def _compile_nested(
-        self, scrutinee: SurfaceTerm, branches: tuple[SBranch, ...]
-    ) -> SurfaceTerm:
-        self._check_duplicate_binders(branches)
-        default = self._extract_default(branches)
-        if default is None:
-            raise SurfaceError("Nested patterns require a final '_' branch", self.span)
-        return self._compile_branches(scrutinee, branches[:-1], default.rhs)
-
-    def _check_duplicate_binders(self, branches: tuple[SBranch, ...]) -> None:
-        for branch in branches:
-            seen: set[str] = set()
-            for name in self._pat_bindings(branch.pat):
-                if name in seen:
-                    raise SurfaceError(
-                        f"Duplicate binder {name} in pattern", branch.span
-                    )
-                seen.add(name)
-
-    def _pat_bindings(self, pat: Pat) -> list[str]:
-        if isinstance(pat, PatVar):
-            return [pat.name]
-        if isinstance(pat, PatCtor):
-            names: list[str] = []
-            for arg in pat.args:
-                names.extend(self._pat_bindings(arg))
-            return names
-        if isinstance(pat, PatTuple):
-            tuple_names: list[str] = []
-            for elt in pat.elts:
-                tuple_names.extend(self._pat_bindings(elt))
-            return tuple_names
+def _pat_bindings(pat: Pat) -> list[str]:
+    if isinstance(pat, PatVar):
+        return [pat.name]
+    if isinstance(pat, PatWild):
         return []
+    if isinstance(pat, PatCtor):
+        names: list[str] = []
+        for arg in pat.args:
+            names.extend(_pat_bindings(arg))
+        return names
+    if isinstance(pat, PatTuple):
+        tuple_names: list[str] = []
+        for elt in pat.elts:
+            tuple_names.extend(_pat_bindings(elt))
+        return tuple_names
+    return []
 
-    def _extract_default(self, branches: tuple[SBranch, ...]) -> SBranch | None:
-        if not branches:
-            return None
-        last = branches[-1]
-        return last if isinstance(last.pat, PatWild) else None
 
-    def _compile_branches(
-        self,
-        scrutinee: SurfaceTerm,
-        branches: tuple[SBranch, ...],
-        fallback: SurfaceTerm,
-    ) -> SurfaceTerm:
-        if not branches:
-            return fallback
-        head, *rest = branches
-        next_fallback = self._compile_branches(scrutinee, tuple(rest), fallback)
-        return self._compile_pat(scrutinee, head.pat, head.rhs, next_fallback)
-
-    def _compile_pat(
-        self,
-        scrutinee: SurfaceTerm,
-        pat: Pat,
-        success: SurfaceTerm,
-        failure: SurfaceTerm,
-    ) -> SurfaceTerm:
+def _branch_map(
+    branches: tuple[SBranch, ...], env: ElabEnv, ind: Ind
+) -> tuple[dict[str, SBranch], SurfaceTerm | None]:
+    branch_map: dict[str, SBranch] = {}
+    default_branch: SurfaceTerm | None = None
+    for branch in branches:
+        pat = branch.pat
         if isinstance(pat, PatWild):
-            return success
+            default_branch = branch.rhs
+            continue
         if isinstance(pat, PatVar):
-            if _looks_like_ctor(pat.name):
-                branch = SBranch(pat, success, pat.span)
-                wildcard = SBranch(PatWild(pat.span), failure, pat.span)
-                return SMatch(
-                    span=pat.span,
-                    scrutinees=(scrutinee,),
-                    as_names=(None,),
-                    motive=None,
-                    branches=(branch, wildcard),
+            ctor_name = pat.name
+            if not _looks_like_ctor(ctor_name):
+                raise SurfaceError(
+                    "Match pattern must be constructor or _", branch.span
                 )
-            return SLetPat(span=pat.span, pat=pat, value=scrutinee, body=success)
+            branch_map[ctor_name] = branch
+            continue
         if isinstance(pat, PatCtor):
-            nested: list[tuple[str, Pat]] = []
-            flat_args: list[Pat] = []
-            for arg in pat.args:
-                if isinstance(arg, (PatVar, PatWild)):
-                    flat_args.append(arg)
-                else:
-                    fresh = self._fresh_name()
-                    flat_args.append(PatVar(name=fresh, span=arg.span))
-                    nested.append((fresh, arg))
-            inner = success
-            for name, subpat in reversed(nested):
-                inner = self._compile_pat(
-                    SVar(span=subpat.span, name=name), subpat, inner, failure
-                )
-            branch = SBranch(
-                PatCtor(span=pat.span, ctor=pat.ctor, args=tuple(flat_args)),
-                inner,
-                pat.span,
+            branch_map[pat.ctor] = branch
+            continue
+        raise SurfaceError("Unsupported match pattern", branch.span)
+    for ctor in ind.constructors:
+        qualified = f"{ind.name}.{ctor.name}"
+        if ctor.name not in branch_map and qualified in branch_map:
+            branch_map[ctor.name] = branch_map[qualified]
+    _ = env
+    return branch_map, default_branch
+
+
+def elab_match_infer(
+    match: SMatch, env: ElabEnv, state: ElabState
+) -> tuple[Term, ElabType]:
+    if len(match.scrutinees) != 1:
+        return elab_infer(_desugar_match(match), env, state)
+    if match.motive is None and all(n is None for n in match.as_names):
+        raise SurfaceError("Cannot infer match result type; use check-mode", match.span)
+    return _elab_match_with_motive(match, env, state)
+
+
+def elab_match_check(
+    match: SMatch, env: ElabEnv, state: ElabState, expected: ElabType
+) -> Term:
+    if len(match.scrutinees) != 1:
+        return elab_check(_desugar_match(match), env, state, expected)
+    if match.motive is not None or any(n is not None for n in match.as_names):
+        term, term_ty = _elab_match_with_motive(match, env, state)
+        state.add_constraint(env.kenv, term_ty.term, expected.term, match.span)
+        return term
+    desugared = _desugar_match(match)
+    if desugared is not match:
+        return elab_check(desugared, env, state, expected)
+    return _elab_match_core(match, env, state, expected)
+
+
+def _elab_match_core(
+    match: SMatch, env: ElabEnv, state: ElabState, expected: ElabType
+) -> Term:
+    _check_duplicate_binders(match.branches)
+    scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
+        match.scrutinees[0], env, state
+    )
+    ind = _resolve_inductive_head(env.kenv, head)
+    if ind is None:
+        raise SurfaceError("Match scrutinee is not an inductive type", match.span)
+    p = len(ind.param_types)
+    q = len(ind.index_types)
+    if len(args) != p + q:
+        raise SurfaceError("Match scrutinee has wrong arity", match.span)
+    params_actual = args[:p]
+    indices_actual = args[p:]
+    branch_map, default_branch = _branch_map(match.branches, env, ind)
+    cases: list[Term] = []
+    scrut_ty_in_ctx = mk_uapp(
+        ind, level_actuals, params_actual.shift(q), ArgList.vars(q)
+    )
+    motive = mk_lams(
+        *ind.index_types,
+        body=Lam(scrut_ty_in_ctx, expected.term.shift(q + 1)),
+    )
+    if q > 0 and isinstance(scrut_term, Var):
+        index_vars = [idx for idx in indices_actual if isinstance(idx, Var)]
+        if len(index_vars) != len(indices_actual):
+            raise SurfaceError(
+                "Cannot infer motive with non-variable indices", match.span
             )
-            wildcard = SBranch(PatWild(pat.span), failure, pat.span)
+        index_vars = [
+            Var(idx.k - 1 if idx.k > scrut_term.k else idx.k) for idx in index_vars
+        ]
+        indices_actual = ArgList.of(*index_vars)
+    for ctor in ind.constructors:
+        branch = branch_map.get(ctor.name)
+        tel, codomain = _match_branch_types(
+            ind, ctor, motive, level_actuals, params_actual, match.span
+        )
+        field_count = len(ctor.field_schemas)
+        binder_names: list[tuple[str | None, Term]]
+        if branch is None and default_branch is not None:
+            binder_names = [(None, ty) for ty in tel]
+            branch_rhs = default_branch
+        else:
+            if branch is None:
+                raise SurfaceError(
+                    f"Missing branch for constructor {ctor.name}", match.span
+                )
+            binder_names = _branch_binders(branch.pat, ctor, tel, field_count)
+            branch_rhs = branch.rhs
+        env_fields = env
+        for name, ty in binder_names:
+            env_fields = env_fields.push_binder(ElabType(ty), name=name)
+        rhs_term = elab_check(branch_rhs, env_fields, state, ElabType(codomain))
+        cases.append(mk_lams(*tel, body=rhs_term))
+    match_term = Elim(ind, motive, tuple(cases), scrut_term)
+    return match_term
+
+
+def _elab_match_with_motive(
+    match: SMatch, env: ElabEnv, state: ElabState
+) -> tuple[Term, ElabType]:
+    if match.motive is None:
+        raise SurfaceError("Match motive missing", match.span)
+    if len(match.scrutinees) != 1:
+        raise SurfaceError("Dependent match needs one scrutinee", match.span)
+    _check_duplicate_binders(match.branches)
+    scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
+        match.scrutinees[0], env, state
+    )
+    ind = _resolve_inductive_head(env.kenv, head)
+    if ind is None:
+        raise SurfaceError("Match scrutinee is not an inductive type", match.span)
+    p = len(ind.param_types)
+    q = len(ind.index_types)
+    if len(args) != p + q:
+        raise SurfaceError("Match scrutinee has wrong arity", match.span)
+    params_actual = args[:p]
+    indices_actual = args[p:]
+    as_name = match.as_names[0] if match.as_names else None
+    env_motive = env
+    if as_name is not None:
+        env_motive = env_motive.push_binder(ElabType(scrut_ty_whnf), name=as_name)
+    motive_term, motive_ty = elab_infer(match.motive, env_motive, state)
+    _expect_universe(motive_ty.term, env_motive.kenv, match.motive.span)
+    scrut_ty_in_ctx = mk_uapp(
+        ind, level_actuals, params_actual.shift(q), ArgList.vars(q)
+    )
+    if as_name is not None:
+        motive_body = motive_term.shift(q, cutoff=1)
+    else:
+        motive_body = motive_term.shift(q)
+    motive_fn = mk_lams(*ind.index_types, body=Lam(scrut_ty_in_ctx, motive_body))
+    branch_map, default_branch = _branch_map(match.branches, env, ind)
+    cases: list[Term] = []
+    for ctor in ind.constructors:
+        branch = branch_map.get(ctor.name)
+        tel, codomain = _match_branch_types(
+            ind, ctor, motive_fn, level_actuals, params_actual, match.span
+        )
+        field_count = len(ctor.field_schemas)
+        binder_names: list[tuple[str | None, Term]]
+        if branch is None and default_branch is not None:
+            binder_names = [(None, ty) for ty in tel]
+            branch_rhs = default_branch
+        else:
+            if branch is None:
+                raise SurfaceError(
+                    f"Missing branch for constructor {ctor.name}", match.span
+                )
+            binder_names = _branch_binders(branch.pat, ctor, tel, field_count)
+            branch_rhs = branch.rhs
+        env_fields = env
+        for name, ty in binder_names:
+            env_fields = env_fields.push_binder(ElabType(ty), name=name)
+        rhs_term = elab_check(branch_rhs, env_fields, state, ElabType(codomain))
+        cases.append(mk_lams(*tel, body=rhs_term))
+    match_term = Elim(ind, motive_fn, tuple(cases), scrut_term)
+    match_ty = mk_app(motive_fn, indices_actual, scrut_term)
+    return match_term, ElabType(match_ty)
+
+
+def _needs_nested(branches: tuple[SBranch, ...]) -> bool:
+    return any(_pat_nested(branch.pat) for branch in branches)
+
+
+def _pat_nested(pat: Pat) -> bool:
+    if isinstance(pat, PatCtor):
+        for arg in pat.args:
+            if _pat_nested(arg):
+                return True
+            if isinstance(arg, PatCtor):
+                return True
+    return False
+
+
+def _extract_default(branches: tuple[SBranch, ...]) -> SBranch | None:
+    if branches and isinstance(branches[-1].pat, PatWild):
+        return branches[-1]
+    return None
+
+
+def _expand_tuple_branches(branches: tuple[SBranch, ...]) -> tuple[SBranch, ...]:
+    expanded: list[SBranch] = []
+    for branch in branches:
+        pat = _expand_tuple_pat(branch.pat)
+        expanded.append(SBranch(pat, branch.rhs, branch.span))
+    return tuple(expanded)
+
+
+def _compile_branches(
+    scrutinee: SurfaceTerm,
+    branches: tuple[SBranch, ...],
+    fallback: SurfaceTerm,
+    counter: list[int],
+) -> SurfaceTerm:
+    def compile_branch_list(
+        branches: tuple[SBranch, ...], default_term: SurfaceTerm
+    ) -> SurfaceTerm:
+        if not branches:
+            return default_term
+        head, *rest = branches
+        if isinstance(head.pat, PatWild):
+            return head.rhs
+        if isinstance(head.pat, PatVar) and not _looks_like_ctor(head.pat.name):
+            return SLet(
+                span=head.span,
+                uparams=(),
+                name=head.pat.name,
+                ty=None,
+                val=scrutinee,
+                body=head.rhs,
+            )
+        next_fallback = _compile_branches(scrutinee, tuple(rest), fallback, counter)
+        return _compile_pat(scrutinee, head.pat, head.rhs, next_fallback, counter)
+
+    return compile_branch_list(branches, fallback)
+
+
+def _compile_pat(
+    scrutinee: SurfaceTerm,
+    pat: Pat,
+    success: SurfaceTerm,
+    fallback: SurfaceTerm,
+    counter: list[int],
+) -> SurfaceTerm:
+    pat = _expand_tuple_pat(pat)
+    if isinstance(pat, PatCtor):
+        pat_args: list[Pat] = []
+        for arg in pat.args:
+            if isinstance(arg, PatWild):
+                pat_args.append(PatWild(arg.span))
+            elif isinstance(arg, PatVar):
+                pat_args.append(PatVar(arg.span, arg.name))
+            elif isinstance(arg, PatCtor):
+                fresh = _fresh_name(counter)
+                pat_args.append(PatVar(arg.span, fresh))
+            else:
+                pat_args.append(arg)
+        nested_success = success
+        for arg, orig in zip(pat_args, pat.args, strict=True):
+            if isinstance(orig, PatCtor):
+                if not isinstance(arg, PatVar):
+                    raise SurfaceError("Nested constructor binder missing", orig.span)
+                nested_success = _compile_pat(
+                    scrutinee=SVar(span=orig.span, name=arg.name),
+                    pat=orig,
+                    success=nested_success,
+                    fallback=fallback,
+                    counter=counter,
+                )
+        branch_pat = PatCtor(span=pat.span, ctor=pat.ctor, args=tuple(pat_args))
+        branch = SBranch(pat=branch_pat, rhs=nested_success, span=pat.span)
+        branches = (branch, SBranch(PatWild(pat.span), fallback, pat.span))
+        return SMatch(
+            span=pat.span,
+            scrutinees=(scrutinee,),
+            as_names=(None,),
+            motive=None,
+            branches=branches,
+        )
+    if isinstance(pat, PatVar):
+        if _looks_like_ctor(pat.name):
+            branch = SBranch(PatCtor(pat.span, pat.name, ()), success, pat.span)
             return SMatch(
                 span=pat.span,
                 scrutinees=(scrutinee,),
                 as_names=(None,),
                 motive=None,
-                branches=(branch, wildcard),
+                branches=(branch, SBranch(PatWild(pat.span), fallback, pat.span)),
             )
-        raise SurfaceError("Unsupported pattern", pat.span)
-
-    def _desugar_multi(self) -> SurfaceTerm:
-        if self.motive is not None or any(n is not None for n in self.as_names):
-            raise SurfaceError("Dependent match needs one scrutinee", self.span)
-        self._check_duplicate_binders(self.branches)
-        scrutinees = self.scrutinees
-        branches = self._expand_tuple_in_multi(self.branches)
-        if len(scrutinees) == 1:
-            return SMatch(
-                span=self.span,
-                scrutinees=scrutinees,
-                as_names=self.as_names,
-                motive=self.motive,
-                branches=branches,
-            )
-        default = self._extract_default(branches)
-        if default is None:
-            raise SurfaceError(
-                "Multi-scrutinee match requires a final '_' branch", self.span
-            )
-        return self._compile_multi(scrutinees, branches[:-1], default.rhs)
-
-    def _expand_tuple_in_multi(
-        self, branches: tuple[SBranch, ...]
-    ) -> tuple[SBranch, ...]:
-        return tuple(
-            SBranch(self._expand_tuple_multi_pat(branch.pat), branch.rhs, branch.span)
-            for branch in branches
+        return SLet(
+            span=pat.span,
+            uparams=(),
+            name=pat.name,
+            ty=None,
+            val=scrutinee,
+            body=success,
         )
+    if isinstance(pat, PatWild):
+        return success
+    return fallback
 
-    def _expand_tuple_multi_pat(self, pat: Pat) -> Pat:
-        if isinstance(pat, PatTuple):
-            return PatTuple(
-                span=pat.span,
-                elts=tuple(_expand_tuple_pat(elt) for elt in pat.elts),
-            )
-        return _expand_tuple_pat(pat)
 
-    def _compile_multi(
-        self,
-        scrutinees: tuple[SurfaceTerm, ...],
-        branches: tuple[SBranch, ...],
-        fallback: SurfaceTerm,
+def _desugar_match(match: SMatch) -> SurfaceTerm:
+    if len(match.scrutinees) != 1:
+        return _desugar_multi(match)
+    expanded = _expand_tuple_branches(match.branches)
+    if _needs_nested(expanded):
+        return _compile_nested(match, match.scrutinees[0], expanded)
+    if expanded != match.branches:
+        return SMatch(
+            span=match.span,
+            scrutinees=match.scrutinees,
+            as_names=match.as_names,
+            motive=match.motive,
+            branches=expanded,
+        )
+    return match
+
+
+def _compile_nested(
+    match: SMatch, scrutinee: SurfaceTerm, branches: tuple[SBranch, ...]
+) -> SurfaceTerm:
+    _check_duplicate_binders(branches)
+    default = _extract_default(branches)
+    if default is None:
+        raise SurfaceError("Nested patterns require a final '_' branch", match.span)
+    counter = [0]
+    return _compile_branches(scrutinee, branches[:-1], default.rhs, counter)
+
+
+def _expand_tuple_in_multi(branches: tuple[SBranch, ...]) -> tuple[SBranch, ...]:
+    return tuple(
+        SBranch(_expand_tuple_multi_pat(branch.pat), branch.rhs, branch.span)
+        for branch in branches
+    )
+
+
+def _expand_tuple_multi_pat(pat: Pat) -> Pat:
+    if isinstance(pat, PatTuple):
+        return PatTuple(
+            span=pat.span,
+            elts=tuple(_expand_tuple_multi_pat(p) for p in pat.elts),
+        )
+    if isinstance(pat, PatCtor):
+        return PatCtor(
+            span=pat.span,
+            ctor=pat.ctor,
+            args=tuple(_expand_tuple_multi_pat(p) for p in pat.args),
+        )
+    return pat
+
+
+def _desugar_multi(match: SMatch) -> SurfaceTerm:
+    if match.motive is not None or any(n is not None for n in match.as_names):
+        raise SurfaceError("Dependent match needs one scrutinee", match.span)
+    _check_duplicate_binders(match.branches)
+    scrutinees = match.scrutinees
+    branches = _expand_tuple_in_multi(match.branches)
+    if len(scrutinees) == 1:
+        return SMatch(
+            span=match.span,
+            scrutinees=scrutinees,
+            as_names=match.as_names,
+            motive=match.motive,
+            branches=branches,
+        )
+    default = _extract_default(branches)
+    if default is None:
+        raise SurfaceError(
+            "Multi-scrutinee match requires a final '_' branch", match.span
+        )
+    return _compile_multi(scrutinees, branches[:-1], default.rhs)
+
+
+def _compile_multi(
+    scrutinees: tuple[SurfaceTerm, ...],
+    branches: tuple[SBranch, ...],
+    fallback: SurfaceTerm,
+) -> SurfaceTerm:
+    if len(scrutinees) == 1:
+        counter = [0]
+        return _compile_branches(scrutinees[0], branches, fallback, counter)
+    scrutinee = scrutinees[0]
+
+    def compile_branch_list(
+        branches: tuple[SBranch, ...], default_term: SurfaceTerm
     ) -> SurfaceTerm:
-        if len(scrutinees) == 1:
-            return self._compile_branches(scrutinees[0], branches, fallback)
-        scrutinee = scrutinees[0]
-
-        def compile_branch_list(
-            branch_list: tuple[SBranch, ...], default_term: SurfaceTerm
-        ) -> SurfaceTerm:
-            if not branch_list:
-                return default_term
-            head, *rest = branch_list
-            pat = head.pat
-            if isinstance(pat, PatTuple):
-                if len(pat.elts) != len(scrutinees):
-                    raise SurfaceError("Tuple pattern arity mismatch", head.span)
-                first_pat = pat.elts[0]
-                rest_pat = (
-                    pat.elts[1]
-                    if len(pat.elts) == 2
-                    else PatTuple(span=pat.span, elts=pat.elts[1:])
-                )
-            elif isinstance(pat, PatWild):
-                first_pat = PatWild(pat.span)
-                rest_pat = PatWild(pat.span)
-            else:
-                raise SurfaceError(
-                    "Multi-scrutinee patterns must be tuple or _", head.span
-                )
-            inner = self._compile_multi(
-                scrutinees[1:], (SBranch(rest_pat, head.rhs, head.span),), default_term
+        if not branches:
+            return default_term
+        head, *rest = branches
+        pat = head.pat
+        if isinstance(pat, PatTuple):
+            if len(pat.elts) != len(scrutinees):
+                raise SurfaceError("Tuple pattern arity mismatch", head.span)
+            first_pat = pat.elts[0]
+            rest_pat = (
+                pat.elts[1]
+                if len(pat.elts) == 2
+                else PatTuple(span=pat.span, elts=pat.elts[1:])
             )
-            next_default = compile_branch_list(tuple(rest), default_term)
-            return self._compile_pat(scrutinee, first_pat, inner, next_default)
-
-        return compile_branch_list(branches, fallback)
-
-    def _fresh_name(self) -> str:
-        counter = getattr(self, "_pat_counter", 0)
-        name = f"_pat{counter}"
-        object.__setattr__(self, "_pat_counter", counter + 1)
-        return name
-
-
-@dataclass(frozen=True)
-class SLetPat(SurfaceTerm):
-    pat: Pat
-    value: SurfaceTerm
-    body: SurfaceTerm
-
-    def elab_infer(self, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
-        value_term, value_ty = self.value.elab_infer(env, state)
-        value_ty_whnf = value_ty.term.whnf(env.kenv)
-        if not self._is_irrefutable(env.kenv, value_ty_whnf, self.pat):
-            raise SurfaceError("Refutable pattern in let; use match", self.span)
-        env_body = env
-        for name, ty in self._collect_binders(env.kenv, value_ty_whnf, self.pat):
-            env_body = env_body.push_binder(ElabType(ty), name=name)
-        body_term, body_ty = self.body.elab_infer(env_body, state)
-        match_term = SMatch(
-            span=self.span,
-            scrutinees=(self.value,),
-            as_names=(None,),
-            motive=None,
-            branches=(SBranch(self.pat, self.body, self.span),),
+        elif isinstance(pat, PatWild):
+            first_pat = PatWild(pat.span)
+            rest_pat = PatWild(pat.span)
+        else:
+            raise SurfaceError("Multi-scrutinee patterns must be tuple or _", head.span)
+        inner = _compile_multi(
+            scrutinees[1:], (SBranch(rest_pat, head.rhs, head.span),), default_term
         )
-        match_term_k = match_term.elab_check(env, state, body_ty)
-        return match_term_k, body_ty
+        next_default = compile_branch_list(tuple(rest), default_term)
+        counter = [0]
+        return _compile_pat(scrutinee, first_pat, inner, next_default, counter)
 
-    def resolve(self, env: Env, names: NameEnv) -> Term:
-        raise SurfaceError("Let-pattern requires elaboration", self.span)
+    return compile_branch_list(branches, fallback)
 
-    def _is_irrefutable(self, env: Env, scrut_ty: Term, pat: Pat) -> bool:
-        pat = _expand_tuple_pat(pat)
-        if isinstance(pat, (PatVar, PatWild)):
-            return True
-        if not isinstance(pat, PatCtor):
-            return False
-        head, level_actuals, args = decompose_uapp(scrut_ty)
-        ind = _resolve_inductive_head(env, head)
-        if ind is None or len(ind.constructors) != 1:
-            return False
-        ctor = ind.constructors[0]
-        if pat.ctor not in {ctor.name, f"{ind.name}.{ctor.name}"}:
-            return False
-        p = len(ind.param_types)
-        params_actual = args[:p]
-        field_tys = Telescope.of(
-            *[
-                t.inst_levels(level_actuals).instantiate(params_actual, depth_above=i)
-                for i, t in enumerate(ctor.field_schemas)
-            ]
-        )
-        if len(pat.args) != len(field_tys):
-            return False
-        for field_ty, subpat in zip(field_tys, pat.args, strict=True):
-            if not self._is_irrefutable(env, field_ty, subpat):
-                return False
+
+def _fresh_name(counter: list[int]) -> str:
+    name = f"_pat{counter[0]}"
+    counter[0] += 1
+    return name
+
+
+def elab_let_pat_infer(
+    term: SLetPat, env: ElabEnv, state: ElabState
+) -> tuple[Term, ElabType]:
+    value_term, value_ty = elab_infer(term.value, env, state)
+    value_ty_whnf = value_ty.term.whnf(env.kenv)
+    if not _is_irrefutable(env.kenv, value_ty_whnf, term.pat):
+        raise SurfaceError("Refutable pattern in let; use match", term.span)
+    env_body = env
+    for name, ty in _collect_binders(env.kenv, value_ty_whnf, term.pat):
+        env_body = env_body.push_binder(ElabType(ty), name=name)
+    body_term, body_ty = elab_infer(term.body, env_body, state)
+    match_term = SMatch(
+        span=term.span,
+        scrutinees=(term.value,),
+        as_names=(None,),
+        motive=None,
+        branches=(SBranch(term.pat, term.body, term.span),),
+    )
+    match_term_k = elab_check(match_term, env, state, body_ty)
+    _ = value_term
+    return match_term_k, body_ty
+
+
+def _is_irrefutable(env: Env, scrut_ty: Term, pat: Pat) -> bool:
+    pat = _expand_tuple_pat(pat)
+    if isinstance(pat, (PatVar, PatWild)):
         return True
+    if not isinstance(pat, PatCtor):
+        return False
+    head, level_actuals, args = decompose_uapp(scrut_ty)
+    ind = _resolve_inductive_head(env, head)
+    if ind is None or len(ind.constructors) != 1:
+        return False
+    ctor = ind.constructors[0]
+    if pat.ctor not in {ctor.name, f"{ind.name}.{ctor.name}"}:
+        return False
+    p = len(ind.param_types)
+    params_actual = args[:p]
+    field_tys = Telescope.of(
+        *[
+            t.inst_levels(level_actuals).instantiate(params_actual, depth_above=i)
+            for i, t in enumerate(ctor.field_schemas)
+        ]
+    )
+    if len(pat.args) != len(field_tys):
+        return False
+    for field_ty, subpat in zip(field_tys, pat.args, strict=True):
+        if not _is_irrefutable(env, field_ty, subpat):
+            return False
+    return True
 
-    def _collect_binders(
-        self, env: Env, scrut_ty: Term, pat: Pat
-    ) -> list[tuple[str, Term]]:
-        pat = _expand_tuple_pat(pat)
-        if isinstance(pat, PatVar):
-            return [(pat.name, scrut_ty)]
-        if isinstance(pat, PatWild):
-            return []
-        if not isinstance(pat, PatCtor):
-            return []
-        head, level_actuals, args = decompose_uapp(scrut_ty)
-        ind = _resolve_inductive_head(env, head)
-        if ind is None or len(ind.constructors) != 1:
-            return []
-        ctor = ind.constructors[0]
-        p = len(ind.param_types)
-        params_actual = args[:p]
-        field_tys = Telescope.of(
-            *[
-                t.inst_levels(level_actuals).instantiate(params_actual, depth_above=i)
-                for i, t in enumerate(ctor.field_schemas)
-            ]
-        )
-        if len(pat.args) != len(field_tys):
-            return []
-        binders: list[tuple[str, Term]] = []
-        for field_ty, subpat in zip(field_tys, pat.args, strict=True):
-            binders.extend(self._collect_binders(env, field_ty, subpat))
-        return binders
+
+def _collect_binders(env: Env, scrut_ty: Term, pat: Pat) -> list[tuple[str, Term]]:
+    pat = _expand_tuple_pat(pat)
+    if isinstance(pat, PatVar):
+        return [(pat.name, scrut_ty)]
+    if isinstance(pat, PatWild):
+        return []
+    if not isinstance(pat, PatCtor):
+        return []
+    head, level_actuals, args = decompose_uapp(scrut_ty)
+    ind = _resolve_inductive_head(env, head)
+    if ind is None or len(ind.constructors) != 1:
+        return []
+    ctor = ind.constructors[0]
+    if pat.ctor not in {ctor.name, f"{ind.name}.{ctor.name}"}:
+        return []
+    p = len(ind.param_types)
+    params_actual = args[:p]
+    field_tys = Telescope.of(
+        *[
+            t.inst_levels(level_actuals).instantiate(params_actual, depth_above=i)
+            for i, t in enumerate(ctor.field_schemas)
+        ]
+    )
+    if len(pat.args) != len(field_tys):
+        return []
+    binders: list[tuple[str, Term]] = []
+    for field_ty, subpat in zip(field_tys, pat.args, strict=True):
+        binders.extend(_collect_binders(env, field_ty, subpat))
+    return binders

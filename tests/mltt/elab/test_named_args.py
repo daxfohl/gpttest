@@ -1,7 +1,7 @@
 import pytest
 
 from mltt.kernel.tel import mk_app
-from mltt.elab.sast import SurfaceError
+from mltt.surface.sast import SurfaceError
 from elab_helpers import elab_eval, elab_ok, get_ctor
 
 

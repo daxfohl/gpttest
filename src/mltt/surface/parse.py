@@ -7,7 +7,7 @@ from typing import cast
 import ply.lex as lex  # type: ignore[import-untyped]
 import ply.yacc as yacc  # type: ignore[import-untyped]
 
-from mltt.elab.sast import (
+from mltt.surface.sast import (
     Span,
     SurfaceError,
     SurfaceTerm,
@@ -25,7 +25,7 @@ from mltt.elab.sast import (
     SLet,
     SPartial,
 )
-from mltt.elab.match import (
+from mltt.surface.sast import (
     Pat,
     PatCtor,
     PatTuple,
@@ -35,7 +35,7 @@ from mltt.elab.match import (
     SLetPat,
     SMatch,
 )
-from mltt.elab.sind import SConstructorDecl, SCtor, SInd, SInductiveDef
+from mltt.surface.sast import SConstructorDecl, SCtor, SInd, SInductiveDef
 
 _SOURCE: str = ""
 

@@ -1,0 +1,41 @@
+
+- De Bruijn strategy: binders push indices outward (0 = innermost). Context entries are stored relative to their tails and shifted on lookup; extending a context prepends new binders without rewriting existing entry types. Substitutions decrement indices above the target and shift the inserted term when descending under binders. Inductive parameters are outermost, followed by indices, then constructor arguments; utilities expect substitutions in that order and rely on consistent shifting.
+- `mltt.kernel.ast`:
+  - `Term` is the base class for all kernel terms; it owns shifting/substitution, normalization/WHNF, and type-checking helpers. `TermFieldMeta.binder_count` drives correct shifting/substitution under binders; `unchecked=True` skips structural equality checks.
+  - `Term` public methods: `shift` (raise free vars at/above cutoff), `subst` (replace `Var(j)`), `instantiate` (substitute a binder block with `ArgList` actuals), `inst_levels` (instantiate universe levels), `whnf_step` (one-step weak-head reduction), `whnf` (normalize to WHNF), `normalize_step` (one reduction anywhere), `normalize` (full normalization), `infer_type` (synthesize type), `type_check` (check against a type), `expect_universe` (require `Type(u)`), `type_equal` (definitional equality), `__str__` (pretty-print).
+  - `TermFieldMeta(binder_count, unchecked)` annotates dataclass fields for binder depth and type-equality checks.
+  - `Var(k)`: `k` is a de Bruijn index (0 = innermost). `Var.subst` removes the binder (`k > j` decrements); `Var.shift` bumps indices at/above cutoff.
+  - `MetaVar(mid)`: `mid` is the elaboration metavariable id.
+  - `Lam(arg_ty, body)`: `arg_ty` is the binder type; `body` is under one binder (`binder_count=1`).
+  - `Pi(arg_ty, return_ty)`: `arg_ty` is the binder type; `return_ty` is under one binder (`binder_count=1`).
+  - `App(func, arg)`: `func` is applied to `arg`; reduces by beta if the head is a `Lam`; inference checks `Pi` and substitutes the argument into the codomain.
+  - `UApp(head, levels)`: `head` is a `Const`, `Ind`, `Ctor`, or local `Var`; `levels` are the universe actuals; checks `uarity` and instantiates the head type.
+  - `Univ(level)`: `Type(level)` with `Type(l)` : `Type(l+1)` and level consistency checks.
+  - `Let(arg_ty, value, body)`: `arg_ty` is the annotation, `value` is the bound term, `body` is under one binder at `Var(0)`; inference uses `Env.push_let`.
+  - `Term.instantiate(actuals, depth_above)` substitutes an outer binder block with `actuals` using the project order: higher indices first (outermost actuals map to larger indices).
+- `mltt.kernel.tel` (outermost-to-innermost ordering throughout):
+  - `ArgList` is an argument list in left-to-right application order; `decompose_app` returns args in that same order.
+  - `Telescope` is a list of binder types ordered outermost → innermost; helpers treat the first element as outermost.
+  - `mk_app(fn, *args)` applies term arguments left-associatively, flattening `ArgList` items.
+  - `mk_lam(param_ty, body)`/`mk_pi(param_ty, return_ty)` build a single binder; `mk_lams`/`mk_pis` build towers with parameters ordered outermost → innermost so the last parameter is closest to the body.
+  - `decompose_app(term)` splits an application into `(head, ArgList)` in original argument order.
+  - `mk_uapp(head, levels, *args)` applies universe levels before term arguments; `decompose_uapp(term)` splits `(head, levels, ArgList)`.
+  - `ArgList.vars(n, offset)` returns `Var(n-1)..Var(0)` (outermost → innermost) with an optional offset; this is used to reconstruct parameter/field variables.
+  - `instantiate` on `Telescope` shifts `depth_above` by the binder index, so each successive telescope entry is substituted with the correct de Bruijn depth.
+- `mltt.kernel.env` (innermost-to-outermost for `Env.binders`):
+  - `Env.binders[0]` is the innermost binder; `push_binder`/`push_let` prepend without rewriting existing entry types.
+  - `push_binders` expects outermost → innermost input, so the last pushed binder ends up at index 0.
+  - `local_type(k)` shifts stored types by `k+1` because entries are scoped in the tail; `local_value(k)` returns let-bound definitions when present.
+  - `lookup_local` finds the nearest name (innermost first); `names()` returns binder names ordered by de Bruijn index.
+  - `Binder(ty, name, value, uarity)` stores a local binder type, optional name, optional let value, and universe arity for locals.
+  - `GlobalDecl(ty, value, reducible, uarity)` is a top-level declaration, with optional definition and unfoldability.
+  - `Const(name)` is a `Term` that resolves through `env.globals`.
+- `mltt.kernel.ind` (parameters outermost, then indices, then fields/args; all inductive classes are `Term` subclasses):
+  - `Ind(name, param_types, index_types, constructors, level, uarity)` stores the inductive metadata; `infer_ind_type` builds a Pi-tower `params → indices → Type(level)` with universe checks.
+  - `Ctor(name, inductive, field_schemas, result_indices, uarity)` stores ctor metadata; `infer_ctor_type` builds a Pi-tower with parameters outermost, then ctor fields, returning the inductive head applied to params/indices.
+  - `Elim(inductive, motive, cases, scrutinee)` performs iota-reduction when the scrutinee WHNF is a fully-applied constructor; `infer_elim_type` checks motive/cases and constructs expected branch types with fields then IHs.
+  - `recursive_positions(ctor)` returns recursive-field indices, used to build IHs for eliminators.
+- `mltt.surface.prelude`:
+  - `register_value` adds a `GlobalDecl` for a computed value by inferring its type in an env built from current globals; `uarity` is copied from the value when present.
+  - `prelude_globals` builds the default global environment mapping names like `Nat`, `Bool`, `List`, `Vec`, `Fin`, `Maybe`, and `Sigma` (plus their constructors) to `GlobalDecl` entries.
+  - `prelude_env` returns an `Env` seeded with the prelude globals.
