@@ -190,6 +190,12 @@ def _replace_recursive_call(
             return head, args + list(app.args)
         return app, []
 
+    def replace_inductive(t: SInductiveDef) -> SInductiveDef:
+        new_body = replace_term(t.body)
+        if new_body is not t.body:
+            return replace(t, body=new_body)
+        return t
+
     def is_recursive_call(t: SurfaceTerm) -> str | None:
         head, args = decompose_app(t)
         if not isinstance(head, SVar) or head.name != name or not args:
@@ -291,10 +297,7 @@ def _replace_recursive_call(
                 )
             return t
         if isinstance(t, SInductiveDef):
-            new_body = replace_term(t.body)
-            if new_body is not t.body:
-                return replace(t, body=new_body)
-            return t
+            return replace_inductive(t)
         return t
 
     replaced = replace_term(term)
