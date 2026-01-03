@@ -42,7 +42,7 @@ def test_type_without_numeral() -> None:
 def test_local_universe_binders_with_maybe() -> None:
     src = """
     let mk<A>: const Maybe_U(A) := ctor Maybe.Nothing_U(A);
-    let m: const Maybe_U(Nat) := mk<Nat>;
+    let m: const Maybe_U(Nat) := mk;
     mk<Type>
     """
     elab_ok(src)
@@ -51,8 +51,8 @@ def test_local_universe_binders_with_maybe() -> None:
 def test_local_universe_binders_with_id() -> None:
     src = """
     let id<A>(x: A): A := x;
-    let x: Nat := id<Nat>(Nat.Zero);
-    id<Type>(Type)
+    let x: Nat := id(Nat.Zero);
+    id(Type)
     """
     elab_ok(src)
 
@@ -70,7 +70,7 @@ def test_surface_let_universe_binders() -> None:
     env = prelude_env()
     src = """
     let id{u}(impl A: Type(u), x: A): A := x;
-    let x: Nat := id<Nat>(Nat.Zero);
+    let x: Nat := id(Nat.Zero);
     id<Type>(Nat)
     """
     elab_ok_in_env(src, env)
