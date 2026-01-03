@@ -333,6 +333,14 @@ def test_let_infer_requires_check_mode() -> None:
         elab_eval(src)
 
 
+def test_let_infer_uparams() -> None:
+    src = """
+    let id<A>(x: A) := x;
+    id(Type)
+    """
+    elab_ok(src)
+
+
 def test_partial_generic_inferred() -> None:
     src = """
     let k<A>(a: A, b: A): A := a;
