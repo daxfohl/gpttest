@@ -2,7 +2,7 @@ from types import MappingProxyType
 
 from mltt.kernel.env import Env
 from mltt.kernel.prelude import prelude_env, prelude_globals
-from elab_helpers import elab_ok_in_env
+from mltt.elab.elab_helpers import elab_ok_in_env
 
 
 def test_surface_inductive_maybe() -> None:

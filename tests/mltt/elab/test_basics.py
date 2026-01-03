@@ -1,4 +1,4 @@
-from elab_helpers import elab_ok
+from mltt.elab.elab_helpers import elab_ok
 
 
 def test_explicit_id() -> None:

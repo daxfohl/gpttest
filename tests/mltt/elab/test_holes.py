@@ -6,7 +6,7 @@ from mltt.elab.sast import elab_infer
 from mltt.surface.parse import parse_term
 from mltt.surface.sast import SurfaceError
 from mltt.kernel.prelude import prelude_env
-from elab_helpers import elab_with_state
+from mltt.elab.elab_helpers import elab_with_state
 
 
 def test_typed_hole_unsolved() -> None:

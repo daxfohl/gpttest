@@ -1,5 +1,5 @@
 from mltt.kernel.prelude import prelude_env
-from elab_helpers import elab_ok, elab_ok_in_env
+from mltt.elab.elab_helpers import elab_ok, elab_ok_in_env
 
 
 def test_type_without_numeral() -> None:

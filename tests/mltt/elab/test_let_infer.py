@@ -2,7 +2,7 @@ import pytest
 
 from mltt.kernel.tel import mk_app
 from mltt.surface.sast import SurfaceError
-from elab_helpers import elab_eval, elab_ok, get_ctor
+from mltt.elab.elab_helpers import elab_eval, elab_ok, get_ctor
 
 
 def test_let_infer_partial() -> None:
