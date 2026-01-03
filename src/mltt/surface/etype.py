@@ -34,6 +34,7 @@ class ElabEnv:
     kenv: Env
     locals: tuple[ElabType, ...] = ()
     eglobals: dict[str, ElabType] = field(default_factory=dict)
+    context_terms: dict[str, tuple[Term, ElabType]] = field(default_factory=dict)
 
     @staticmethod
     def from_env(env: Env) -> ElabEnv:
@@ -69,6 +70,17 @@ class ElabEnv:
             local.term.shift(k + 1), local.implicit_spine, local.binder_names
         )
 
+    def lookup_context_term(self, name: str) -> tuple[Term, ElabType] | None:
+        return self.context_terms.get(name)
+
+    def with_context_term(self, name: str, term: Term, ty: ElabType) -> "ElabEnv":
+        return ElabEnv(
+            kenv=self.kenv,
+            locals=self.locals,
+            eglobals=self.eglobals,
+            context_terms={**self.context_terms, name: (term, ty)},
+        )
+
     def push_binder(
         self, ty: ElabType, name: str | None = None, uarity: int = 0
     ) -> ElabEnv:
@@ -76,6 +88,7 @@ class ElabEnv:
             kenv=self.kenv.push_binder(ty.term, name=name, uarity=uarity),
             locals=(ty,) + self.locals,
             eglobals=self.eglobals,
+            context_terms=self.context_terms,
         )
 
     def push_let(
@@ -89,4 +102,5 @@ class ElabEnv:
             kenv=self.kenv.push_let(ty.term, value, name=name, uarity=uarity),
             locals=(ty,) + self.locals,
             eglobals=self.eglobals,
+            context_terms=self.context_terms,
         )

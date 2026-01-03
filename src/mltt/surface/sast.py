@@ -9,7 +9,6 @@ from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
 from mltt.kernel.levels import LConst, LevelExpr
-from mltt.kernel.tel import ArgList
 from mltt.surface.etype import ElabEnv, ElabType
 
 if TYPE_CHECKING:
@@ -122,6 +121,12 @@ class SVar(SurfaceTerm):
     name: str
 
     def elab_infer(self, env: ElabEnv, state: "ElabState") -> tuple[Term, ElabType]:
+        ctx_term = env.lookup_context_term(self.name)
+        if ctx_term is not None:
+            term, ty = ctx_term
+            return term, ElabType(
+                state.zonk(ty.term), ty.implicit_spine, ty.binder_names
+            )
         idx = env.lookup_local(self.name)
         if idx is not None:
             binder = env.binders[idx]
@@ -349,13 +354,7 @@ class SApp(SurfaceTerm):
         binder_names = fn_ty.binder_names
         spine_index = 0
         pending = list(self.args)
-        applied_args: list[Term] = []
-        applied_arg_types: list[Term] = []
-        applied_arg_names: list[str | None] = []
-        context_args: list[Term] = []
-        context_arg_types: list[Term] = []
-        context_arg_names: list[str | None] = []
-        use_context = any(arg.name is not None for arg in pending)
+        context_env = env
         named_seen = False
         for item in pending:
             if item.name is not None:
@@ -421,9 +420,6 @@ class SApp(SurfaceTerm):
                         fn_ty.implicit_spine[1:],
                         fn_ty.binder_names[1:],
                     )
-                    applied_args.append(meta)
-                    applied_arg_types.append(fn_ty_whnf.arg_ty)
-                    applied_arg_names.append(binder_name)
                     spine_index += 1
                     continue
                 raise SurfaceError("Missing explicit argument", self.span)
@@ -431,31 +427,21 @@ class SApp(SurfaceTerm):
                 raise SurfaceError(
                     "Implicit argument provided where explicit expected", arg.term.span
                 )
-            arg_env = env
-            arg_ty = fn_ty_whnf.arg_ty
-            if use_context and context_args:
-                allow_names = arg.name is not None
-                for prev_ty, prev_name in zip(
-                    context_arg_types, context_arg_names, strict=True
-                ):
-                    name = prev_name if allow_names else None
-                    arg_env = arg_env.push_binder(ElabType(prev_ty), name=name)
-                arg_ty = arg_ty.shift(len(context_args))
-            arg_term = arg.term.elab_check(arg_env, state, ElabType(arg_ty))
-            if use_context and context_args:
-                arg_term = arg_term.instantiate(ArgList.of(*context_args))
+            arg_term = arg.term.elab_check(
+                context_env, state, ElabType(fn_ty_whnf.arg_ty)
+            )
             fn_term = App(fn_term, arg_term)
             fn_ty = ElabType(
                 fn_ty_whnf.return_ty.subst(arg_term),
                 fn_ty.implicit_spine[1:],
                 fn_ty.binder_names[1:],
             )
-            applied_args.append(arg_term)
-            applied_arg_types.append(fn_ty_whnf.arg_ty)
-            applied_arg_names.append(binder_name)
-            context_args.append(arg_term)
-            context_arg_types.append(fn_ty_whnf.arg_ty)
-            context_arg_names.append(binder_name)
+            if arg is not None and binder_name is not None:
+                context_env = context_env.with_context_term(
+                    binder_name,
+                    arg_term,
+                    ElabType(fn_ty_whnf.arg_ty),
+                )
             spine_index += 1
             if consume_positional:
                 pos_index += 1
