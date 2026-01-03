@@ -41,7 +41,7 @@ def test_type_without_numeral() -> None:
 
 def test_local_universe_binders_with_maybe() -> None:
     src = """
-    let mk<A>: const Maybe_U(A) := ctor Maybe.Nothing_U(A);
+    let mk<A> := ctor Maybe.Nothing_U(A);
     let m := mk;
     mk<Type>
     """

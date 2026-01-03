@@ -181,13 +181,16 @@ class ElabState:
         meta_ids: list[int] = []
         for term in terms:
             meta_ids.extend(self._collect_level_metas(term))
-        type_metas = [
-            mid
-            for mid in meta_ids
-            if (info := self.level_metas.get(mid)) is not None
-            and info.solution is None
-            and info.origin == "type"
-        ]
+        seen: set[int] = set()
+        type_metas: list[int] = []
+        for mid in meta_ids:
+            if mid in seen:
+                continue
+            info = self.level_metas.get(mid)
+            if info is None or info.solution is not None or info.origin != "type":
+                continue
+            seen.add(mid)
+            type_metas.append(mid)
         if len(type_metas) <= 1:
             return terms
         root = type_metas[0]
