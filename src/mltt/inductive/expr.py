@@ -5,7 +5,7 @@ from __future__ import annotations
 from mltt.inductive.sigma import Sigma
 from mltt.kernel.ast import Lam, Term, Univ, Var
 from mltt.kernel.ind import Elim, Ctor, Ind
-from mltt.kernel.tel import mk_app, Telescope, ArgList
+from mltt.kernel.tel import mk_app, Telescope, Spine
 
 # Expr (Ty : Type1) (τ : Ty) : Type1
 Expr = Ind(
@@ -22,7 +22,7 @@ ConstCtor = Ctor(
         Var(0),  # τ : Ty
         Var(0),  # value : τ
     ),
-    result_indices=ArgList.of(Var(1)),  # τ
+    result_indices=Spine.of(Var(1)),  # τ
 )
 
 PairCtor = Ctor(
@@ -34,7 +34,7 @@ PairCtor = Ctor(
         mk_app(Expr, Var(2), Var(1)),  # Expr Ty A
         mk_app(Expr, Var(3), Var(1)),  # Expr Ty B
     ),
-    result_indices=ArgList.of(
+    result_indices=Spine.of(
         mk_app(  # A × B as a Sigma with constant second component.
             Sigma,
             Var(3),  # A

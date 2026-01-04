@@ -10,7 +10,7 @@ from mltt.kernel.tel import (
     mk_pis,
     mk_lams,
     Telescope,
-    ArgList,
+    Spine,
 )
 
 
@@ -21,7 +21,7 @@ def test_infer_ind_type_rejects_too_small_universe_level() -> None:
 
 
 def test_instantiate_ctor_arg_types_shifts_params_by_fields() -> None:
-    params = ArgList.of(Var(0))  # pretend A is at depth 0 in Γ
+    params = Spine.of(Var(0))  # pretend A is at depth 0 in Γ
 
     inst = tuple(
         schema.instantiate(params, depth_above=i)

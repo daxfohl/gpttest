@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from mltt.kernel.ast import Pi, Term, Univ, Var
 from mltt.kernel.ind import Elim, Ctor, Ind
-from mltt.kernel.tel import mk_app, Telescope, ArgList
+from mltt.kernel.tel import mk_app, Telescope, Spine
 
 RTC = Ind(
     name="RTC",
@@ -23,7 +23,7 @@ RTCReflCtor = Ctor(
     name="rtc_refl",
     inductive=RTC,
     field_schemas=Telescope.of(Var(1)),  # x : A
-    result_indices=ArgList.of(
+    result_indices=Spine.of(
         Var(0),  # x
         Var(0),  # x
     ),
@@ -39,7 +39,7 @@ RTCStepCtor = Ctor(
         mk_app(Var(3), Var(2), Var(0)),  # R x y
         mk_app(RTC, Var(5), Var(4), Var(1), Var(2)),  # RTC A R y z
     ),
-    result_indices=ArgList.of(
+    result_indices=Spine.of(
         Var(4),  # x
         Var(3),  # z
     ),

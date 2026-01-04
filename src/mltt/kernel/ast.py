@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar
 from mltt.kernel.levels import LevelExpr, LConst
 
 if TYPE_CHECKING:
-    from mltt.kernel.tel import ArgList
+    from mltt.kernel.tel import Spine
     from mltt.kernel.env import Env
 
 
@@ -69,7 +69,7 @@ class Term:
             lambda t, m: t.subst(sub.shift(m.binder_count), j + m.binder_count)
         )
 
-    def instantiate(self, actuals: ArgList, depth_above: int = 0) -> Term:
+    def instantiate(self, actuals: Spine, depth_above: int = 0) -> Term:
         """
         Substitute ``actuals`` for the outer binder block of ``self``.
 

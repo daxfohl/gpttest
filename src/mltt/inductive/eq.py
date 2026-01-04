@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from mltt.kernel.ast import App, Lam, Term, Univ, Var
 from mltt.kernel.ind import Elim, Ctor, Ind
-from mltt.kernel.tel import mk_app, mk_lams, Telescope, ArgList
+from mltt.kernel.tel import mk_app, mk_lams, Telescope, Spine
 
 IdType = Ind(
     name="Id",
@@ -15,7 +15,7 @@ IdType = Ind(
 ReflCtor = Ctor(
     name="Refl",
     inductive=IdType,
-    result_indices=ArgList.of(Var(0)),
+    result_indices=Spine.of(Var(0)),
 )
 object.__setattr__(IdType, "constructors", (ReflCtor,))
 

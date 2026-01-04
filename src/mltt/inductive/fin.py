@@ -9,14 +9,14 @@ from mltt.kernel.ast import (
     Var,
 )
 from mltt.kernel.ind import Elim, Ctor, Ind
-from mltt.kernel.tel import mk_app, mk_lams, Telescope, ArgList
+from mltt.kernel.tel import mk_app, mk_lams, Telescope, Spine
 
 Fin = Ind(name="Fin", index_types=Telescope.of(NatType()), level=0)
 FZCtor = Ctor(
     name="FZ",
     inductive=Fin,
     field_schemas=Telescope.of(NatType()),  # n : Nat
-    result_indices=ArgList.of(Succ(Var(0))),
+    result_indices=Spine.of(Succ(Var(0))),
 )
 FSCtor = Ctor(
     name="FS",
@@ -25,7 +25,7 @@ FSCtor = Ctor(
         NatType(),  # n : Nat
         App(Fin, Var(0)),  # Fin n
     ),
-    result_indices=ArgList.of(Succ(Var(1))),
+    result_indices=Spine.of(Succ(Var(1))),
 )
 object.__setattr__(Fin, "constructors", (FZCtor, FSCtor))
 

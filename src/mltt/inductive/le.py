@@ -7,14 +7,14 @@ from mltt.inductive.nat import NatType, Succ
 from mltt.inductive.rtc import RTCRefl, RTCStep, RTCType
 from mltt.kernel.ast import Term, Var
 from mltt.kernel.ind import Elim, Ctor, Ind
-from mltt.kernel.tel import mk_app, mk_lams, Telescope, ArgList
+from mltt.kernel.tel import mk_app, mk_lams, Telescope, Spine
 
 Le = Ind(name="Le", index_types=Telescope.of(NatType(), NatType()), level=0)
 LeReflCtor = Ctor(
     name="le_refl",
     inductive=Le,
     field_schemas=Telescope.of(NatType()),  # n : Nat
-    result_indices=ArgList.of(Var(0), Var(0)),  # Le n n
+    result_indices=Spine.of(Var(0), Var(0)),  # Le n n
 )
 LeStepCtor = Ctor(
     name="le_step",
@@ -24,7 +24,7 @@ LeStepCtor = Ctor(
         NatType(),  # m : Nat
         mk_app(Le, Var(1), Var(0)),  # Le n m
     ),
-    result_indices=ArgList.of(
+    result_indices=Spine.of(
         Var(2),  # n
         Succ(Var(1)),  # Succ m
     ),

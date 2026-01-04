@@ -15,7 +15,7 @@ from mltt.kernel.tel import (
     mk_uapp,
     decompose_uapp,
     Telescope,
-    ArgList,
+    Spine,
 )
 
 
@@ -57,7 +57,7 @@ def infer_ctor_type(ctor: Ctor) -> Term:
     # Parameters bind outermost, then constructor arguments.
     #   [params][args] from outermost to innermost.
     offset = len(ctor.field_schemas)
-    param_vars = ArgList.vars(len(ind.param_types), offset)
+    param_vars = Spine.vars(len(ind.param_types), offset)
     level_vars = tuple(LVar(i) for i in reversed(range(ind.uarity)))
     return mk_pis(
         ind.param_types,
@@ -143,7 +143,7 @@ def infer_elim_type(elim: Elim, env: Env) -> Term:
 
         # Build a scrutinee-shaped term: C params field_vars.
         # field_vars are Var(m-1) .. Var(0) in the Γ,fields context.
-        field_vars = ArgList.vars(m)
+        field_vars = Spine.vars(m)
         scrut_like = mk_uapp(ctor, level_actuals, params_in_fields_ctx, field_vars)
 
         # 3.3 Instantiate ctor result indices under fields.
@@ -263,10 +263,10 @@ class Ctor(Term):
         default=Telescope.empty(),
         metadata={"": TermFieldMeta(unchecked=True)},
     )
-    result_indices: ArgList = field(
+    result_indices: Spine = field(
         repr=False,
         compare=False,
-        default=ArgList.empty(),
+        default=Spine.empty(),
         metadata={"": TermFieldMeta(unchecked=True)},
     )
     uarity: int = 0
@@ -287,14 +287,14 @@ class Ctor(Term):
             if decompose_uapp(s.whnf())[0] == self.inductive
         )
 
-    def iota_reduce(self, cases: tuple[Term, ...], args: ArgList, motive: Term) -> Term:
+    def iota_reduce(self, cases: tuple[Term, ...], args: Spine, motive: Term) -> Term:
         """Compute the iota-reduction of an eliminator on a fully-applied ctor."""
 
         ind = self.inductive
         p = len(ind.param_types)
         m = len(self.field_schemas)
         ctor_args = args[p : p + m]
-        ihs = ArgList.of(*(Elim(ind, motive, cases, ctor_args[i]) for i in self.rps))
+        ihs = Spine.of(*(Elim(ind, motive, cases, ctor_args[i]) for i in self.rps))
         case = cases[self.index_in_inductive]
         return mk_app(case, ctor_args, ihs)
 

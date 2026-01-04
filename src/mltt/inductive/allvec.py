@@ -7,7 +7,7 @@ from mltt.inductive.vec import ConsCtorAt, NilCtorAt, VecAt
 from mltt.kernel.ast import App, Pi, Term, Univ, Var, UApp
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LVar, LevelExpr
-from mltt.kernel.tel import mk_app, Telescope, ArgList
+from mltt.kernel.tel import mk_app, Telescope, Spine
 
 
 def _allvec() -> tuple[Ind, Ctor, Ctor]:
@@ -31,7 +31,7 @@ def _allvec() -> tuple[Ind, Ctor, Ctor]:
     all_nil_ctor = Ctor(
         name="AllNil",
         inductive=allvec_ind,
-        result_indices=ArgList.of(
+        result_indices=Spine.of(
             Zero(),  # n = 0
             App(nil_ctor, Var(1)),  # xs = Nil A (A = Var(1) in (params)(fields))
         ),
@@ -50,7 +50,7 @@ def _allvec() -> tuple[Ind, Ctor, Ctor]:
                 UApp(allvec_ind, u), Var(5), Var(4), Var(3), Var(1)
             ),  # ih : AllVec A P n xs
         ),
-        result_indices=ArgList.of(
+        result_indices=Spine.of(
             Succ(Var(4)),  # S n
             mk_app(cons_ctor, Var(6), Var(4), Var(3), Var(2)),  # Cons A n x xs
         ),

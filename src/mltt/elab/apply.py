@@ -32,7 +32,7 @@ from mltt.elab.types import BinderSpec, ElabEnv, ElabType, apply_binder_specs
 from mltt.kernel.ast import App, Lam, Let, MetaVar, Pi, Term, UApp, Univ, Var
 from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
-from mltt.kernel.tel import ArgList
+from mltt.kernel.tel import Spine
 
 
 def elab_apply(
@@ -209,7 +209,7 @@ def _elab_check(
 def _close_term(term: Term, actuals: list[Term]) -> Term:
     if not actuals:
         return term
-    return term.instantiate(ArgList.of(*actuals), depth_above=0)
+    return term.instantiate(Spine.of(*actuals), depth_above=0)
 
 
 def _shift_terms(terms: list[Term], amount: int) -> list[Term]:
@@ -355,11 +355,11 @@ def _close_new_constraints(
 ) -> None:
     if start >= len(state.constraints):
         return
-    actuals_arglist = ArgList.of(*actuals) if actuals else None
+    actuals_spine = Spine.of(*actuals) if actuals else None
     for constraint in state.constraints[start:]:
-        if actuals_arglist is not None:
-            constraint.lhs = constraint.lhs.instantiate(actuals_arglist, depth_above=0)
-            constraint.rhs = constraint.rhs.instantiate(actuals_arglist, depth_above=0)
+        if actuals_spine is not None:
+            constraint.lhs = constraint.lhs.instantiate(actuals_spine, depth_above=0)
+            constraint.rhs = constraint.rhs.instantiate(actuals_spine, depth_above=0)
         constraint.ctx_len = base_ctx_len + missing_depth
 
 
@@ -373,15 +373,13 @@ def _close_new_metas(
     new_meta_ids = set(state.metas.keys()) - before
     if not new_meta_ids:
         return
-    actuals_arglist = ArgList.of(*actuals) if actuals else None
+    actuals_spine = Spine.of(*actuals) if actuals else None
     for mid in new_meta_ids:
         meta = state.metas[mid]
-        if actuals_arglist is not None:
-            meta.ty = meta.ty.instantiate(actuals_arglist, depth_above=0)
+        if actuals_spine is not None:
+            meta.ty = meta.ty.instantiate(actuals_spine, depth_above=0)
             if meta.solution is not None:
-                meta.solution = meta.solution.instantiate(
-                    actuals_arglist, depth_above=0
-                )
+                meta.solution = meta.solution.instantiate(actuals_spine, depth_above=0)
         meta.ctx_len = base_ctx_len + missing_depth
 
 

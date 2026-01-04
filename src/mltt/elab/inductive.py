@@ -28,7 +28,7 @@ from mltt.elab.types import (
 from mltt.kernel.ast import Term, Univ, UApp
 from mltt.kernel.env import Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
-from mltt.kernel.tel import ArgList, Telescope, decompose_uapp
+from mltt.kernel.tel import Spine, Telescope, decompose_uapp
 from types import MappingProxyType
 
 
@@ -157,7 +157,7 @@ def elab_inductive_infer(
         field_tys, _field_impls, _field_levels, env_fields = elab_binders(
             env_params_with_ind, state, ctor_decl.fields
         )
-        result_indices = ArgList.empty()
+        result_indices = Spine.empty()
         result_term, result_ty = elab_infer(ctor_decl.result, env_fields, state)
         expect_universe(result_ty.term, env_fields.kenv, ctor_decl.span)
         head, _levels, args = decompose_uapp(result_term)
@@ -171,7 +171,7 @@ def elab_inductive_infer(
         params_actual = args[:p]
         result_indices = args[p:]
         # Parameters may be implicit; allow non-var terms and rely on constraints.
-        result_indices = ArgList.of(*result_indices)
+        result_indices = Spine.of(*result_indices)
         ctor = Ctor(
             name=ctor_decl.name,
             inductive=ind,

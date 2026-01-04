@@ -12,7 +12,7 @@ from mltt.kernel.ast import Lam, Term, UApp, Univ, Var
 from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
-from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_app, mk_lams, mk_uapp
+from mltt.kernel.tel import Spine, Telescope, decompose_uapp, mk_app, mk_lams, mk_uapp
 
 
 def resolve_inductive_head(env: Env, head: Term) -> Ind | None:
@@ -36,7 +36,7 @@ def _looks_like_ctor(name: str) -> bool:
 
 def _elab_scrutinee_info(
     scrutinee: ETerm, env: ElabEnv, state: ElabState
-) -> tuple[Term, Term, Term, tuple[LevelExpr, ...], ArgList]:
+) -> tuple[Term, Term, Term, tuple[LevelExpr, ...], Spine]:
     scrut_term, scrut_ty = elab_infer(scrutinee, env, state)
     scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
     head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
@@ -47,10 +47,10 @@ def _mk_ctor_indices(
     ind: Ind,
     ctor: Ctor,
     level_actuals: tuple[LevelExpr, ...],
-    params_actual: ArgList,
-    field_vars: ArgList,
-) -> ArgList:
-    return ArgList.of(
+    params_actual: Spine,
+    field_vars: Spine,
+) -> Spine:
+    return Spine.of(
         *[
             t.inst_levels(level_actuals).instantiate(params_actual, len(field_vars))
             for t in ctor.result_indices
@@ -63,7 +63,7 @@ def _match_branch_types(
     ctor: Ctor,
     motive: Term,
     level_actuals: tuple[LevelExpr, ...],
-    params_actual: ArgList,
+    params_actual: Spine,
     span: Span,
 ) -> tuple[Telescope, Term]:
     ctor_field_types = ctor.field_schemas.inst_levels(level_actuals).instantiate(
@@ -72,9 +72,9 @@ def _match_branch_types(
     m = len(ctor_field_types)
     params_in_fields_ctx = params_actual.shift(m)
     motive_in_fields_ctx = motive.shift(m)
-    field_vars = ArgList.vars(m)
+    field_vars = Spine.vars(m)
     scrut_like = mk_uapp(ctor, level_actuals, params_in_fields_ctx, field_vars)
-    result_indices = ArgList.of(
+    result_indices = Spine.of(
         *[
             t.inst_levels(level_actuals).instantiate(params_actual, m)
             for t in ctor.result_indices
@@ -216,9 +216,7 @@ def _elab_match_core(
     indices_actual = args[p:]
     branch_map, default_branch = _branch_map(match.branches, env, ind)
     cases: list[Term] = []
-    scrut_ty_in_ctx = mk_uapp(
-        ind, level_actuals, params_actual.shift(q), ArgList.vars(q)
-    )
+    scrut_ty_in_ctx = mk_uapp(ind, level_actuals, params_actual.shift(q), Spine.vars(q))
     motive = mk_lams(
         *ind.index_types,
         body=Lam(scrut_ty_in_ctx, expected.term.shift(q + 1)),
@@ -230,7 +228,7 @@ def _elab_match_core(
         index_vars = [
             Var(idx.k - 1 if idx.k > scrut_term.k else idx.k) for idx in index_vars
         ]
-        indices_actual = ArgList.of(*index_vars)
+        indices_actual = Spine.of(*index_vars)
     for ctor in ind.constructors:
         branch = branch_map.get(ctor.name)
         tel, codomain = _match_branch_types(
@@ -276,9 +274,7 @@ def _elab_match_with_motive(
     indices_actual = args[p:]
     motive_term, motive_ty = elab_infer(match.motive, env, state)
     expect_universe(motive_ty.term, env.kenv, match.motive.span)
-    scrut_ty_in_ctx = mk_uapp(
-        ind, level_actuals, params_actual.shift(q), ArgList.vars(q)
-    )
+    scrut_ty_in_ctx = mk_uapp(ind, level_actuals, params_actual.shift(q), Spine.vars(q))
     motive_body = motive_term.shift(q)
     motive_fn = mk_lams(*ind.index_types, body=Lam(scrut_ty_in_ctx, motive_body))
     branch_map, default_branch = _branch_map(match.branches, env, ind)

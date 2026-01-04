@@ -7,7 +7,7 @@ from mltt.inductive.nat import NatType, Succ, Zero
 from mltt.kernel.ast import Term, Univ, Var, UApp
 from mltt.kernel.ind import Elim, Ctor, Ind
 from mltt.kernel.levels import LVar, LevelExpr
-from mltt.kernel.tel import mk_app, mk_uapp, mk_lams, Telescope, ArgList
+from mltt.kernel.tel import mk_app, mk_uapp, mk_lams, Telescope, Spine
 
 
 def _vec() -> tuple[Ind, Ctor, Ctor]:
@@ -22,7 +22,7 @@ def _vec() -> tuple[Ind, Ctor, Ctor]:
     nil_ctor = Ctor(
         name="Nil",
         inductive=vec_ind,
-        result_indices=ArgList.of(Zero()),
+        result_indices=Spine.of(Zero()),
         uarity=1,
     )
     cons_ctor = Ctor(
@@ -33,7 +33,7 @@ def _vec() -> tuple[Ind, Ctor, Ctor]:
             Var(1),  # head : A
             mk_uapp(vec_ind, (u,), Var(2), Var(1)),  # tail : Vec A n
         ),
-        result_indices=ArgList.of(Succ(Var(2))),  # result index = Succ n
+        result_indices=Spine.of(Succ(Var(2))),  # result index = Succ n
         uarity=1,
     )
     object.__setattr__(vec_ind, "constructors", (nil_ctor, cons_ctor))

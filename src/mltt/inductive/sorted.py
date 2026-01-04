@@ -6,7 +6,7 @@ from mltt.inductive.list import ConsCtorAt, ListAt, NilCtorAt
 from mltt.kernel.ast import App, Pi, Term, Univ, Var, UApp
 from mltt.kernel.ind import Elim, Ctor, Ind
 from mltt.kernel.levels import LVar, LevelExpr
-from mltt.kernel.tel import mk_app, Telescope, ArgList
+from mltt.kernel.tel import mk_app, Telescope, Spine
 
 
 def _sorted() -> tuple[Ind, Ctor, Ctor, Ctor]:
@@ -28,7 +28,7 @@ def _sorted() -> tuple[Ind, Ctor, Ctor, Ctor]:
     sorted_nil_ctor = Ctor(
         name="sorted_nil",
         inductive=sorted_ind,
-        result_indices=ArgList.of(App(nil_ctor, Var(1))),
+        result_indices=Spine.of(App(nil_ctor, Var(1))),
         uarity=1,
     )
 
@@ -36,7 +36,7 @@ def _sorted() -> tuple[Ind, Ctor, Ctor, Ctor]:
         name="sorted_one",
         inductive=sorted_ind,
         field_schemas=Telescope.of(Var(1)),  # x : A
-        result_indices=ArgList.of(
+        result_indices=Spine.of(
             mk_app(cons_ctor, Var(2), Var(0), App(nil_ctor, Var(2)))
         ),  # [x]
         uarity=1,
@@ -57,7 +57,7 @@ def _sorted() -> tuple[Ind, Ctor, Ctor, Ctor]:
                 mk_app(cons_ctor, Var(5), Var(1), Var(3)),
             ),
         ),
-        result_indices=ArgList.of(
+        result_indices=Spine.of(
             mk_app(  # x :: y :: xs
                 cons_ctor,
                 Var(6),

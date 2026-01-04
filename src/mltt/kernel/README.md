@@ -2,7 +2,7 @@
 - De Bruijn strategy: binders push indices outward (0 = innermost). Context entries are stored relative to their tails and shifted on lookup; extending a context prepends new binders without rewriting existing entry types. Substitutions decrement indices above the target and shift the inserted term when descending under binders. Inductive parameters are outermost, followed by indices, then constructor arguments; utilities expect substitutions in that order and rely on consistent shifting.
 - `mltt.kernel.ast`:
   - `Term` is the base class for all kernel terms; it owns shifting/substitution, normalization/WHNF, and type-checking helpers. `TermFieldMeta.binder_count` drives correct shifting/substitution under binders; `unchecked=True` skips structural equality checks.
-  - `Term` public methods: `shift` (raise free vars at/above cutoff), `subst` (replace `Var(j)`), `instantiate` (substitute a binder block with `ArgList` actuals), `inst_levels` (instantiate universe levels), `whnf_step` (one-step weak-head reduction), `whnf` (normalize to WHNF), `normalize_step` (one reduction anywhere), `normalize` (full normalization), `infer_type` (synthesize type), `type_check` (check against a type), `expect_universe` (require `Type(u)`), `type_equal` (definitional equality), `__str__` (pretty-print).
+  - `Term` public methods: `shift` (raise free vars at/above cutoff), `subst` (replace `Var(j)`), `instantiate` (substitute a binder block with `Spine` actuals), `inst_levels` (instantiate universe levels), `whnf_step` (one-step weak-head reduction), `whnf` (normalize to WHNF), `normalize_step` (one reduction anywhere), `normalize` (full normalization), `infer_type` (synthesize type), `type_check` (check against a type), `expect_universe` (require `Type(u)`), `type_equal` (definitional equality), `__str__` (pretty-print).
   - `TermFieldMeta(binder_count, unchecked)` annotates dataclass fields for binder depth and type-equality checks.
   - `Var(k)`: `k` is a de Bruijn index (0 = innermost). `Var.subst` removes the binder (`k > j` decrements); `Var.shift` bumps indices at/above cutoff.
   - `MetaVar(mid)`: `mid` is the elaboration metavariable id.
@@ -14,13 +14,13 @@
   - `Let(arg_ty, value, body)`: `arg_ty` is the annotation, `value` is the bound term, `body` is under one binder at `Var(0)`; inference uses `Env.push_let`.
   - `Term.instantiate(actuals, depth_above)` substitutes an outer binder block with `actuals` using the project order: higher indices first (outermost actuals map to larger indices).
 - `mltt.kernel.tel` (outermost-to-innermost ordering throughout):
-  - `ArgList` is an argument list in left-to-right application order; `decompose_app` returns args in that same order.
+  - `Spine` is an argument list in left-to-right application order; `decompose_app` returns args in that same order.
   - `Telescope` is a list of binder types ordered outermost → innermost; helpers treat the first element as outermost.
-  - `mk_app(fn, *args)` applies term arguments left-associatively, flattening `ArgList` items.
+  - `mk_app(fn, *args)` applies term arguments left-associatively, flattening `Spine` items.
   - `mk_lam(param_ty, body)`/`mk_pi(param_ty, return_ty)` build a single binder; `mk_lams`/`mk_pis` build towers with parameters ordered outermost → innermost so the last parameter is closest to the body.
-  - `decompose_app(term)` splits an application into `(head, ArgList)` in original argument order.
-  - `mk_uapp(head, levels, *args)` applies universe levels before term arguments; `decompose_uapp(term)` splits `(head, levels, ArgList)`.
-  - `ArgList.vars(n, offset)` returns `Var(n-1)..Var(0)` (outermost → innermost) with an optional offset; this is used to reconstruct parameter/field variables.
+  - `decompose_app(term)` splits an application into `(head, Spine)` in original argument order.
+  - `mk_uapp(head, levels, *args)` applies universe levels before term arguments; `decompose_uapp(term)` splits `(head, levels, Spine)`.
+  - `Spine.vars(n, offset)` returns `Var(n-1)..Var(0)` (outermost → innermost) with an optional offset; this is used to reconstruct parameter/field variables.
   - `instantiate` on `Telescope` shifts `depth_above` by the binder index, so each successive telescope entry is substituted with the correct de Bruijn depth.
 - `mltt.kernel.env` (innermost-to-outermost for `Env.binders`):
   - `Env.binders[0]` is the innermost binder; `push_binder`/`push_let` prepend without rewriting existing entry types.
