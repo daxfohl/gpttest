@@ -4,7 +4,8 @@ import pytest
 
 from mltt.surface.desugar import desugar
 from mltt.surface.parse import parse_term_raw
-from mltt.surface.sast import Span, SurfaceError
+from mltt.common.span import Span
+from mltt.surface.sast import SurfaceError
 
 
 def _strip_spans(node: object) -> object:

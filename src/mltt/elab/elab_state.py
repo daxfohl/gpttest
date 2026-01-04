@@ -10,7 +10,7 @@ from mltt.kernel.env import Env
 from mltt.kernel.ind import Elim, Ind
 from mltt.kernel.levels import LConst, LMax, LMeta, LSucc, LVar, LevelExpr
 from mltt.elab.errors import ElabError
-from mltt.surface.sast import Span
+from mltt.common.span import Span
 
 
 @dataclass

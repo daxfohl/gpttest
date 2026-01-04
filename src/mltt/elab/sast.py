@@ -32,7 +32,7 @@ from mltt.elab.elab_apply import elab_apply
 from mltt.elab.etype import ElabBinderInfo, ElabEnv, ElabType
 from mltt.elab.names import NameEnv
 from mltt.elab.errors import ElabError
-from mltt.surface.sast import Span
+from mltt.common.span import Span
 
 
 def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:

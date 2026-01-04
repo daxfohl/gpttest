@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 
+from mltt.common.span import Span
 from mltt.surface.sast import (
     Pat,
     SAnn,
@@ -18,7 +19,6 @@ from mltt.surface.sast import (
     SPartial,
     SUApp,
     SVar,
-    Span,
     SurfaceError,
     SurfaceTerm,
 )

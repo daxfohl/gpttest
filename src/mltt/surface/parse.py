@@ -10,8 +10,8 @@ import ply.yacc as yacc  # type: ignore[import-untyped]
 from mltt.elab.east import ETerm
 from mltt.surface.desugar import desugar
 from mltt.surface.to_elab import surface_to_elab
+from mltt.common.span import Span
 from mltt.surface.sast import (
-    Span,
     SurfaceError,
     SurfaceTerm,
     SBinder,

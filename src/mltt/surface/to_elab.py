@@ -30,6 +30,7 @@ from mltt.elab.east import (
     EVar,
     ETerm,
 )
+from mltt.common.span import Span
 from mltt.surface.sast import (
     Pat,
     PatCtor,
@@ -56,7 +57,6 @@ from mltt.surface.sast import (
     SUApp,
     SUniv,
     SVar,
-    Span,
     SurfaceError,
     SurfaceTerm,
 )

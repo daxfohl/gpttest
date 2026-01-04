@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from mltt.surface.sast import Span
+from mltt.common.span import Span
 
 
 @dataclass(frozen=True)

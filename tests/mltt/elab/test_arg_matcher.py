@@ -4,7 +4,7 @@ from mltt.elab.arg_matcher import ArgMatcher
 from mltt.elab.east import EArg, ENamedArg, EVar
 from mltt.elab.errors import ElabError
 from mltt.elab.etype import ElabBinderInfo
-from mltt.surface.sast import Span
+from mltt.common.span import Span
 
 
 def _arg(name: str, *, implicit: bool = False) -> EArg:

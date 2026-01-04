@@ -8,7 +8,7 @@ from typing import Iterable, Literal
 from mltt.elab.east import EArg, ENamedArg
 from mltt.elab.etype import ElabBinderInfo
 from mltt.elab.errors import ElabError
-from mltt.surface.sast import Span
+from mltt.common.span import Span
 
 
 ArgKind = Literal["explicit", "implicit", "missing", "stop"]

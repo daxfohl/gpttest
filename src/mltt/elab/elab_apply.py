@@ -31,7 +31,7 @@ from mltt.elab.east import (
 from mltt.elab.elab_state import ElabState
 from mltt.elab.etype import ElabBinderInfo, ElabEnv, ElabType
 from mltt.elab.errors import ElabError
-from mltt.surface.sast import Span
+from mltt.common.span import Span
 
 
 def elab_apply(

@@ -28,7 +28,7 @@ from mltt.elab.sast import (
     elab_infer,
 )
 from mltt.elab.errors import ElabError
-from mltt.surface.sast import Span
+from mltt.common.span import Span
 
 
 def _normalize_binder_name(name: str | None) -> str | None:

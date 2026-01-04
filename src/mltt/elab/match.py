@@ -12,7 +12,7 @@ from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
 from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_app, mk_lams, mk_uapp
 from mltt.elab.errors import ElabError
-from mltt.surface.sast import Span
+from mltt.common.span import Span
 
 
 def _resolve_inductive_head(env: Env, head: Term) -> Ind | None:
