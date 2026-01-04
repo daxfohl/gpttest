@@ -397,11 +397,7 @@ def _elab_let_infer(
         binder_infos = _binder_info_from_type(term.ty)
         val_term = elab_check(val_src, env, state, ElabType(ty_term))
     state.level_names = old_level_names
-    uarity, ty_term, val_term = state.generalize_levels_for_let(
-        ty_term,
-        val_term,
-        merge_type_metas=not term.uparams,
-    )
+    uarity, ty_term, val_term = state.generalize_levels_for_let(ty_term, val_term)
     env1 = env.push_let(
         ElabType(ty_term, binder_infos),
         val_term,
