@@ -393,7 +393,7 @@ def _elab_let_infer(
         _expect_universe(ty_ty.term, env.kenv, term.span)
         binder_infos = _binder_info_from_type(term.ty)
         val_term = elab_check(val_src, env, state, ElabType(ty_term))
-    uarity, ty_term, val_term = state.generalize_levels_for_let(ty_term, val_term)
+    uarity, ty_term, val_term = state.generalize_let(ty_term, val_term)
     env1 = env.push_let(
         ElabType(ty_term, binder_infos),
         val_term,
