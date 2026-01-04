@@ -142,32 +142,37 @@ def _branch_binders(
     field_count: int,
 ) -> list[tuple[str | None, Term]]:
     binders: list[tuple[str | None, Term]] = []
-    if isinstance(pat, PatCtor):
-        if len(pat.args) not in {field_count, len(tel)}:
-            raise SurfaceError("Match pattern has wrong arity", pat.span)
-        if len(pat.args) == field_count:
-            full_args = pat.args + tuple(
-                PatWild(pat.span) for _ in range(len(tel) - field_count)
-            )
-        else:
-            full_args = pat.args
-        for arg, ty in zip(full_args, tel, strict=True):
-            if isinstance(arg, PatVar):
-                binders.append((arg.name, ty))
-            elif isinstance(arg, PatWild):
-                binders.append((None, ty))
+    match pat:
+        case PatCtor():
+            if len(pat.args) not in {field_count, len(tel)}:
+                raise SurfaceError("Match pattern has wrong arity", pat.span)
+            if len(pat.args) == field_count:
+                full_args = pat.args + tuple(
+                    PatWild(pat.span) for _ in range(len(tel) - field_count)
+                )
             else:
-                raise SurfaceError("Match pattern must be constructor or _", arg.span)
-        return binders
-    if isinstance(pat, PatVar):
-        if _looks_like_ctor(pat.name):
-            if len(tel) == 0:
-                return []
-            raise SurfaceError("Constructor pattern needs fields", pat.span)
-        return [(pat.name, ty) for ty in tel]
-    if isinstance(pat, PatWild):
-        return [(None, ty) for ty in tel]
-    raise SurfaceError("Unsupported match pattern", pat.span)
+                full_args = pat.args
+            for arg, ty in zip(full_args, tel, strict=True):
+                match arg:
+                    case PatVar():
+                        binders.append((arg.name, ty))
+                    case PatWild():
+                        binders.append((None, ty))
+                    case _:
+                        raise SurfaceError(
+                            "Match pattern must be constructor or _", arg.span
+                        )
+            return binders
+        case PatVar():
+            if _looks_like_ctor(pat.name):
+                if len(tel) == 0:
+                    return []
+                raise SurfaceError("Constructor pattern needs fields", pat.span)
+            return [(pat.name, ty) for ty in tel]
+        case PatWild():
+            return [(None, ty) for ty in tel]
+        case _:
+            raise SurfaceError("Unsupported match pattern", pat.span)
 
 
 def _branch_map(
@@ -177,21 +182,20 @@ def _branch_map(
     default_branch: SurfaceTerm | None = None
     for branch in branches:
         pat = branch.pat
-        if isinstance(pat, PatWild):
-            default_branch = branch.rhs
-            continue
-        if isinstance(pat, PatVar):
-            ctor_name = pat.name
-            if not _looks_like_ctor(ctor_name):
-                raise SurfaceError(
-                    "Match pattern must be constructor or _", branch.span
-                )
-            branch_map[ctor_name] = branch
-            continue
-        if isinstance(pat, PatCtor):
-            branch_map[pat.ctor] = branch
-            continue
-        raise SurfaceError("Unsupported match pattern", branch.span)
+        match pat:
+            case PatWild():
+                default_branch = branch.rhs
+            case PatVar():
+                ctor_name = pat.name
+                if not _looks_like_ctor(ctor_name):
+                    raise SurfaceError(
+                        "Match pattern must be constructor or _", branch.span
+                    )
+                branch_map[ctor_name] = branch
+            case PatCtor():
+                branch_map[pat.ctor] = branch
+            case _:
+                raise SurfaceError("Unsupported match pattern", branch.span)
     for ctor in ind.constructors:
         qualified = f"{ind.name}.{ctor.name}"
         if ctor.name not in branch_map and qualified in branch_map:
@@ -368,12 +372,15 @@ def elab_let_pat_infer(
 
 
 def _is_irrefutable(env: Env, scrut_ty: Term, pat: Pat) -> bool:
-    if isinstance(pat, (PatVar, PatWild)):
-        return True
-    if isinstance(pat, PatTuple):
-        raise SurfaceError("Tuple patterns must be desugared", pat.span)
-    if not isinstance(pat, PatCtor):
-        return False
+    match pat:
+        case PatVar() | PatWild():
+            return True
+        case PatTuple():
+            raise SurfaceError("Tuple patterns must be desugared", pat.span)
+        case PatCtor():
+            pass
+        case _:
+            return False
     head, level_actuals, args = decompose_uapp(scrut_ty)
     ind = _resolve_inductive_head(env, head)
     if ind is None or len(ind.constructors) != 1:
@@ -398,14 +405,17 @@ def _is_irrefutable(env: Env, scrut_ty: Term, pat: Pat) -> bool:
 
 
 def _collect_binders(env: Env, scrut_ty: Term, pat: Pat) -> list[tuple[str, Term]]:
-    if isinstance(pat, PatVar):
-        return [(pat.name, scrut_ty)]
-    if isinstance(pat, PatWild):
-        return []
-    if isinstance(pat, PatTuple):
-        raise SurfaceError("Tuple patterns must be desugared", pat.span)
-    if not isinstance(pat, PatCtor):
-        return []
+    match pat:
+        case PatVar():
+            return [(pat.name, scrut_ty)]
+        case PatWild():
+            return []
+        case PatTuple():
+            raise SurfaceError("Tuple patterns must be desugared", pat.span)
+        case PatCtor():
+            pass
+        case _:
+            return []
     head, level_actuals, args = decompose_uapp(scrut_ty)
     ind = _resolve_inductive_head(env, head)
     if ind is None or len(ind.constructors) != 1:

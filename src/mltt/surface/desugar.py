@@ -37,71 +37,73 @@ def desugar(term: SurfaceTerm) -> SurfaceTerm:
 
 
 def _desugar_term(term: SurfaceTerm) -> SurfaceTerm:
-    if isinstance(term, SLet):
-        new_val = _desugar_equation_rec_in_lambda(term.name, term.val)
-        new_val = _desugar_term(new_val)
-        new_body = _desugar_term(term.body)
-        if new_val is not term.val or new_body is not term.body:
-            return dataclasses.replace(term, val=new_val, body=new_body)
-        return term
-    if isinstance(term, SLam):
-        new_body = _desugar_term(term.body)
-        if new_body is not term.body:
-            return SLam(span=term.span, binders=term.binders, body=new_body)
-        return term
-    if isinstance(term, SPi):
-        new_body = _desugar_term(term.body)
-        if new_body is not term.body:
-            return SPi(span=term.span, binders=term.binders, body=new_body)
-        return term
-    if isinstance(term, SApp):
-        new_fn = _desugar_term(term.fn)
-        new_args: list[SArg] = []
-        changed = new_fn is not term.fn
-        for arg in term.args:
-            new_term = _desugar_term(arg.term)
-            changed = changed or new_term is not arg.term
-            new_args.append(SArg(new_term, implicit=arg.implicit, name=arg.name))
-        if changed:
-            return SApp(span=term.span, fn=new_fn, args=tuple(new_args))
-        return term
-    if isinstance(term, SPartial):
-        new_term = _desugar_term(term.term)
-        if new_term is not term.term:
-            return SPartial(span=term.span, term=new_term)
-        return term
-    if isinstance(term, SAnn):
-        new_term = _desugar_term(term.term)
-        if new_term is not term.term:
-            return SAnn(span=term.span, term=new_term, ty=term.ty)
-        return term
-    if isinstance(term, SUApp):
-        new_head = _desugar_term(term.head)
-        if new_head is not term.head:
-            return SUApp(span=term.span, head=new_head, levels=term.levels)
-        return term
-    if isinstance(term, SMatch):
-        return _desugar_match(term)
-    if isinstance(term, SLetPat):
-        _check_duplicate_binders((SBranch(term.pat, term.body, term.span),))
-        new_value = _desugar_term(term.value)
-        new_body = _desugar_term(term.body)
-        new_pat = _expand_tuple_pat(term.pat)
-        if (
-            new_value is not term.value
-            or new_body is not term.body
-            or new_pat is not term.pat
-        ):
-            return dataclasses.replace(
-                term, value=new_value, body=new_body, pat=new_pat
-            )
-        return term
-    if isinstance(term, SInductiveDef):
-        new_body = _desugar_term(term.body)
-        if new_body is not term.body:
-            return dataclasses.replace(term, body=new_body)
-        return term
-    return term
+    match term:
+        case SLet():
+            new_val = _desugar_equation_rec_in_lambda(term.name, term.val)
+            new_val = _desugar_term(new_val)
+            new_body = _desugar_term(term.body)
+            if new_val is not term.val or new_body is not term.body:
+                return dataclasses.replace(term, val=new_val, body=new_body)
+            return term
+        case SLam():
+            new_body = _desugar_term(term.body)
+            if new_body is not term.body:
+                return SLam(span=term.span, binders=term.binders, body=new_body)
+            return term
+        case SPi():
+            new_body = _desugar_term(term.body)
+            if new_body is not term.body:
+                return SPi(span=term.span, binders=term.binders, body=new_body)
+            return term
+        case SApp():
+            new_fn = _desugar_term(term.fn)
+            new_args: list[SArg] = []
+            changed = new_fn is not term.fn
+            for arg in term.args:
+                new_term = _desugar_term(arg.term)
+                changed = changed or new_term is not arg.term
+                new_args.append(SArg(new_term, implicit=arg.implicit, name=arg.name))
+            if changed:
+                return SApp(span=term.span, fn=new_fn, args=tuple(new_args))
+            return term
+        case SPartial():
+            new_term = _desugar_term(term.term)
+            if new_term is not term.term:
+                return SPartial(span=term.span, term=new_term)
+            return term
+        case SAnn():
+            new_term = _desugar_term(term.term)
+            if new_term is not term.term:
+                return SAnn(span=term.span, term=new_term, ty=term.ty)
+            return term
+        case SUApp():
+            new_head = _desugar_term(term.head)
+            if new_head is not term.head:
+                return SUApp(span=term.span, head=new_head, levels=term.levels)
+            return term
+        case SMatch():
+            return _desugar_match(term)
+        case SLetPat():
+            _check_duplicate_binders((SBranch(term.pat, term.body, term.span),))
+            new_value = _desugar_term(term.value)
+            new_body = _desugar_term(term.body)
+            new_pat = _expand_tuple_pat(term.pat)
+            if (
+                new_value is not term.value
+                or new_body is not term.body
+                or new_pat is not term.pat
+            ):
+                return dataclasses.replace(
+                    term, value=new_value, body=new_body, pat=new_pat
+                )
+            return term
+        case SInductiveDef():
+            new_body = _desugar_term(term.body)
+            if new_body is not term.body:
+                return dataclasses.replace(term, body=new_body)
+            return term
+        case _:
+            return term
 
 
 def _desugar_equation_rec_in_lambda(name: str, term: SurfaceTerm) -> SurfaceTerm:
@@ -318,23 +320,25 @@ def _decompose_sapp(term: SurfaceTerm) -> tuple[SurfaceTerm, list[SArg]]:
 
 
 def _expand_tuple_pat(pat: Pat) -> Pat:
-    if isinstance(pat, PatTuple):
-        if len(pat.elts) < 2:
-            return _expand_tuple_pat(pat.elts[0])
-        left = _expand_tuple_pat(pat.elts[0])
-        right = _expand_tuple_pat(
-            PatTuple(span=pat.span, elts=pat.elts[1:])
-            if len(pat.elts) > 2
-            else pat.elts[1]
-        )
-        return PatCtor(span=pat.span, ctor="Pair", args=(left, right))
-    if isinstance(pat, PatCtor):
-        return PatCtor(
-            span=pat.span,
-            ctor=pat.ctor,
-            args=tuple(_expand_tuple_pat(arg) for arg in pat.args),
-        )
-    return pat
+    match pat:
+        case PatTuple():
+            if len(pat.elts) < 2:
+                return _expand_tuple_pat(pat.elts[0])
+            left = _expand_tuple_pat(pat.elts[0])
+            right = _expand_tuple_pat(
+                PatTuple(span=pat.span, elts=pat.elts[1:])
+                if len(pat.elts) > 2
+                else pat.elts[1]
+            )
+            return PatCtor(span=pat.span, ctor="Pair", args=(left, right))
+        case PatCtor():
+            return PatCtor(
+                span=pat.span,
+                ctor=pat.ctor,
+                args=tuple(_expand_tuple_pat(arg) for arg in pat.args),
+            )
+        case _:
+            return pat
 
 
 def _looks_like_ctor(name: str) -> bool:
@@ -351,23 +355,25 @@ def _check_duplicate_binders(branches: tuple[SBranch, ...]) -> None:
 
 
 def _pat_bindings(pat: Pat) -> list[str]:
-    if isinstance(pat, PatVar):
-        if _looks_like_ctor(pat.name):
+    match pat:
+        case PatVar():
+            if _looks_like_ctor(pat.name):
+                return []
+            return [pat.name]
+        case PatWild():
             return []
-        return [pat.name]
-    if isinstance(pat, PatWild):
-        return []
-    if isinstance(pat, PatCtor):
-        names: list[str] = []
-        for arg in pat.args:
-            names.extend(_pat_bindings(arg))
-        return names
-    if isinstance(pat, PatTuple):
-        tuple_names: list[str] = []
-        for elt in pat.elts:
-            tuple_names.extend(_pat_bindings(elt))
-        return tuple_names
-    return []
+        case PatCtor():
+            names: list[str] = []
+            for arg in pat.args:
+                names.extend(_pat_bindings(arg))
+            return names
+        case PatTuple():
+            tuple_names: list[str] = []
+            for elt in pat.elts:
+                tuple_names.extend(_pat_bindings(elt))
+            return tuple_names
+        case _:
+            return []
 
 
 def _needs_nested(branches: tuple[SBranch, ...]) -> bool:
@@ -375,13 +381,16 @@ def _needs_nested(branches: tuple[SBranch, ...]) -> bool:
 
 
 def _pat_nested(pat: Pat) -> bool:
-    if isinstance(pat, PatCtor):
-        for arg in pat.args:
-            if _pat_nested(arg):
-                return True
-            if isinstance(arg, PatCtor):
-                return True
-    return False
+    match pat:
+        case PatCtor():
+            for arg in pat.args:
+                if _pat_nested(arg):
+                    return True
+                if isinstance(arg, PatCtor):
+                    return True
+            return False
+        case _:
+            return False
 
 
 def _extract_default(branches: tuple[SBranch, ...]) -> SBranch | None:
@@ -410,17 +419,19 @@ def _compile_branches(
         if not branches:
             return default_term
         head, *rest = branches
-        if isinstance(head.pat, PatWild):
-            return head.rhs
-        if isinstance(head.pat, PatVar) and not _looks_like_ctor(head.pat.name):
-            return SLet(
-                span=head.span,
-                uparams=(),
-                name=head.pat.name,
-                ty=None,
-                val=scrutinee,
-                body=head.rhs,
-            )
+        match head.pat:
+            case PatWild():
+                return head.rhs
+            case PatVar():
+                if not _looks_like_ctor(head.pat.name):
+                    return SLet(
+                        span=head.span,
+                        uparams=(),
+                        name=head.pat.name,
+                        ty=None,
+                        val=scrutinee,
+                        body=head.rhs,
+                    )
         next_fallback = _compile_branches(scrutinee, tuple(rest), fallback, counter)
         return _compile_pat(scrutinee, head.pat, head.rhs, next_fallback, counter)
 
@@ -435,61 +446,65 @@ def _compile_pat(
     counter: list[int],
 ) -> SurfaceTerm:
     pat = _expand_tuple_pat(pat)
-    if isinstance(pat, PatCtor):
-        pat_args: list[Pat] = []
-        for arg in pat.args:
-            if isinstance(arg, PatWild):
-                pat_args.append(PatWild(arg.span))
-            elif isinstance(arg, PatVar):
-                pat_args.append(PatVar(arg.span, arg.name))
-            elif isinstance(arg, PatCtor):
-                fresh = _fresh_name(counter)
-                pat_args.append(PatVar(arg.span, fresh))
-            else:
-                pat_args.append(arg)
-        nested_success = success
-        for arg, orig in zip(pat_args, pat.args, strict=True):
-            if isinstance(orig, PatCtor):
-                if not isinstance(arg, PatVar):
-                    raise SurfaceError("Nested constructor binder missing", orig.span)
-                nested_success = _compile_pat(
-                    scrutinee=SVar(span=orig.span, name=arg.name),
-                    pat=orig,
-                    success=nested_success,
-                    fallback=fallback,
-                    counter=counter,
-                )
-        branch_pat = PatCtor(span=pat.span, ctor=pat.ctor, args=tuple(pat_args))
-        branch = SBranch(pat=branch_pat, rhs=nested_success, span=pat.span)
-        branches = (branch, SBranch(PatWild(pat.span), fallback, pat.span))
-        return SMatch(
-            span=pat.span,
-            scrutinees=(scrutinee,),
-            as_names=(None,),
-            motive=None,
-            branches=branches,
-        )
-    if isinstance(pat, PatVar):
-        if _looks_like_ctor(pat.name):
-            branch = SBranch(pat, success, pat.span)
+    match pat:
+        case PatCtor():
+            pat_args: list[Pat] = []
+            for arg in pat.args:
+                if isinstance(arg, PatWild):
+                    pat_args.append(PatWild(arg.span))
+                elif isinstance(arg, PatVar):
+                    pat_args.append(PatVar(arg.span, arg.name))
+                elif isinstance(arg, PatCtor):
+                    fresh = _fresh_name(counter)
+                    pat_args.append(PatVar(arg.span, fresh))
+                else:
+                    pat_args.append(arg)
+            nested_success = success
+            for arg, orig in zip(pat_args, pat.args, strict=True):
+                if isinstance(orig, PatCtor):
+                    if not isinstance(arg, PatVar):
+                        raise SurfaceError(
+                            "Nested constructor binder missing", orig.span
+                        )
+                    nested_success = _compile_pat(
+                        scrutinee=SVar(span=orig.span, name=arg.name),
+                        pat=orig,
+                        success=nested_success,
+                        fallback=fallback,
+                        counter=counter,
+                    )
+            branch_pat = PatCtor(span=pat.span, ctor=pat.ctor, args=tuple(pat_args))
+            branch = SBranch(pat=branch_pat, rhs=nested_success, span=pat.span)
+            branches = (branch, SBranch(PatWild(pat.span), fallback, pat.span))
             return SMatch(
                 span=pat.span,
                 scrutinees=(scrutinee,),
                 as_names=(None,),
                 motive=None,
-                branches=(branch, SBranch(PatWild(pat.span), fallback, pat.span)),
+                branches=branches,
             )
-        return SLet(
-            span=pat.span,
-            uparams=(),
-            name=pat.name,
-            ty=None,
-            val=scrutinee,
-            body=success,
-        )
-    if isinstance(pat, PatWild):
-        return success
-    return fallback
+        case PatVar():
+            if _looks_like_ctor(pat.name):
+                branch = SBranch(pat, success, pat.span)
+                return SMatch(
+                    span=pat.span,
+                    scrutinees=(scrutinee,),
+                    as_names=(None,),
+                    motive=None,
+                    branches=(branch, SBranch(PatWild(pat.span), fallback, pat.span)),
+                )
+            return SLet(
+                span=pat.span,
+                uparams=(),
+                name=pat.name,
+                ty=None,
+                val=scrutinee,
+                body=success,
+            )
+        case PatWild():
+            return success
+        case _:
+            return fallback
 
 
 def _desugar_match(match: SMatch) -> SurfaceTerm:
@@ -535,18 +550,20 @@ def _expand_tuple_in_multi(branches: tuple[SBranch, ...]) -> tuple[SBranch, ...]
 
 
 def _expand_tuple_multi_pat(pat: Pat) -> Pat:
-    if isinstance(pat, PatTuple):
-        return PatTuple(
-            span=pat.span,
-            elts=tuple(_expand_tuple_multi_pat(p) for p in pat.elts),
-        )
-    if isinstance(pat, PatCtor):
-        return PatCtor(
-            span=pat.span,
-            ctor=pat.ctor,
-            args=tuple(_expand_tuple_multi_pat(p) for p in pat.args),
-        )
-    return pat
+    match pat:
+        case PatTuple():
+            return PatTuple(
+                span=pat.span,
+                elts=tuple(_expand_tuple_multi_pat(p) for p in pat.elts),
+            )
+        case PatCtor():
+            return PatCtor(
+                span=pat.span,
+                ctor=pat.ctor,
+                args=tuple(_expand_tuple_multi_pat(p) for p in pat.args),
+            )
+        case _:
+            return pat
 
 
 def _desugar_multi(match: SMatch) -> SurfaceTerm:
@@ -587,20 +604,23 @@ def _compile_multi(
             return default_term
         head, *rest = branches
         pat = head.pat
-        if isinstance(pat, PatTuple):
-            if len(pat.elts) != len(scrutinees):
-                raise SurfaceError("Tuple pattern arity mismatch", head.span)
-            first_pat = pat.elts[0]
-            rest_pat = (
-                pat.elts[1]
-                if len(pat.elts) == 2
-                else PatTuple(span=pat.span, elts=pat.elts[1:])
-            )
-        elif isinstance(pat, PatWild):
-            first_pat = PatWild(pat.span)
-            rest_pat = PatWild(pat.span)
-        else:
-            raise SurfaceError("Multi-scrutinee patterns must be tuple or _", head.span)
+        match pat:
+            case PatTuple():
+                if len(pat.elts) != len(scrutinees):
+                    raise SurfaceError("Tuple pattern arity mismatch", head.span)
+                first_pat = pat.elts[0]
+                rest_pat = (
+                    pat.elts[1]
+                    if len(pat.elts) == 2
+                    else PatTuple(span=pat.span, elts=pat.elts[1:])
+                )
+            case PatWild():
+                first_pat = PatWild(pat.span)
+                rest_pat = PatWild(pat.span)
+            case _:
+                raise SurfaceError(
+                    "Multi-scrutinee patterns must be tuple or _", head.span
+                )
         inner = _compile_multi(
             scrutinees[1:], (SBranch(rest_pat, head.rhs, head.span),), default_term
         )
