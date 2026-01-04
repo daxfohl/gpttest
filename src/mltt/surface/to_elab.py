@@ -1,0 +1,206 @@
+"""Convert desugared surface AST into elaborator AST."""
+
+from __future__ import annotations
+
+from mltt.elab.east import (
+    EAnn,
+    EApp,
+    EArg,
+    EBinder,
+    EBranch,
+    EConst,
+    ECtor,
+    EConstructorDecl,
+    EHole,
+    EInd,
+    EInductiveDef,
+    ELam,
+    ELet,
+    ELetPat,
+    EMatch,
+    EPartial,
+    EPat,
+    EPatCtor,
+    EPatVar,
+    EPatWild,
+    EPi,
+    EUApp,
+    EUniv,
+    EVar,
+    ETerm,
+)
+from mltt.surface.sast import (
+    Pat,
+    PatCtor,
+    PatTuple,
+    PatVar,
+    PatWild,
+    SAnn,
+    SApp,
+    SArg,
+    SBinder,
+    SBranch,
+    SConst,
+    SCtor,
+    SConstructorDecl,
+    SHole,
+    SInd,
+    SInductiveDef,
+    SLet,
+    SLetPat,
+    SLam,
+    SMatch,
+    SPi,
+    SPartial,
+    SUApp,
+    SUniv,
+    SVar,
+    SurfaceError,
+    SurfaceTerm,
+)
+
+
+def surface_to_elab(term: SurfaceTerm) -> ETerm:
+    return _convert_term(term)
+
+
+def _convert_term(term: SurfaceTerm) -> ETerm:
+    match term:
+        case SVar():
+            return EVar(span=term.span, name=term.name)
+        case SConst():
+            return EConst(span=term.span, name=term.name)
+        case SUniv():
+            return EUniv(span=term.span, level=term.level)
+        case SAnn():
+            return EAnn(
+                span=term.span,
+                term=_convert_term(term.term),
+                ty=_convert_term(term.ty),
+            )
+        case SHole():
+            return EHole(span=term.span)
+        case SLam():
+            return ELam(
+                span=term.span,
+                binders=tuple(_convert_binder(b) for b in term.binders),
+                body=_convert_term(term.body),
+            )
+        case SPi():
+            return EPi(
+                span=term.span,
+                binders=tuple(_convert_binder(b) for b in term.binders),
+                body=_convert_term(term.body),
+            )
+        case SApp():
+            return EApp(
+                span=term.span,
+                fn=_convert_term(term.fn),
+                args=tuple(_convert_arg(arg) for arg in term.args),
+            )
+        case SUApp():
+            return EUApp(
+                span=term.span,
+                head=_convert_term(term.head),
+                levels=term.levels,
+            )
+        case SPartial():
+            return EPartial(span=term.span, term=_convert_term(term.term))
+        case SLet():
+            return ELet(
+                span=term.span,
+                uparams=term.uparams,
+                name=term.name,
+                ty=_convert_term(term.ty) if term.ty is not None else None,
+                val=_convert_term(term.val),
+                body=_convert_term(term.body),
+            )
+        case SMatch():
+            if len(term.scrutinees) != 1:
+                raise SurfaceError(
+                    "Match must be desugared to one scrutinee", term.span
+                )
+            if len(term.as_names) != 1:
+                raise SurfaceError("Match as-name must be normalized", term.span)
+            return EMatch(
+                span=term.span,
+                scrutinee=_convert_term(term.scrutinees[0]),
+                as_name=term.as_names[0],
+                motive=_convert_term(term.motive) if term.motive is not None else None,
+                branches=tuple(_convert_branch(branch) for branch in term.branches),
+            )
+        case SLetPat():
+            return ELetPat(
+                span=term.span,
+                pat=_convert_pat(term.pat),
+                value=_convert_term(term.value),
+                body=_convert_term(term.body),
+            )
+        case SInd():
+            return EInd(span=term.span, name=term.name)
+        case SCtor():
+            return ECtor(span=term.span, name=term.name)
+        case SInductiveDef():
+            return EInductiveDef(
+                span=term.span,
+                name=term.name,
+                uparams=term.uparams,
+                params=tuple(_convert_binder(b) for b in term.params),
+                level=_convert_term(term.level),
+                ctors=tuple(_convert_ctor_decl(c) for c in term.ctors),
+                body=_convert_term(term.body),
+            )
+        case _:
+            raise SurfaceError("Unsupported surface term for elaboration", term.span)
+
+
+def _convert_binder(binder: SBinder) -> EBinder:
+    ty = _convert_term(binder.ty) if binder.ty is not None else None
+    return EBinder(
+        name=binder.name,
+        ty=ty,
+        span=binder.span,
+        implicit=binder.implicit,
+    )
+
+
+def _convert_arg(arg: SArg) -> EArg:
+    return EArg(
+        term=_convert_term(arg.term),
+        implicit=arg.implicit,
+        name=arg.name,
+    )
+
+
+def _convert_branch(branch: SBranch) -> EBranch:
+    return EBranch(
+        pat=_convert_pat(branch.pat),
+        rhs=_convert_term(branch.rhs),
+        span=branch.span,
+    )
+
+
+def _convert_pat(pat: Pat) -> EPat:
+    match pat:
+        case PatVar():
+            return EPatVar(span=pat.span, name=pat.name)
+        case PatWild():
+            return EPatWild(span=pat.span)
+        case PatCtor():
+            args = tuple(_convert_pat(arg) for arg in pat.args)
+            if any(isinstance(arg, EPatCtor) for arg in args):
+                raise SurfaceError("Nested patterns must be desugared", pat.span)
+            return EPatCtor(span=pat.span, ctor=pat.ctor, args=args)
+        case PatTuple():
+            raise SurfaceError("Tuple patterns must be desugared", pat.span)
+        case _:
+            raise SurfaceError("Unsupported pattern for elaboration", pat.span)
+
+
+def _convert_ctor_decl(ctor: SConstructorDecl) -> EConstructorDecl:
+    return EConstructorDecl(
+        name=ctor.name,
+        fields=tuple(_convert_binder(b) for b in ctor.fields),
+        result=_convert_term(ctor.result) if ctor.result is not None else None,
+        span=ctor.span,
+    )

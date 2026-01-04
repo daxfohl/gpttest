@@ -17,5 +17,6 @@ Non-goals:
 
 Entry points:
 - Surface AST nodes in `sast.py` (elab methods).
+- Elaborator AST in `east.py`.
 - `ElabState` for metavariables and constraints.
 - `ElabEnv` / `ElabType` for elaboration environment metadata.

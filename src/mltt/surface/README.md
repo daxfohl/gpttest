@@ -17,3 +17,4 @@ Non-goals:
 Entry points:
 - `parse_term` / `parse_term_raw` for parsing.
 - `desugar` for surface-level rewrites.
+- `surface_to_elab` to convert desugared surface AST into elaborator AST.
