@@ -1,7 +1,7 @@
 from mltt.common.span import Span
-from mltt.solver.state import ElabState
 from mltt.kernel.ast import App, Lam, Pi, Univ, Var
 from mltt.kernel.env import Env
+from mltt.solver.state import ElabState
 
 
 def test_spine_meta_solve() -> None:
