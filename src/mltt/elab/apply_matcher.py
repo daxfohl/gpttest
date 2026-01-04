@@ -8,7 +8,7 @@ from typing import Iterable, Literal
 from mltt.common.span import Span
 from mltt.elab.ast import EArg, ENamedArg
 from mltt.elab.errors import ElabError
-from mltt.elab.types import ElabBinderInfo
+from mltt.elab.types import BinderSpec
 
 ArgKind = Literal["explicit", "implicit", "missing", "stop"]
 
@@ -23,7 +23,7 @@ class ArgDecision:
 class ArgMatcher:
     def __init__(
         self,
-        binders: tuple[ElabBinderInfo, ...],
+        binders: tuple[BinderSpec, ...],
         positional: tuple[EArg, ...],
         named: tuple[ENamedArg, ...],
         span: Span,
@@ -38,7 +38,7 @@ class ArgMatcher:
         self._named = named_map
 
     def match_for_binder(
-        self, binder: ElabBinderInfo, *, allow_partial: bool
+        self, binder: BinderSpec, *, allow_partial: bool
     ) -> ArgDecision:
         binder_name = binder.name
         if binder_name is not None and binder_name in self._named:

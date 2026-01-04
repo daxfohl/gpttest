@@ -9,11 +9,17 @@ from mltt.kernel.env import Env, GlobalDecl
 
 
 @dataclass(frozen=True)
-class ElabBinderInfo:
+class BinderSpec:
     """Binder metadata (names + implicitness) for elaboration."""
 
     name: str | None = None
     implicit: bool = False
+
+
+def normalize_binder_name(name: str | None) -> str | None:
+    if name == "_":
+        return None
+    return name
 
 
 @dataclass(frozen=True)
@@ -21,7 +27,7 @@ class ElabType:
     """Kernel type plus binder metadata for surface elaboration."""
 
     term: Term
-    binders: tuple[ElabBinderInfo, ...] = ()
+    binders: tuple[BinderSpec, ...] = ()
 
     def whnf(self, env: Env) -> Term:
         return self.term.whnf(env)

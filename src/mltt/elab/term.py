@@ -27,7 +27,7 @@ from mltt.elab.ast import (
 from mltt.elab.errors import ElabError
 from mltt.elab.names import NameEnv
 from mltt.elab.state import ElabState
-from mltt.elab.types import ElabBinderInfo, ElabEnv, ElabType
+from mltt.elab.types import BinderSpec, ElabEnv, ElabType, normalize_binder_name
 from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
@@ -252,7 +252,7 @@ def _elab_lam_infer(
     ):
         lam_term = Lam(ty, lam_term)
         lam_ty_term = Pi(ty, lam_ty_term)
-        binder_infos = (ElabBinderInfo(_normalize_binder_name(name), implicit),) + (
+        binder_infos = (BinderSpec(normalize_binder_name(name), implicit),) + (
             binder_infos
         )
     return lam_term, ElabType(lam_ty_term, binder_infos)
@@ -269,14 +269,14 @@ def _elab_lam_check(
         pi_ty = expected_ty.term.whnf(env1.kenv)
         if not isinstance(pi_ty, Pi):
             raise ElabError("Lambda needs expected function type", term.span)
-        binder_ty_info: tuple[ElabBinderInfo, ...] = ()
+        binder_ty_info: tuple[BinderSpec, ...] = ()
         if binder.ty is None:
             binder_ty = pi_ty.arg_ty
         else:
             binder_ty, binder_ty_ty = elab_infer(binder.ty, env1, state)
             expect_universe(binder_ty_ty.term, env1.kenv, binder.span)
             state.add_constraint(env1.kenv, binder_ty, pi_ty.arg_ty, binder.span)
-            binder_ty_info = _binder_info_from_type(binder.ty)
+            binder_ty_info = _binder_specs_from_type(binder.ty)
         binder_tys.append(binder_ty)
         binder_impls.append(binder.implicit)
         env1 = env1.push_binder(ElabType(binder_ty, binder_ty_info), name=binder.name)
@@ -308,7 +308,7 @@ def _elab_pi_infer(term: EPi, env: ElabEnv, state: ElabState) -> tuple[Term, Ela
         result_level = state.fresh_level_meta("type", term.span)
         state.add_level_constraint(body_level, result_level, term.span)
     binder_infos = tuple(
-        ElabBinderInfo(_normalize_binder_name(b.name), b.implicit) for b in term.binders
+        BinderSpec(normalize_binder_name(b.name), b.implicit) for b in term.binders
     )
     return pi_term, ElabType(Univ(result_level), binder_infos)
 
@@ -391,7 +391,7 @@ def _elab_let_infer(
     else:
         ty_term, ty_ty = elab_infer(term.ty, env, state)
         expect_universe(ty_ty.term, env.kenv, term.span)
-        binder_infos = _binder_info_from_type(term.ty)
+        binder_infos = _binder_specs_from_type(term.ty)
         val_term = elab_check(val_src, env, state, ElabType(ty_term))
     uarity, ty_term, val_term = state.generalize_let(ty_term, val_term)
     env1 = env.push_let(
@@ -417,7 +417,7 @@ def elab_binders(
         ty_term, ty_ty = elab_infer(binder.ty, env, state)
         ty_ty_whnf = expect_universe(ty_ty.term, env.kenv, binder.span)
         env = env.push_binder(
-            ElabType(ty_term, _binder_info_from_type(binder.ty)), name=binder.name
+            ElabType(ty_term, _binder_specs_from_type(binder.ty)), name=binder.name
         )
         binder_tys.append(ty_term)
         binder_impls.append(binder.implicit)
@@ -425,24 +425,18 @@ def elab_binders(
     return binder_tys, binder_impls, binder_levels, env
 
 
-def _binder_info_from_type(term: ETerm | None) -> tuple[ElabBinderInfo, ...]:
+def _binder_specs_from_type(term: ETerm | None) -> tuple[BinderSpec, ...]:
     if term is None:
         return ()
-    infos: list[ElabBinderInfo] = []
+    infos: list[BinderSpec] = []
     current = term
     while isinstance(current, EPi):
         infos.extend(
-            ElabBinderInfo(
-                name=_normalize_binder_name(b.name),
+            BinderSpec(
+                name=normalize_binder_name(b.name),
                 implicit=b.implicit,
             )
             for b in current.binders
         )
         current = current.body
     return tuple(infos)
-
-
-def _normalize_binder_name(name: str | None) -> str | None:
-    if name == "_":
-        return None
-    return name

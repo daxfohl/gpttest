@@ -28,7 +28,7 @@ from mltt.elab.ast import (
 )
 from mltt.elab.errors import ElabError
 from mltt.elab.state import ElabState
-from mltt.elab.types import ElabBinderInfo, ElabEnv, ElabType
+from mltt.elab.types import BinderSpec, ElabEnv, ElabType
 from mltt.kernel.ast import App, Lam, Pi, Term, Var
 from mltt.kernel.env import Env
 from mltt.kernel.tel import ArgList
@@ -68,7 +68,7 @@ def elab_apply(
             binder_info = remaining_binders[0]
             remaining_binders = remaining_binders[1:]
         else:
-            binder_info = ElabBinderInfo()
+            binder_info = BinderSpec()
         decision = matcher.match_for_binder(binder_info, allow_partial=allow_partial)
         match decision.kind:
             case "stop":
@@ -162,7 +162,7 @@ def elab_apply(
             fn_term_closed = Lam(ty, fn_term_closed)
             fn_ty_closed = ElabType(
                 Pi(ty, fn_ty_closed.term),
-                (ElabBinderInfo(name=name, implicit=False),) + remaining_binders,
+                (BinderSpec(name=name, implicit=False),) + remaining_binders,
             )
             remaining_binders = fn_ty_closed.binders
     return fn_term_closed, fn_ty_closed
@@ -324,7 +324,7 @@ def _apply_fn_type(
     fn_ty: ElabType,
     arg_term: Term,
     env: Env,
-    remaining_binders: tuple[ElabBinderInfo, ...],
+    remaining_binders: tuple[BinderSpec, ...],
     span: Span,
 ) -> ElabType:
     fn_ty_whnf = fn_ty.term.whnf(env)

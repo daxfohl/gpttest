@@ -18,18 +18,12 @@ from mltt.elab.term import (
     require_global_info,
     elab_infer,
 )
-from mltt.elab.types import ElabBinderInfo, ElabEnv, ElabType
+from mltt.elab.types import BinderSpec, ElabEnv, ElabType, normalize_binder_name
 from mltt.kernel.ast import Term, Univ, UApp
 from mltt.kernel.env import Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
 from mltt.kernel.tel import ArgList, Telescope, decompose_uapp
 from types import MappingProxyType
-
-
-def _normalize_binder_name(name: str | None) -> str | None:
-    if name == "_":
-        return None
-    return name
 
 
 def elab_ind_infer(term: EInd, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
@@ -113,15 +107,15 @@ def elab_inductive_infer(
         uarity=uarity,
     )
     param_infos = tuple(
-        ElabBinderInfo(
-            name=_normalize_binder_name(binder.name),
+        BinderSpec(
+            name=normalize_binder_name(binder.name),
             implicit=binder.implicit,
         )
         for binder in term.params
     )
     index_infos = tuple(
-        ElabBinderInfo(
-            name=_normalize_binder_name(binder.name),
+        BinderSpec(
+            name=normalize_binder_name(binder.name),
             implicit=False,
         )
         for binder in index_binders
@@ -149,7 +143,7 @@ def elab_inductive_infer(
         eglobals=env_with_ind.eglobals,
     )
     ctors: list[Ctor] = []
-    ctor_infos_map: dict[str, tuple[ElabBinderInfo, ...]] = {}
+    ctor_infos_map: dict[str, tuple[BinderSpec, ...]] = {}
     for ctor_decl in term.ctors:
         ctor_name = f"{term.name}.{ctor_decl.name}"
         if env.lookup_global(ctor_name) is not None:
@@ -182,8 +176,8 @@ def elab_inductive_infer(
         ctor_ty = ctor.infer_type(env_with_ind.kenv)
         ctors.append(ctor)
         ctor_infos = tuple(
-            ElabBinderInfo(
-                name=_normalize_binder_name(binder.name),
+            BinderSpec(
+                name=normalize_binder_name(binder.name),
                 implicit=binder.implicit,
             )
             for binder in ctor_decl.fields

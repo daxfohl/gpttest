@@ -4,7 +4,7 @@ from mltt.common.span import Span
 from mltt.elab.apply_matcher import ArgMatcher
 from mltt.elab.ast import EArg, ENamedArg, EVar
 from mltt.elab.errors import ElabError
-from mltt.elab.types import ElabBinderInfo
+from mltt.elab.types import BinderSpec
 
 
 def _arg(name: str, *, implicit: bool = False) -> EArg:
@@ -18,7 +18,7 @@ def _named(name: str, term_name: str) -> ENamedArg:
 
 
 def test_matcher_named_requires_binders() -> None:
-    binders = (ElabBinderInfo(name=None, implicit=False),)
+    binders = (BinderSpec(name=None, implicit=False),)
     args = ()
     named = (_named("x", "x"),)
     with pytest.raises(ElabError, match="Named arguments require binder names"):
@@ -26,7 +26,7 @@ def test_matcher_named_requires_binders() -> None:
 
 
 def test_matcher_implicit_skips_explicit_positional() -> None:
-    binders = (ElabBinderInfo(name="x", implicit=True), ElabBinderInfo())
+    binders = (BinderSpec(name="x", implicit=True), BinderSpec())
     matcher = ArgMatcher(binders, (_arg("a"),), (), Span(0, 0))
     decision = matcher.match_for_binder(binders[0], allow_partial=False)
     assert decision.kind == "implicit"
@@ -35,8 +35,8 @@ def test_matcher_implicit_skips_explicit_positional() -> None:
 
 def test_matcher_named_gap_with_partial() -> None:
     binders = (
-        ElabBinderInfo(name="x", implicit=False),
-        ElabBinderInfo(name="y", implicit=False),
+        BinderSpec(name="x", implicit=False),
+        BinderSpec(name="y", implicit=False),
     )
     matcher = ArgMatcher(binders, (), (_named("y", "y"),), Span(0, 0))
     first = matcher.match_for_binder(binders[0], allow_partial=True)
@@ -46,14 +46,14 @@ def test_matcher_named_gap_with_partial() -> None:
 
 
 def test_matcher_partial_stop() -> None:
-    binders = (ElabBinderInfo(name="x", implicit=False),)
+    binders = (BinderSpec(name="x", implicit=False),)
     matcher = ArgMatcher(binders, (), (), Span(0, 0))
     decision = matcher.match_for_binder(binders[0], allow_partial=True)
     assert decision.kind == "stop"
 
 
 def test_matcher_unknown_named_leftover() -> None:
-    binders = (ElabBinderInfo(name="x", implicit=False),)
+    binders = (BinderSpec(name="x", implicit=False),)
     matcher = ArgMatcher(binders, (), (_named("y", "y"),), Span(0, 0))
     matcher.match_for_binder(binders[0], allow_partial=True)
     assert matcher.unknown_named() == "y"
