@@ -226,6 +226,26 @@ def test_desugar_dependent_multi_scrutinee_branches() -> None:
     _assert_desugars(sugared, desugared)
 
 
+def test_desugar_dependent_multi_scrutinee_nested_pattern() -> None:
+    sugared = """
+    match n, xs return Nat with
+    | (Zero, Cons x (Cons y ys)) => y
+    | _ => Nat.Zero
+    """
+    desugared = """
+    match n return Nat with
+    | Zero =>
+      (match xs with
+      | Cons x _pat0 =>
+        (match _pat0 with
+        | Cons y ys => y
+        | _ => Nat.Zero)
+      | _ => Nat.Zero)
+    | _ => Nat.Zero
+    """
+    _assert_desugars(sugared, desugared)
+
+
 def test_desugar_dependent_multi_scrutinee() -> None:
     sugared = """
     match n, b return Nat with

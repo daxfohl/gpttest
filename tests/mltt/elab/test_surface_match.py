@@ -107,6 +107,23 @@ def test_match_multi_scrutinee() -> None:
     elab_ok(src)
 
 
+def test_match_multi_scrutinee_dependent_nested() -> None:
+    src = """
+    let n := Nat.Zero;
+    let xs := ctor List.Cons(
+      Nat,
+      Nat.Zero,
+      ctor List.Cons(Nat, Nat.Succ(Nat.Zero), ctor List.Nil(Nat))
+    );
+    let y: Nat := 
+      match n, xs return Nat with
+      | (Zero, Cons x (Cons y ys)) => y
+      | _ => Nat.Zero;
+    y
+    """
+    elab_ok(src)
+
+
 def test_match_duplicate_binder_error() -> None:
     src = """
     let xs := ctor List.Nil(Nat);

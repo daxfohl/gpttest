@@ -10,10 +10,21 @@ from mltt.kernel.env import Env, GlobalDecl
 
 @dataclass(frozen=True)
 class BinderSpec:
-    """Binder metadata (names + implicitness) for elaboration."""
+    """Binder metadata (names + implicitness + optional type) for elaboration."""
 
     name: str | None = None
     implicit: bool = False
+    ty: Term | None = None
+
+    def shift(self, amount: int) -> "BinderSpec":
+        if amount == 0 or self.ty is None:
+            return self
+        return BinderSpec(self.name, self.implicit, self.ty.shift(amount))
+
+    def inst_levels(self, levels: tuple) -> "BinderSpec":
+        if not levels or self.ty is None:
+            return self
+        return BinderSpec(self.name, self.implicit, self.ty.inst_levels(levels))
 
 
 def normalize_binder_name(name: str | None) -> str | None:
@@ -35,12 +46,18 @@ class ElabType:
     def inst_levels(self, levels: tuple) -> "ElabType":
         if not levels:
             return self
-        return ElabType(self.term.inst_levels(levels), self.binders)
+        return ElabType(
+            self.term.inst_levels(levels),
+            tuple(b.inst_levels(levels) for b in self.binders),
+        )
 
     def shift(self, amount: int) -> "ElabType":
         if amount == 0:
             return self
-        return ElabType(self.term.shift(amount), self.binders)
+        return ElabType(
+            self.term.shift(amount),
+            tuple(b.shift(amount) for b in self.binders),
+        )
 
 
 @dataclass(frozen=True)
