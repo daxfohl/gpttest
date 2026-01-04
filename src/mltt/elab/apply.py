@@ -7,8 +7,8 @@ from mltt.kernel.env import Env
 from mltt.kernel.tel import ArgList
 from typing import Iterable
 
-from mltt.elab.arg_matcher import ArgMatcher
-from mltt.elab.east import (
+from mltt.elab.apply_matcher import ArgMatcher
+from mltt.elab.ast import (
     EAnn,
     EApp,
     EArg,
@@ -28,8 +28,8 @@ from mltt.elab.east import (
     EUniv,
     EVar,
 )
-from mltt.elab.elab_state import ElabState
-from mltt.elab.etype import ElabBinderInfo, ElabEnv, ElabType
+from mltt.elab.state import ElabState
+from mltt.elab.types import ElabBinderInfo, ElabEnv, ElabType
 from mltt.elab.errors import ElabError
 from mltt.common.span import Span
 
@@ -169,7 +169,7 @@ def elab_apply(
 
 
 def _elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
-    from mltt.elab.sast import elab_infer
+    from mltt.elab.term import elab_infer
 
     return elab_infer(term, env, state)
 
@@ -177,7 +177,7 @@ def _elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, Elab
 def _elab_check(
     term: ETerm, env: ElabEnv, state: ElabState, expected: ElabType
 ) -> Term:
-    from mltt.elab.sast import elab_check
+    from mltt.elab.term import elab_check
 
     return elab_check(term, env, state, expected)
 

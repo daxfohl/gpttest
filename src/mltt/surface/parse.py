@@ -7,7 +7,7 @@ from typing import cast
 import ply.lex as lex  # type: ignore[import-untyped]
 import ply.yacc as yacc  # type: ignore[import-untyped]
 
-from mltt.elab.east import ETerm
+from mltt.elab.ast import ETerm
 from mltt.surface.desugar import desugar
 from mltt.surface.to_elab import surface_to_elab
 from mltt.common.span import Span

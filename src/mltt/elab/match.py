@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from mltt.elab.east import EBranch, EMatch, EPat, EPatCtor, EPatVar, EPatWild, ETerm
-from mltt.elab.elab_state import ElabState
-from mltt.elab.etype import ElabEnv, ElabType
-from mltt.elab.sast import _expect_universe, elab_check, elab_infer
+from mltt.elab.ast import EBranch, EMatch, EPat, EPatCtor, EPatVar, EPatWild, ETerm
+from mltt.elab.state import ElabState
+from mltt.elab.types import ElabEnv, ElabType
+from mltt.elab.term import expect_universe, elab_check, elab_infer
 from mltt.kernel.ast import Lam, Term, UApp, Univ, Var
 from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
@@ -15,7 +15,7 @@ from mltt.elab.errors import ElabError
 from mltt.common.span import Span
 
 
-def _resolve_inductive_head(env: Env, head: Term) -> Ind | None:
+def resolve_inductive_head(env: Env, head: Term) -> Ind | None:
     if isinstance(head, Ind):
         return head
     if isinstance(head, UApp) and isinstance(head.head, Ind):
@@ -205,7 +205,7 @@ def _elab_match_core(
     scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
         match.scrutinee, env, state
     )
-    ind = _resolve_inductive_head(env.kenv, head)
+    ind = resolve_inductive_head(env.kenv, head)
     if ind is None:
         raise ElabError("Match scrutinee is not an inductive type", match.span)
     p = len(ind.param_types)
@@ -265,7 +265,7 @@ def _elab_match_with_motive(
     scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
         match.scrutinee, env, state
     )
-    ind = _resolve_inductive_head(env.kenv, head)
+    ind = resolve_inductive_head(env.kenv, head)
     if ind is None:
         raise ElabError("Match scrutinee is not an inductive type", match.span)
     p = len(ind.param_types)
@@ -275,7 +275,7 @@ def _elab_match_with_motive(
     params_actual = args[:p]
     indices_actual = args[p:]
     motive_term, motive_ty = elab_infer(match.motive, env, state)
-    _expect_universe(motive_ty.term, env.kenv, match.motive.span)
+    expect_universe(motive_ty.term, env.kenv, match.motive.span)
     scrut_ty_in_ctx = mk_uapp(
         ind, level_actuals, params_actual.shift(q), ArgList.vars(q)
     )

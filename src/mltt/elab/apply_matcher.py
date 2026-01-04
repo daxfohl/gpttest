@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Literal
 
-from mltt.elab.east import EArg, ENamedArg
-from mltt.elab.etype import ElabBinderInfo
+from mltt.elab.ast import EArg, ENamedArg
+from mltt.elab.types import ElabBinderInfo
 from mltt.elab.errors import ElabError
 from mltt.common.span import Span
 

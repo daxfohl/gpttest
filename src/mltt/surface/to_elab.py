@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mltt.elab.east import (
+from mltt.elab.ast import (
     EAnn,
     EApp,
     EArg,

@@ -1,6 +1,6 @@
 import pytest
 
-from mltt.elab.east import EMatch
+from mltt.elab.ast import EMatch
 from mltt.surface.desugar import desugar
 from mltt.surface.parse import parse_term_raw
 from mltt.surface.sast import SurfaceError

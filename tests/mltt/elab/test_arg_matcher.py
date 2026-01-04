@@ -1,9 +1,9 @@
 import pytest
 
-from mltt.elab.arg_matcher import ArgMatcher
-from mltt.elab.east import EArg, ENamedArg, EVar
+from mltt.elab.apply_matcher import ArgMatcher
+from mltt.elab.ast import EArg, ENamedArg, EVar
 from mltt.elab.errors import ElabError
-from mltt.elab.etype import ElabBinderInfo
+from mltt.elab.types import ElabBinderInfo
 from mltt.common.span import Span
 
 

@@ -17,7 +17,7 @@ Non-goals:
 - Kernel normalization or definitional equality rules beyond what elaboration needs.
 
 Entry points:
-- Surface AST nodes in `sast.py` (elab methods).
-- Elaborator AST in `east.py`.
-- `ElabState` for metavariables and constraints.
-- `ElabEnv` / `ElabType` for elaboration environment metadata.
+- Surface elaboration in `term.py`.
+- Elaborator AST in `ast.py`.
+- Constraint state/solving in `state.py`.
+- `ElabEnv` / `ElabType` in `types.py`.
