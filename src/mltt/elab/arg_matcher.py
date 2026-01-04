@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Literal
 
-from mltt.elab.east import EArg
+from mltt.elab.east import EArg, ENamedArg
 from mltt.elab.etype import ElabBinderInfo
 from mltt.surface.sast import Span, SurfaceError
 
@@ -16,7 +16,7 @@ ArgKind = Literal["explicit", "implicit", "missing", "stop"]
 @dataclass(frozen=True)
 class ArgDecision:
     kind: ArgKind
-    arg: EArg | None = None
+    arg: EArg | ENamedArg | None = None
     from_named: bool = False
 
 
@@ -24,32 +24,18 @@ class ArgMatcher:
     def __init__(
         self,
         binders: tuple[ElabBinderInfo, ...],
-        args: tuple[EArg, ...],
+        positional: tuple[EArg, ...],
+        named: tuple[ENamedArg, ...],
         span: Span,
     ) -> None:
         self._span = span
-        named_seen = False
-        for item in args:
-            if item.name is not None:
-                named_seen = True
-            elif named_seen:
-                raise SurfaceError(
-                    "Positional arguments must come before named arguments",
-                    item.term.span,
-                )
-        self._positional = [arg for arg in args if arg.name is None]
-        named: dict[str, EArg] = {}
-        for item in args:
-            if item.name is None:
-                continue
-            if item.name in named:
-                raise SurfaceError(
-                    f"Duplicate named argument {item.name}", item.term.span
-                )
-            named[item.name] = item
-        if named and not any(b.name for b in binders):
+        self._positional = list(positional)
+        named_map: dict[str, ENamedArg] = {}
+        for item in named:
+            named_map[item.name] = item
+        if named_map and not any(b.name for b in binders):
             raise SurfaceError("Named arguments require binder names", span)
-        self._named = named
+        self._named = named_map
 
     def match_for_binder(
         self, binder: ElabBinderInfo, *, allow_partial: bool
@@ -104,5 +90,5 @@ class ArgMatcher:
     def remaining_positional(self) -> list[EArg]:
         return list(self._positional)
 
-    def remaining_named(self) -> Iterable[EArg]:
+    def remaining_named(self) -> Iterable[ENamedArg]:
         return self._named.values()

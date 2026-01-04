@@ -20,6 +20,7 @@ from mltt.elab.east import (
     ELet,
     ELam,
     EMatch,
+    ENamedArg,
     EPartial,
     EPi,
     ETerm,
@@ -35,6 +36,7 @@ from mltt.surface.sast import Span, SurfaceError
 def elab_apply(
     fn: ETerm,
     args: tuple[EArg, ...],
+    named_args: tuple[ENamedArg, ...],
     env: ElabEnv,
     state: ElabState,
     span: Span,
@@ -51,7 +53,7 @@ def elab_apply(
     actuals: list[Term] = []
     missing_binders: list[tuple[Term, str | None]] = []
     missing_depth = 0
-    matcher = ArgMatcher(remaining_binders, args, span)
+    matcher = ArgMatcher(remaining_binders, args, named_args, span)
     while True:
         fn_ty_ctx_whnf = fn_ty_ctx.whnf(ctx_env.kenv)
         if not isinstance(fn_ty_ctx_whnf, Pi):
@@ -108,7 +110,7 @@ def elab_apply(
                 actuals.append(arg_term_closed)
                 continue
             case "explicit":
-                assert isinstance(decision.arg, EArg)
+                assert isinstance(decision.arg, (EArg, ENamedArg))
                 before_constraints = len(state.constraints)
                 before_metas = set(state.metas.keys())
                 arg_term_ctx = _elab_check(
@@ -194,13 +196,13 @@ def _shift_terms(terms: list[Term], amount: int) -> list[Term]:
 def _name_used_in_args(
     name: str,
     positional: list[EArg],
-    named: Iterable[EArg],
+    named: Iterable[ENamedArg],
 ) -> bool:
-    for arg in positional:
-        if _term_mentions_name(arg.term, name):
+    for pos_arg in positional:
+        if _term_mentions_name(pos_arg.term, name):
             return True
-    for arg in named:
-        if _term_mentions_name(arg.term, name):
+    for named_arg in named:
+        if _term_mentions_name(named_arg.term, name):
             return True
     return False
 
@@ -213,10 +215,12 @@ def _term_mentions_name(term: ETerm, name: str) -> bool:
             return False
         case EAnn(term=inner, ty=ty):
             return _term_mentions_name(inner, name) or _term_mentions_name(ty, name)
-        case EApp(fn=fn, args=args):
+        case EApp(fn=fn, args=args, named_args=named_args):
             if _term_mentions_name(fn, name):
                 return True
-            return any(_term_mentions_name(arg.term, name) for arg in args)
+            if any(_term_mentions_name(arg.term, name) for arg in args):
+                return True
+            return any(_term_mentions_name(arg.term, name) for arg in named_args)
         case EUApp(head=head, levels=_):
             return _term_mentions_name(head, name)
         case EPartial(term=inner):

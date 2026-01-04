@@ -17,6 +17,7 @@ from mltt.elab.east import (
     ELam,
     ELet,
     EMatch,
+    ENamedArg,
     EPartial,
     EPat,
     EPatCtor,
@@ -92,10 +93,35 @@ def _convert_term(term: SurfaceTerm) -> ETerm:
                 body=_convert_term(term.body),
             )
         case SApp():
+            positional: list[EArg] = []
+            named: dict[str, ENamedArg] = {}
+            named_order: list[ENamedArg] = []
+            named_seen = False
+            for arg in term.args:
+                if arg.name is not None:
+                    named_seen = True
+                    if arg.name in named:
+                        raise SurfaceError(
+                            f"Duplicate named argument {arg.name}", arg.term.span
+                        )
+                    named_arg = ENamedArg(
+                        name=arg.name,
+                        term=_convert_term(arg.term),
+                    )
+                    named[arg.name] = named_arg
+                    named_order.append(named_arg)
+                    continue
+                if named_seen:
+                    raise SurfaceError(
+                        "Positional arguments must come before named arguments",
+                        arg.term.span,
+                    )
+                positional.append(_convert_arg(arg))
             return EApp(
                 span=term.span,
                 fn=_convert_term(term.fn),
-                args=tuple(_convert_arg(arg) for arg in term.args),
+                args=tuple(positional),
+                named_args=tuple(named_order),
             )
         case SUApp():
             return EUApp(
@@ -163,7 +189,6 @@ def _convert_arg(arg: SArg) -> EArg:
     return EArg(
         term=_convert_term(arg.term),
         implicit=arg.implicit,
-        name=arg.name,
     )
 
 

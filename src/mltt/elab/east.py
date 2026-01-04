@@ -24,7 +24,12 @@ class EBinder:
 class EArg:
     term: ETerm
     implicit: bool = False
-    name: str | None = None
+
+
+@dataclass(frozen=True)
+class ENamedArg:
+    name: str
+    term: ETerm
 
 
 @dataclass(frozen=True)
@@ -69,6 +74,7 @@ class EPi(ETerm):
 class EApp(ETerm):
     fn: ETerm
     args: tuple[EArg, ...]
+    named_args: tuple[ENamedArg, ...] = ()
 
 
 @dataclass(frozen=True)

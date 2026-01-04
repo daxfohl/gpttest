@@ -85,8 +85,10 @@ def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabT
             return _elab_lam_infer(term, env, state)
         case EPi():
             return _elab_pi_infer(term, env, state)
-        case EApp(fn=fn, args=args):
-            return elab_apply(fn, args, env, state, term.span, allow_partial=False)
+        case EApp(fn=fn, args=args, named_args=named_args):
+            return elab_apply(
+                fn, args, named_args, env, state, term.span, allow_partial=False
+            )
         case EUApp():
             return _elab_uapp_infer(term, env, state)
         case EPartial(term=inner):
@@ -188,11 +190,13 @@ def resolve(term: ETerm, env: Env, names: NameEnv) -> Term:
                 term_k = Pi(ty, term_k)
                 names.pop()
             return term_k
-        case EApp(fn=fn, args=args):
+        case EApp(fn=fn, args=args, named_args=named_args):
             term_k = resolve(fn, env, names)
             for arg in args:
                 arg_term = resolve(arg.term, env, names)
                 term_k = App(term_k, arg_term)
+            if named_args:
+                raise SurfaceError("Named arguments require elaboration", term.span)
             return term_k
         case EUApp(head=head, levels=levels):
             head_term = resolve(head, env, names)
@@ -374,8 +378,10 @@ def _elab_partial_infer(
     term: ETerm, env: ElabEnv, state: ElabState, span: Span
 ) -> tuple[Term, ElabType]:
     match term:
-        case EApp(fn=fn, args=args):
-            return elab_apply(fn, args, env, state, span, allow_partial=True)
+        case EApp(fn=fn, args=args, named_args=named_args):
+            return elab_apply(
+                fn, args, named_args, env, state, span, allow_partial=True
+            )
     return elab_infer(term, env, state)
 
 

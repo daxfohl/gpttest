@@ -89,3 +89,25 @@ def test_to_elab_rejects_ctor_result_omitted() -> None:
     )
     with pytest.raises(SurfaceError, match="Constructor result must be desugared"):
         surface_to_elab(term)
+
+
+def test_to_elab_rejects_positional_after_named() -> None:
+    term = parse_term_raw(
+        """
+        k(a := Nat.Zero, Nat.Zero)
+        """
+    )
+    with pytest.raises(
+        SurfaceError, match="Positional arguments must come before named"
+    ):
+        surface_to_elab(term)
+
+
+def test_to_elab_rejects_duplicate_named_args() -> None:
+    term = parse_term_raw(
+        """
+        k(a := Nat.Zero, a := Nat.Succ(Nat.Zero))
+        """
+    )
+    with pytest.raises(SurfaceError, match="Duplicate named argument a"):
+        surface_to_elab(term)
