@@ -7,6 +7,7 @@ from mltt.kernel.env import Env
 from mltt.kernel.tel import ArgList
 from typing import Iterable
 
+from mltt.elab.arg_matcher import ArgMatcher
 from mltt.elab.east import (
     EAnn,
     EApp,
@@ -50,40 +51,14 @@ def elab_apply(
     actuals: list[Term] = []
     missing_binders: list[tuple[Term, str | None]] = []
     missing_depth = 0
-    named_seen = False
-    for item in args:
-        if item.name is not None:
-            named_seen = True
-            continue
-        if named_seen:
-            raise SurfaceError(
-                "Positional arguments must come before named arguments",
-                item.term.span,
-            )
-    if any(arg.name is not None for arg in args) and not any(
-        binder.name for binder in remaining_binders
-    ):
-        raise SurfaceError("Named arguments require binder names", span)
-    positional = [arg for arg in args if arg.name is None]
-    named: dict[str, EArg] = {}
-    for item in args:
-        if item.name is None:
-            continue
-        if item.name in named:
-            raise SurfaceError(f"Duplicate named argument {item.name}", item.term.span)
-        named[item.name] = item
-    pos_index = 0
+    matcher = ArgMatcher(remaining_binders, args, span)
     while True:
         fn_ty_ctx_whnf = fn_ty_ctx.whnf(ctx_env.kenv)
         if not isinstance(fn_ty_ctx_whnf, Pi):
-            if pos_index < len(positional) or named:
+            if matcher.has_positional() or matcher.has_named():
                 raise SurfaceError(
                     "Application of non-function",
-                    (
-                        positional[pos_index].term.span
-                        if pos_index < len(positional)
-                        else next(iter(named.values())).term.span
-                    ),
+                    matcher.next_arg_span(),
                 )
             break
         if remaining_binders:
@@ -91,27 +66,11 @@ def elab_apply(
             remaining_binders = remaining_binders[1:]
         else:
             binder_info = ElabBinderInfo()
-        binder_name = binder_info.name
-        binder_is_implicit = binder_info.implicit
-        arg: EArg | None = None
-        if binder_name is not None and binder_name in named:
-            arg = named.pop(binder_name)
-        elif pos_index < len(positional):
-            candidate = positional[pos_index]
-            if binder_is_implicit:
-                if candidate.implicit:
-                    arg = candidate
-                    pos_index += 1
-            else:
-                if candidate.implicit:
-                    raise SurfaceError(
-                        "Implicit argument provided where explicit expected",
-                        candidate.term.span,
-                    )
-                arg = candidate
-                pos_index += 1
-        if arg is None:
-            if binder_is_implicit:
+        decision = matcher.match_for_binder(binder_info, allow_partial=allow_partial)
+        match decision.kind:
+            case "stop":
+                break
+            case "implicit":
                 before_constraints = len(state.constraints)
                 before_metas = set(state.metas.keys())
                 meta_term_ctx = state.fresh_meta(
@@ -130,17 +89,15 @@ def elab_apply(
                     state, before_metas, actuals, base_ctx_len, missing_depth
                 )
                 continue
-            if allow_partial and pos_index >= len(positional) and not named:
-                break
-            if allow_partial:
+            case "missing":
                 actuals = _shift_terms(actuals, 1)
                 missing_ty = _close_term(fn_ty_ctx_whnf.arg_ty, actuals)
-                missing_binders.append((missing_ty, binder_name))
+                missing_binders.append((missing_ty, binder_info.name))
                 missing_depth += 1
                 fn_term_closed = fn_term_closed.shift(1)
                 fn_ty_closed = fn_ty_closed.shift(1)
                 ctx_env = ctx_env.push_binder(
-                    ElabType(fn_ty_ctx_whnf.arg_ty), name=binder_name
+                    ElabType(fn_ty_ctx_whnf.arg_ty), name=binder_info.name
                 )
                 fn_ty_ctx = fn_ty_ctx_whnf.return_ty
                 arg_term_closed = Var(0)
@@ -150,44 +107,52 @@ def elab_apply(
                 )
                 actuals.append(arg_term_closed)
                 continue
-            raise SurfaceError("Missing explicit argument", span)
-        before_constraints = len(state.constraints)
-        before_metas = set(state.metas.keys())
-        arg_term_ctx = _elab_check(
-            arg.term, ctx_env, state, ElabType(fn_ty_ctx_whnf.arg_ty)
-        )
-        _close_new_constraints(
-            state, before_constraints, actuals, base_ctx_len, missing_depth
-        )
-        _close_new_metas(state, before_metas, actuals, base_ctx_len, missing_depth)
-        arg_term_closed = _close_term(arg_term_ctx, actuals)
-        fn_term_closed = App(fn_term_closed, arg_term_closed)
-        fn_ty_closed = _apply_fn_type(
-            fn_ty_closed, arg_term_closed, ctx_env.kenv, remaining_binders, span
-        )
-        binding_name = binder_name
-        if binder_name is not None:
-            if ctx_env.lookup_local(binder_name) is not None:
-                binding_name = None
-            if isinstance(arg_term_ctx, Var):
-                existing = ctx_env.lookup_local(binder_name)
-                if existing == arg_term_ctx.k:
+            case "explicit":
+                assert isinstance(decision.arg, EArg)
+                before_constraints = len(state.constraints)
+                before_metas = set(state.metas.keys())
+                arg_term_ctx = _elab_check(
+                    decision.arg.term,
+                    ctx_env,
+                    state,
+                    ElabType(fn_ty_ctx_whnf.arg_ty),
+                )
+                _close_new_constraints(
+                    state, before_constraints, actuals, base_ctx_len, missing_depth
+                )
+                _close_new_metas(
+                    state, before_metas, actuals, base_ctx_len, missing_depth
+                )
+                arg_term_closed = _close_term(arg_term_ctx, actuals)
+                fn_term_closed = App(fn_term_closed, arg_term_closed)
+                fn_ty_closed = _apply_fn_type(
+                    fn_ty_closed, arg_term_closed, ctx_env.kenv, remaining_binders, span
+                )
+                binding_name = binder_info.name
+                if binding_name is not None:
+                    if ctx_env.lookup_local(binding_name) is not None:
+                        binding_name = None
+                if binding_name is not None and isinstance(arg_term_ctx, Var):
+                    existing = ctx_env.lookup_local(binding_name)
+                    if existing == arg_term_ctx.k:
+                        binding_name = None
+                if binding_name is not None and not _name_used_in_args(
+                    binding_name,
+                    matcher.remaining_positional(),
+                    matcher.remaining_named(),
+                ):
                     binding_name = None
-            if binding_name is not None and not _name_used_in_args(
-                binder_name,
-                positional[pos_index:],
-                named.values(),
-            ):
-                binding_name = None
-        ctx_env = ctx_env.push_let(
-            ElabType(fn_ty_ctx_whnf.arg_ty),
-            arg_term_ctx,
-            name=binding_name,
-        )
-        fn_ty_ctx = fn_ty_ctx_whnf.return_ty
-        actuals.append(arg_term_closed)
-    if named:
-        unknown = next(iter(named.keys()))
+                ctx_env = ctx_env.push_let(
+                    ElabType(fn_ty_ctx_whnf.arg_ty),
+                    arg_term_ctx,
+                    name=binding_name,
+                )
+                fn_ty_ctx = fn_ty_ctx_whnf.return_ty
+                actuals.append(arg_term_closed)
+                continue
+    if matcher.has_named():
+        unknown = matcher.unknown_named()
+        assert unknown is not None
         raise SurfaceError(f"Unknown named argument {unknown}", span)
     if missing_binders:
         for ty, name in reversed(missing_binders):
@@ -268,16 +233,10 @@ def _term_mentions_name(term: ETerm, name: str) -> bool:
                 or (b.name == name)
                 for b in binders
             ) or _term_mentions_name(body, name)
-        case ELet(name=_, uparams=_, params=params, ty=ty, val=val, body=body):
+        case ELet(name=_, uparams=_, ty=ty, val=val, body=body):
             if ty is not None and _term_mentions_name(ty, name):
                 return True
             if _term_mentions_name(val, name):
-                return True
-            if any(
-                (b.ty is not None and _term_mentions_name(b.ty, name))
-                or (b.name == name)
-                for b in params
-            ):
                 return True
             return _term_mentions_name(body, name)
         case EMatch(scrutinee=scrutinee, branches=branches, motive=motive):
