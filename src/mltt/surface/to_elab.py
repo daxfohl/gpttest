@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from mltt.common.span import Span
 from mltt.elab.ast import (
     EAnn,
     EApp,
@@ -30,7 +31,6 @@ from mltt.elab.ast import (
     EVar,
     ETerm,
 )
-from mltt.common.span import Span
 from mltt.surface.sast import (
     Pat,
     PatCtor,

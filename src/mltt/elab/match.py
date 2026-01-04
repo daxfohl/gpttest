@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
+from mltt.common.span import Span
 from mltt.elab.ast import EBranch, EMatch, EPat, EPatCtor, EPatVar, EPatWild, ETerm
+from mltt.elab.errors import ElabError
 from mltt.elab.state import ElabState
-from mltt.elab.types import ElabEnv, ElabType
 from mltt.elab.term import expect_universe, elab_check, elab_infer
+from mltt.elab.types import ElabEnv, ElabType
 from mltt.kernel.ast import Lam, Term, UApp, Univ, Var
 from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
 from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_app, mk_lams, mk_uapp
-from mltt.elab.errors import ElabError
-from mltt.common.span import Span
 
 
 def resolve_inductive_head(env: Env, head: Term) -> Ind | None:

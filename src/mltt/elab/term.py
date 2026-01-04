@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp
-from mltt.kernel.env import Const, Env, GlobalDecl
-from mltt.kernel.ind import Ctor, Ind
-from mltt.kernel.levels import LConst, LVar, LevelExpr
-from mltt.elab.state import ElabState
+from mltt.common.span import Span
+from mltt.elab.apply import elab_apply
 from mltt.elab.ast import (
     EAnn,
     EApp,
-    EArg,
     EBinder,
     EConst,
     ECtor,
@@ -28,11 +24,14 @@ from mltt.elab.ast import (
     EVar,
     ETerm,
 )
-from mltt.elab.apply import elab_apply
-from mltt.elab.types import ElabBinderInfo, ElabEnv, ElabType
-from mltt.elab.names import NameEnv
 from mltt.elab.errors import ElabError
-from mltt.common.span import Span
+from mltt.elab.names import NameEnv
+from mltt.elab.state import ElabState
+from mltt.elab.types import ElabBinderInfo, ElabEnv, ElabType
+from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp
+from mltt.kernel.env import Const, Env, GlobalDecl
+from mltt.kernel.ind import Ctor, Ind
+from mltt.kernel.levels import LConst, LVar, LevelExpr
 
 
 def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:

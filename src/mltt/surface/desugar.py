@@ -22,7 +22,6 @@ from mltt.surface.sast import (
     SurfaceError,
     SurfaceTerm,
 )
-
 from mltt.surface.sast import (
     PatCtor,
     PatTuple,

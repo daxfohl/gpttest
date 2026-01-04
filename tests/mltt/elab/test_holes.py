@@ -1,12 +1,12 @@
 import pytest
 
-from mltt.elab.types import ElabEnv
-from mltt.elab.state import ElabState
-from mltt.elab.errors import ElabError
-from mltt.elab.term import elab_infer
-from mltt.surface.parse import parse_elab_term
-from mltt.kernel.prelude import prelude_env
 from mltt.elab.elab_helpers import elab_with_state
+from mltt.elab.errors import ElabError
+from mltt.elab.state import ElabState
+from mltt.elab.term import elab_infer
+from mltt.elab.types import ElabEnv
+from mltt.kernel.prelude import prelude_env
+from mltt.surface.parse import parse_elab_term
 
 
 def test_typed_hole_unsolved() -> None:

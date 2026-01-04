@@ -7,10 +7,19 @@ from typing import cast
 import ply.lex as lex  # type: ignore[import-untyped]
 import ply.yacc as yacc  # type: ignore[import-untyped]
 
+from mltt.common.span import Span
 from mltt.elab.ast import ETerm
 from mltt.surface.desugar import desugar
-from mltt.surface.to_elab import surface_to_elab
-from mltt.common.span import Span
+from mltt.surface.sast import (
+    PatCtor,
+    PatTuple,
+    PatVar,
+    PatWild,
+    SBranch,
+    SLetPat,
+    SMatch,
+)
+from mltt.surface.sast import SConstructorDecl, SCtor, SInd, SInductiveDef
 from mltt.surface.sast import (
     SurfaceError,
     SurfaceTerm,
@@ -28,17 +37,7 @@ from mltt.surface.sast import (
     SLet,
     SPartial,
 )
-from mltt.surface.sast import (
-    Pat,
-    PatCtor,
-    PatTuple,
-    PatVar,
-    PatWild,
-    SBranch,
-    SLetPat,
-    SMatch,
-)
-from mltt.surface.sast import SConstructorDecl, SCtor, SInd, SInductiveDef
+from mltt.surface.to_elab import surface_to_elab
 
 _SOURCE: str = ""
 

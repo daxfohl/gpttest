@@ -2,9 +2,9 @@ from dataclasses import fields, is_dataclass
 
 import pytest
 
+from mltt.common.span import Span
 from mltt.surface.desugar import desugar
 from mltt.surface.parse import parse_term_raw
-from mltt.common.span import Span
 from mltt.surface.sast import SurfaceError
 
 

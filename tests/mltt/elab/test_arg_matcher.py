@@ -1,10 +1,10 @@
 import pytest
 
+from mltt.common.span import Span
 from mltt.elab.apply_matcher import ArgMatcher
 from mltt.elab.ast import EArg, ENamedArg, EVar
 from mltt.elab.errors import ElabError
 from mltt.elab.types import ElabBinderInfo
-from mltt.common.span import Span
 
 
 def _arg(name: str, *, implicit: bool = False) -> EArg:

@@ -6,11 +6,11 @@ from collections import deque
 
 from mltt.common.span import Span
 from mltt.elab.errors import ElabError
-from mltt.elab.state import Constraint, ElabState, LevelConstraint, Meta
+from mltt.elab.state import Constraint, ElabState, LevelConstraint
 from mltt.kernel.ast import App, Lam, MetaVar, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Env
-from mltt.kernel.ind import Elim, Ind
-from mltt.kernel.levels import LConst, LMax, LMeta, LSucc, LVar, LevelExpr
+from mltt.kernel.ind import Elim
+from mltt.kernel.levels import LMax, LMeta, LSucc, LevelExpr
 
 
 def solve(state: ElabState, env: Env) -> None:

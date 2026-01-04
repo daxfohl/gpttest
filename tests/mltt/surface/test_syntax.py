@@ -1,7 +1,7 @@
 import pytest
 
-from mltt.surface.sast import SurfaceError
 from mltt.surface.parse import parse_term
+from mltt.surface.sast import SurfaceError
 
 
 def test_reject_infer_mode_unannotated_lambda() -> None:

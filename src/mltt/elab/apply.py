@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from mltt.kernel.ast import App, Lam, Pi, Term, Var
-from mltt.kernel.env import Env
-from mltt.kernel.tel import ArgList
 from typing import Iterable
 
+from mltt.common.span import Span
 from mltt.elab.apply_matcher import ArgMatcher
 from mltt.elab.ast import (
     EAnn,
@@ -28,10 +26,12 @@ from mltt.elab.ast import (
     EUniv,
     EVar,
 )
+from mltt.elab.errors import ElabError
 from mltt.elab.state import ElabState
 from mltt.elab.types import ElabBinderInfo, ElabEnv, ElabType
-from mltt.elab.errors import ElabError
-from mltt.common.span import Span
+from mltt.kernel.ast import App, Lam, Pi, Term, Var
+from mltt.kernel.env import Env
+from mltt.kernel.tel import ArgList
 
 
 def elab_apply(

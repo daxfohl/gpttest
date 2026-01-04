@@ -1,6 +1,6 @@
+from mltt.elab.elab_helpers import elab_eval, get_ctor
 from mltt.kernel.ast import UApp
 from mltt.kernel.tel import mk_app
-from mltt.elab.elab_helpers import elab_eval, get_ctor
 
 
 def test_partial_positional() -> None:

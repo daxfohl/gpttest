@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from mltt.common.span import Span
 from mltt.kernel.ast import MetaVar, Term, Univ, UApp
 from mltt.kernel.env import Env
 from mltt.kernel.ind import Ind
 from mltt.kernel.levels import LConst, LMax, LMeta, LSucc, LVar, LevelExpr
-from mltt.common.span import Span
 
 
 @dataclass

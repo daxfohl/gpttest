@@ -1,8 +1,8 @@
 import pytest
 
-from mltt.kernel.tel import mk_app
-from mltt.elab.errors import ElabError
 from mltt.elab.elab_helpers import elab_eval, elab_ok, get_ctor
+from mltt.elab.errors import ElabError
+from mltt.kernel.tel import mk_app
 
 
 def test_let_infer_partial() -> None:

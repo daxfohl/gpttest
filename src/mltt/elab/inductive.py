@@ -2,33 +2,28 @@
 
 from __future__ import annotations
 
-from types import MappingProxyType
-
-from mltt.kernel.ast import Term, Univ, UApp, Var
-from mltt.kernel.env import Env, GlobalDecl
-from mltt.kernel.ind import Ctor, Ind
-from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_uapp
-from mltt.elab.state import Constraint, ElabState
-from mltt.elab.types import ElabBinderInfo, ElabEnv, ElabType
-from mltt.elab.match import resolve_inductive_head
-from mltt.elab.names import NameEnv
 from mltt.elab.ast import (
     EBinder,
     ECtor,
     EInd,
     EInductiveDef,
-    EConstructorDecl,
     EPi,
-    ETerm,
 )
+from mltt.elab.errors import ElabError
+from mltt.elab.match import resolve_inductive_head
+from mltt.elab.state import ElabState
 from mltt.elab.term import (
     elab_binders,
     expect_universe,
     require_global_info,
     elab_infer,
 )
-from mltt.elab.errors import ElabError
-from mltt.common.span import Span
+from mltt.elab.types import ElabBinderInfo, ElabEnv, ElabType
+from mltt.kernel.ast import Term, Univ, UApp
+from mltt.kernel.env import Env, GlobalDecl
+from mltt.kernel.ind import Ctor, Ind
+from mltt.kernel.tel import ArgList, Telescope, decompose_uapp
+from types import MappingProxyType
 
 
 def _normalize_binder_name(name: str | None) -> str | None:
