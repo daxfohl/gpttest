@@ -85,6 +85,17 @@ def test_too_many_args_rejected() -> None:
         elab_eval(src)
 
 
+def test_implicit_arg_provided_for_explicit_binder() -> None:
+    src = """
+    let k(A: Type 0, x: A): A := x;
+    k<Nat>(Nat.Zero)
+    """
+    with pytest.raises(
+        ElabError, match="Implicit argument provided where explicit expected"
+    ):
+        elab_eval(src)
+
+
 def test_named_args_with_implicit() -> None:
     src = """
     let k(impl x: Nat, y: Nat): Nat := y;

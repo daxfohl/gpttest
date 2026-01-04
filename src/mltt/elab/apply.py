@@ -130,6 +130,12 @@ def elab_apply(
                 continue
             case "explicit":
                 assert isinstance(decision.arg, (EArg, ENamedArg))
+                if not binder_info.implicit and isinstance(decision.arg, EArg):
+                    if decision.arg.implicit:
+                        raise ElabError(
+                            "Implicit argument provided where explicit expected",
+                            decision.arg.term.span,
+                        )
                 before_constraints = len(state.constraints)
                 before_metas = set(state.metas.keys())
                 arg_term_ctx = _elab_check(

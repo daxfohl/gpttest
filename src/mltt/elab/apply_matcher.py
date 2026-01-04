@@ -55,10 +55,8 @@ class ArgMatcher:
                     return ArgDecision(kind="explicit", arg=candidate)
                 return ArgDecision(kind="implicit")
             if candidate.implicit:
-                raise ElabError(
-                    "Implicit argument provided where explicit expected",
-                    candidate.term.span,
-                )
+                self._positional.pop(0)
+                return ArgDecision(kind="explicit", arg=candidate)
             self._positional.pop(0)
             return ArgDecision(kind="explicit", arg=candidate)
         if binder.implicit:
