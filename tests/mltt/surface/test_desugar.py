@@ -99,6 +99,25 @@ def test_desugar_equation_rec_multi_scrutinee_no_change() -> None:
     _assert_desugars(sugared, desugared)
 
 
+def test_desugar_match_multi_as_names() -> None:
+    sugared = """
+    match a, b as x, y return Nat with
+    | (Zero, Zero) => x
+    | _ => y
+    """
+    desugared = """
+    let x := a;
+    let y := b;
+    match x return Nat with
+    | Zero =>
+      (match y with
+      | Zero => x
+      | _ => y)
+    | _ => y
+    """
+    _assert_desugars(sugared, desugared)
+
+
 def test_desugar_equation_rec_in_inductive_body() -> None:
     sugared = """
     inductive Nat: Type 0 :=

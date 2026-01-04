@@ -562,6 +562,21 @@ def _desugar_match(match: SMatch) -> SurfaceTerm:
         motive=new_motive,
         branches=tuple(new_branches),
     )
+    if rebuilt.as_names and len(rebuilt.as_names) > len(rebuilt.scrutinees):
+        raise SurfaceError("Match as-names exceed scrutinee count", match.span)
+    wrap_lets: list[tuple[str, SurfaceTerm]] = []
+    if rebuilt.as_names and len(rebuilt.scrutinees) > 1:
+        replaced = list(rebuilt.scrutinees)
+        for idx, name in enumerate(rebuilt.as_names):
+            if name is None:
+                continue
+            wrap_lets.append((name, replaced[idx]))
+            replaced[idx] = SVar(span=rebuilt.span, name=name)
+        rebuilt = dataclasses.replace(
+            rebuilt,
+            scrutinees=tuple(replaced),
+            as_names=(),
+        )
     expanded = (
         _expand_tuple_branches(rebuilt.branches)
         if len(rebuilt.scrutinees) == 1
@@ -588,10 +603,22 @@ def _desugar_match(match: SMatch) -> SurfaceTerm:
             expanded[:-1],
             default.rhs,
         )
-        return _strip_as_names(compiled)
-    if expanded != rebuilt.branches:
-        return _strip_as_names(dataclasses.replace(rebuilt, branches=expanded))
-    return _strip_as_names(rebuilt)
+        result = _strip_as_names(compiled)
+    elif expanded != rebuilt.branches:
+        result = _strip_as_names(dataclasses.replace(rebuilt, branches=expanded))
+    else:
+        result = _strip_as_names(rebuilt)
+    for name, val in reversed(wrap_lets):
+        result = SLet(
+            span=match.span,
+            uparams=(),
+            name=name,
+            params=(),
+            ty=None,
+            val=val,
+            body=result,
+        )
+    return result
 
 
 def _strip_as_names(term: SurfaceTerm) -> SurfaceTerm:
@@ -605,15 +632,6 @@ def _strip_as_names(term: SurfaceTerm) -> SurfaceTerm:
             new_motive = (
                 _strip_as_names(term.motive) if term.motive is not None else None
             )
-            if len(new_scrutinees) != 1:
-                return SMatch(
-                    span=term.span,
-                    scrutinees=new_scrutinees,
-                    as_names=(),
-                    motive=new_motive,
-                    branches=new_branches,
-                )
-            as_name = term.as_names[0] if term.as_names else None
             match_term = SMatch(
                 span=term.span,
                 scrutinees=new_scrutinees,
@@ -621,23 +639,37 @@ def _strip_as_names(term: SurfaceTerm) -> SurfaceTerm:
                 motive=new_motive,
                 branches=new_branches,
             )
-            if as_name is None:
+            if not term.as_names:
                 return match_term
-            return SLet(
-                span=term.span,
-                uparams=(),
-                name=as_name,
-                params=(),
-                ty=None,
-                val=new_scrutinees[0],
-                body=SMatch(
-                    span=term.span,
-                    scrutinees=(SVar(span=term.span, name=as_name),),
-                    as_names=(),
-                    motive=new_motive,
-                    branches=new_branches,
-                ),
+            padded_as_names = term.as_names + (None,) * (
+                len(new_scrutinees) - len(term.as_names)
             )
+            replaced = list(new_scrutinees)
+            lets: list[tuple[str, SurfaceTerm]] = []
+            for idx, name in enumerate(padded_as_names):
+                if name is None:
+                    continue
+                lets.append((name, replaced[idx]))
+                replaced[idx] = SVar(span=term.span, name=name)
+            match_term = SMatch(
+                span=term.span,
+                scrutinees=tuple(replaced),
+                as_names=(),
+                motive=new_motive,
+                branches=new_branches,
+            )
+            wrapped: SurfaceTerm = match_term
+            for name, val in reversed(lets):
+                wrapped = SLet(
+                    span=term.span,
+                    uparams=(),
+                    name=name,
+                    params=(),
+                    ty=None,
+                    val=val,
+                    body=wrapped,
+                )
+            return wrapped
         case SLet():
             new_val = _strip_as_names(term.val)
             new_body = _strip_as_names(term.body)

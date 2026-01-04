@@ -233,10 +233,9 @@ def p_term_let_pat(p: yacc.YaccProduction) -> None:
 
 def p_term_match(p: yacc.YaccProduction) -> None:
     "term : MATCH match_scrutinees match_tail"
-    as_name, motive, branches = p[3]
+    as_names, motive, branches = p[3]
     span = Span(_item_span(p, 1).start, branches[-1].span.end)
     scrutinees = p[2]
-    as_names = (as_name,) if as_name is not None else ()
     p[0] = SMatch(
         span=span,
         scrutinees=scrutinees,
@@ -304,17 +303,27 @@ def p_term_inductive_uparams_type_params(p: yacc.YaccProduction) -> None:
 
 def p_match_tail_with(p: yacc.YaccProduction) -> None:
     "match_tail : WITH match_branches"
-    p[0] = (None, None, p[2])
+    p[0] = ((), None, p[2])
 
 
 def p_match_tail_return(p: yacc.YaccProduction) -> None:
     "match_tail : RETURN term WITH match_branches"
-    p[0] = (None, p[2], p[4])
+    p[0] = ((), p[2], p[4])
 
 
 def p_match_tail_as_return(p: yacc.YaccProduction) -> None:
-    "match_tail : AS IDENT RETURN term WITH match_branches"
+    "match_tail : AS match_as_names RETURN term WITH match_branches"
     p[0] = (p[2], p[4], p[6])
+
+
+def p_match_as_names_single(p: yacc.YaccProduction) -> None:
+    "match_as_names : IDENT"
+    p[0] = (p[1],)
+
+
+def p_match_as_names_multi(p: yacc.YaccProduction) -> None:
+    "match_as_names : match_as_names COMMA IDENT"
+    p[0] = p[1] + (p[3],)
 
 
 def p_match_scrutinees_multi(p: yacc.YaccProduction) -> None:
