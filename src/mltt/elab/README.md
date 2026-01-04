@@ -19,5 +19,5 @@ Non-goals:
 Entry points:
 - Surface elaboration in `term.py`.
 - Elaborator AST in `ast.py`.
-- Constraint state/solving in `state.py`.
+- Constraint state in `state.py` and solving in `solver.py`.
 - `ElabEnv` / `ElabType` in `types.py`.
