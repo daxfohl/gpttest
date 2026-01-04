@@ -167,98 +167,38 @@ def p_term_let_infer_suffix_uparams(p: yacc.YaccProduction) -> None:
     p[0] = _make_let(span, p[3], p[2], (), None, p[5], p[7])
 
 
-def p_term_let_binders(p: yacc.YaccProduction) -> None:
-    "term : LET IDENT let_binders COLON term DEFINE term SEMI term"
+def p_term_let_params(p: yacc.YaccProduction) -> None:
+    "term : LET IDENT let_params COLON term DEFINE term SEMI term"
     span = _span(p, 1, 9)
     p[0] = _make_let(span, (), p[2], p[3], p[5], p[7], p[9])
 
 
-def p_term_let_binders_infer(p: yacc.YaccProduction) -> None:
-    "term : LET IDENT let_binders DEFINE term SEMI term"
+def p_term_let_params_infer(p: yacc.YaccProduction) -> None:
+    "term : LET IDENT let_params DEFINE term SEMI term"
     span = _span(p, 1, 7)
     p[0] = _make_let(span, (), p[2], p[3], None, p[5], p[7])
 
 
-def p_term_let_binders_suffix_uparams(p: yacc.YaccProduction) -> None:
-    "term : LET IDENT u_binder let_binders COLON term DEFINE term SEMI term"
+def p_term_let_params_suffix_uparams(p: yacc.YaccProduction) -> None:
+    "term : LET IDENT u_binder let_params COLON term DEFINE term SEMI term"
     span = _span(p, 1, 10)
     p[0] = _make_let(span, p[3], p[2], p[4], p[6], p[8], p[10])
 
 
-def p_term_let_binders_infer_suffix_uparams(p: yacc.YaccProduction) -> None:
-    "term : LET IDENT u_binder let_binders DEFINE term SEMI term"
+def p_term_let_params_infer_suffix_uparams(p: yacc.YaccProduction) -> None:
+    "term : LET IDENT u_binder let_params DEFINE term SEMI term"
     span = _span(p, 1, 8)
     p[0] = _make_let(span, p[3], p[2], p[4], None, p[6], p[8])
 
 
-def p_term_let_type_params(p: yacc.YaccProduction) -> None:
-    "term : LET IDENT type_params COLON term DEFINE term SEMI term"
-    span = _span(p, 1, 9)
-    p[0] = _make_let(span, (), p[2], p[3], p[5], p[7], p[9])
-
-
-def p_term_let_type_params_infer(p: yacc.YaccProduction) -> None:
-    "term : LET IDENT type_params DEFINE term SEMI term"
-    span = _span(p, 1, 7)
-    p[0] = _make_let(span, (), p[2], p[3], None, p[5], p[7])
-
-
-def p_term_let_type_params_binders(p: yacc.YaccProduction) -> None:
-    "term : LET IDENT type_params let_binders COLON term DEFINE term SEMI term"
-    span = _span(p, 1, 10)
-    p[0] = _make_let(span, (), p[2], p[3] + p[4], p[6], p[8], p[10])
-
-
-def p_term_let_type_params_binders_infer(p: yacc.YaccProduction) -> None:
-    "term : LET IDENT type_params let_binders DEFINE term SEMI term"
-    span = _span(p, 1, 8)
-    p[0] = _make_let(span, (), p[2], p[3] + p[4], None, p[6], p[8])
-
-
-def p_term_let_type_params_uparams(p: yacc.YaccProduction) -> None:
-    "term : LET IDENT u_binder type_params let_binders COLON term DEFINE term SEMI term"
-    span = _span(p, 1, 11)
-    p[0] = _make_let(span, p[3], p[2], p[4] + p[5], p[7], p[9], p[11])
-
-
-def p_term_let_type_params_infer_uparams(p: yacc.YaccProduction) -> None:
-    "term : LET IDENT u_binder type_params let_binders DEFINE term SEMI term"
-    span = _span(p, 1, 9)
-    p[0] = _make_let(span, p[3], p[2], p[4] + p[5], None, p[7], p[9])
-
-
-def p_term_let_uparams_type_params(p: yacc.YaccProduction) -> None:
-    "term : LET u_binders_nonempty IDENT type_params let_binders COLON term DEFINE term SEMI term"
-    span = _span(p, 1, 11)
-    p[0] = _make_let(span, p[2], p[3], p[4] + p[5], p[7], p[9], p[11])
-
-
-def p_term_let_uparams_type_params_infer(p: yacc.YaccProduction) -> None:
-    "term : LET u_binders_nonempty IDENT type_params let_binders DEFINE term SEMI term"
-    span = _span(p, 1, 9)
-    p[0] = _make_let(span, p[2], p[3], p[4] + p[5], None, p[7], p[9])
-
-
-def p_term_let_uparams(p: yacc.YaccProduction) -> None:
-    "term : LET u_binders_nonempty IDENT COLON term DEFINE term SEMI term"
-    span = _span(p, 1, 9)
-    p[0] = _make_let(span, p[2], p[3], (), p[5], p[7], p[9])
-
-
-def p_term_let_infer_uparams(p: yacc.YaccProduction) -> None:
-    "term : LET u_binders_nonempty IDENT DEFINE term SEMI term"
-    span = _span(p, 1, 7)
-    p[0] = _make_let(span, p[2], p[3], (), None, p[5], p[7])
-
-
-def p_term_let_uparams_binders(p: yacc.YaccProduction) -> None:
-    "term : LET u_binders_nonempty IDENT let_binders COLON term DEFINE term SEMI term"
+def p_term_let_uparams_params(p: yacc.YaccProduction) -> None:
+    "term : LET u_binders_nonempty IDENT let_params COLON term DEFINE term SEMI term"
     span = _span(p, 1, 10)
     p[0] = _make_let(span, p[2], p[3], p[4], p[6], p[8], p[10])
 
 
-def p_term_let_uparams_binders_infer(p: yacc.YaccProduction) -> None:
-    "term : LET u_binders_nonempty IDENT let_binders DEFINE term SEMI term"
+def p_term_let_uparams_params_infer(p: yacc.YaccProduction) -> None:
+    "term : LET u_binders_nonempty IDENT let_params DEFINE term SEMI term"
     span = _span(p, 1, 8)
     p[0] = _make_let(span, p[2], p[3], p[4], None, p[6], p[8])
 
@@ -504,6 +444,17 @@ def p_u_list_single(p: yacc.YaccProduction) -> None:
 def p_let_binders(p: yacc.YaccProduction) -> None:
     "let_binders : param_group"
     p[0] = p[1]
+
+
+def p_let_params(p: yacc.YaccProduction) -> None:
+    """let_params : type_params let_binders
+    | type_params
+    | let_binders
+    """
+    if len(p) == 3:
+        p[0] = p[1] + p[2]
+    else:
+        p[0] = p[1]
 
 
 def p_lam_binders(p: yacc.YaccProduction) -> None:
