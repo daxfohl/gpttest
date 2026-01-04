@@ -5,13 +5,14 @@ from mltt.elab.etype import ElabEnv
 from mltt.elab.sast import elab_infer
 from mltt.surface.sast import SurfaceError
 from mltt.surface.parse import parse_term, parse_term_raw
+from mltt.surface.to_elab import surface_to_elab
 from mltt.kernel.prelude import prelude_env
 
 
 def elab_ok(src: str) -> None:
     env = ElabEnv.from_env(prelude_env())
     state = ElabState()
-    term = parse_term(src)
+    term = surface_to_elab(parse_term(src))
     term_k, ty_k = elab_infer(term, env, state)
     state.solve(env.kenv)
     term_k = state.zonk(term_k)
@@ -24,7 +25,7 @@ def elab_fails(src: str) -> None:
     env = ElabEnv.from_env(prelude_env())
     state = ElabState()
     try:
-        term = parse_term(src)
+        term = surface_to_elab(parse_term(src))
         elab_infer(term, env, state)
     except SurfaceError:
         return
@@ -132,25 +133,29 @@ def test_let_destruct_refutable_error() -> None:
 def test_match_requires_desugared_single_scrutinee() -> None:
     env = ElabEnv.from_env(prelude_env())
     state = ElabState()
-    term = parse_term_raw(
-        """
-        match n, b with
-        | _ => n
-        """
-    )
     with pytest.raises(SurfaceError, match="Match must be desugared to one scrutinee"):
+        term = surface_to_elab(
+            parse_term_raw(
+                """
+                match n, b with
+                | _ => n
+                """
+            )
+        )
         elab_infer(term, env, state)
 
 
 def test_let_tuple_pattern_requires_desugaring() -> None:
     env = ElabEnv.from_env(prelude_env())
     state = ElabState()
-    term = parse_term_raw(
-        """
-        let p := ctor Sigma.Pair(Nat, fun (x: Nat) => Nat, Nat.Zero, Nat.Zero);
-        let (x, y) := p;
-        x
-        """
-    )
     with pytest.raises(SurfaceError, match="Tuple patterns must be desugared"):
+        term = surface_to_elab(
+            parse_term_raw(
+                """
+                let p := ctor Sigma.Pair(Nat, fun (x: Nat) => Nat, Nat.Zero, Nat.Zero);
+                let (x, y) := p;
+                x
+                """
+            )
+        )
         elab_infer(term, env, state)

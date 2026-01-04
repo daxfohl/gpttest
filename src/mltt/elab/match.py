@@ -2,6 +2,16 @@
 
 from __future__ import annotations
 
+from mltt.elab.east import (
+    EBranch,
+    ELetPat,
+    EMatch,
+    EPat,
+    EPatCtor,
+    EPatVar,
+    EPatWild,
+    ETerm,
+)
 from mltt.elab.elab_state import ElabState
 from mltt.elab.etype import ElabEnv, ElabType
 from mltt.elab.sast import _expect_universe, elab_check, elab_infer
@@ -10,19 +20,7 @@ from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
 from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_app, mk_lams, mk_uapp
-from mltt.surface.sast import (
-    Pat,
-    PatCtor,
-    PatTuple,
-    PatVar,
-    PatWild,
-    SBranch,
-    SLetPat,
-    SMatch,
-    Span,
-    SurfaceError,
-    SurfaceTerm,
-)
+from mltt.surface.sast import Span, SurfaceError
 
 
 def _resolve_inductive_head(env: Env, head: Term) -> Ind | None:
@@ -45,7 +43,7 @@ def _looks_like_ctor(name: str) -> bool:
 
 
 def _elab_scrutinee_info(
-    scrutinee: SurfaceTerm, env: ElabEnv, state: ElabState
+    scrutinee: ETerm, env: ElabEnv, state: ElabState
 ) -> tuple[Term, Term, Term, tuple[LevelExpr, ...], ArgList]:
     scrut_term, scrut_ty = elab_infer(scrutinee, env, state)
     scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
@@ -136,63 +134,63 @@ def _match_branch_types(
 
 
 def _branch_binders(
-    pat: Pat,
+    pat: EPat,
     ctor: Ctor,
     tel: Telescope,
     field_count: int,
 ) -> list[tuple[str | None, Term]]:
     binders: list[tuple[str | None, Term]] = []
     match pat:
-        case PatCtor():
+        case EPatCtor():
             if len(pat.args) not in {field_count, len(tel)}:
                 raise SurfaceError("Match pattern has wrong arity", pat.span)
             if len(pat.args) == field_count:
                 full_args = pat.args + tuple(
-                    PatWild(pat.span) for _ in range(len(tel) - field_count)
+                    EPatWild(pat.span) for _ in range(len(tel) - field_count)
                 )
             else:
                 full_args = pat.args
             for arg, ty in zip(full_args, tel, strict=True):
                 match arg:
-                    case PatVar():
+                    case EPatVar():
                         binders.append((arg.name, ty))
-                    case PatWild():
+                    case EPatWild():
                         binders.append((None, ty))
                     case _:
                         raise SurfaceError(
                             "Match pattern must be constructor or _", arg.span
                         )
             return binders
-        case PatVar():
+        case EPatVar():
             if _looks_like_ctor(pat.name):
                 if len(tel) == 0:
                     return []
                 raise SurfaceError("Constructor pattern needs fields", pat.span)
             return [(pat.name, ty) for ty in tel]
-        case PatWild():
+        case EPatWild():
             return [(None, ty) for ty in tel]
         case _:
             raise SurfaceError("Unsupported match pattern", pat.span)
 
 
 def _branch_map(
-    branches: tuple[SBranch, ...], env: ElabEnv, ind: Ind
-) -> tuple[dict[str, SBranch], SurfaceTerm | None]:
-    branch_map: dict[str, SBranch] = {}
-    default_branch: SurfaceTerm | None = None
+    branches: tuple[EBranch, ...], env: ElabEnv, ind: Ind
+) -> tuple[dict[str, EBranch], ETerm | None]:
+    branch_map: dict[str, EBranch] = {}
+    default_branch: ETerm | None = None
     for branch in branches:
         pat = branch.pat
         match pat:
-            case PatWild():
+            case EPatWild():
                 default_branch = branch.rhs
-            case PatVar():
+            case EPatVar():
                 ctor_name = pat.name
                 if not _looks_like_ctor(ctor_name):
                     raise SurfaceError(
                         "Match pattern must be constructor or _", branch.span
                     )
                 branch_map[ctor_name] = branch
-            case PatCtor():
+            case EPatCtor():
                 branch_map[pat.ctor] = branch
             case _:
                 raise SurfaceError("Unsupported match pattern", branch.span)
@@ -205,21 +203,17 @@ def _branch_map(
 
 
 def elab_match_infer(
-    match: SMatch, env: ElabEnv, state: ElabState
+    match: EMatch, env: ElabEnv, state: ElabState
 ) -> tuple[Term, ElabType]:
-    if len(match.scrutinees) != 1:
-        raise SurfaceError("Match must be desugared to one scrutinee", match.span)
-    if match.motive is None and all(n is None for n in match.as_names):
+    if match.motive is None and match.as_name is None:
         raise SurfaceError("Cannot infer match result type; use check-mode", match.span)
     return _elab_match_with_motive(match, env, state)
 
 
 def elab_match_check(
-    match: SMatch, env: ElabEnv, state: ElabState, expected: ElabType
+    match: EMatch, env: ElabEnv, state: ElabState, expected: ElabType
 ) -> Term:
-    if len(match.scrutinees) != 1:
-        raise SurfaceError("Match must be desugared to one scrutinee", match.span)
-    if match.motive is not None or any(n is not None for n in match.as_names):
+    if match.motive is not None or match.as_name is not None:
         term, term_ty = _elab_match_with_motive(match, env, state)
         state.add_constraint(env.kenv, term_ty.term, expected.term, match.span)
         return term
@@ -227,10 +221,10 @@ def elab_match_check(
 
 
 def _elab_match_core(
-    match: SMatch, env: ElabEnv, state: ElabState, expected: ElabType
+    match: EMatch, env: ElabEnv, state: ElabState, expected: ElabType
 ) -> Term:
     scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
-        match.scrutinees[0], env, state
+        match.scrutinee, env, state
     )
     ind = _resolve_inductive_head(env.kenv, head)
     if ind is None:
@@ -287,14 +281,12 @@ def _elab_match_core(
 
 
 def _elab_match_with_motive(
-    match: SMatch, env: ElabEnv, state: ElabState
+    match: EMatch, env: ElabEnv, state: ElabState
 ) -> tuple[Term, ElabType]:
     if match.motive is None:
         raise SurfaceError("Match motive missing", match.span)
-    if len(match.scrutinees) != 1:
-        raise SurfaceError("Dependent match needs one scrutinee", match.span)
     scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
-        match.scrutinees[0], env, state
+        match.scrutinee, env, state
     )
     ind = _resolve_inductive_head(env.kenv, head)
     if ind is None:
@@ -305,7 +297,7 @@ def _elab_match_with_motive(
         raise SurfaceError("Match scrutinee has wrong arity", match.span)
     params_actual = args[:p]
     indices_actual = args[p:]
-    as_name = match.as_names[0] if match.as_names else None
+    as_name = match.as_name
     env_motive = env
     if as_name is not None:
         env_motive = env_motive.push_binder(ElabType(scrut_ty_whnf), name=as_name)
@@ -349,7 +341,7 @@ def _elab_match_with_motive(
 
 
 def elab_let_pat_infer(
-    term: SLetPat, env: ElabEnv, state: ElabState
+    term: ELetPat, env: ElabEnv, state: ElabState
 ) -> tuple[Term, ElabType]:
     value_term, value_ty = elab_infer(term.value, env, state)
     value_ty_whnf = value_ty.term.whnf(env.kenv)
@@ -359,25 +351,23 @@ def elab_let_pat_infer(
     for name, ty in _collect_binders(env.kenv, value_ty_whnf, term.pat):
         env_body = env_body.push_binder(ElabType(ty), name=name)
     body_term, body_ty = elab_infer(term.body, env_body, state)
-    match_term = SMatch(
+    match_term = EMatch(
         span=term.span,
-        scrutinees=(term.value,),
-        as_names=(None,),
+        scrutinee=term.value,
+        as_name=None,
         motive=None,
-        branches=(SBranch(term.pat, term.body, term.span),),
+        branches=(EBranch(term.pat, term.body, term.span),),
     )
     match_term_k = elab_check(match_term, env, state, body_ty)
     _ = value_term
     return match_term_k, body_ty
 
 
-def _is_irrefutable(env: Env, scrut_ty: Term, pat: Pat) -> bool:
+def _is_irrefutable(env: Env, scrut_ty: Term, pat: EPat) -> bool:
     match pat:
-        case PatVar() | PatWild():
+        case EPatVar() | EPatWild():
             return True
-        case PatTuple():
-            raise SurfaceError("Tuple patterns must be desugared", pat.span)
-        case PatCtor():
+        case EPatCtor():
             pass
         case _:
             return False
@@ -404,15 +394,13 @@ def _is_irrefutable(env: Env, scrut_ty: Term, pat: Pat) -> bool:
     return True
 
 
-def _collect_binders(env: Env, scrut_ty: Term, pat: Pat) -> list[tuple[str, Term]]:
+def _collect_binders(env: Env, scrut_ty: Term, pat: EPat) -> list[tuple[str, Term]]:
     match pat:
-        case PatVar():
+        case EPatVar():
             return [(pat.name, scrut_ty)]
-        case PatWild():
+        case EPatWild():
             return []
-        case PatTuple():
-            raise SurfaceError("Tuple patterns must be desugared", pat.span)
-        case PatCtor():
+        case EPatCtor():
             pass
         case _:
             return []

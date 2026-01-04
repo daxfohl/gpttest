@@ -7,39 +7,36 @@ from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
 from mltt.kernel.levels import LConst, LevelExpr
 from mltt.elab.elab_state import ElabState
+from mltt.elab.east import (
+    EAnn,
+    EApp,
+    EArg,
+    EBinder,
+    EConst,
+    ECtor,
+    EHole,
+    EInd,
+    EInductiveDef,
+    ELet,
+    ELetPat,
+    ELam,
+    EMatch,
+    EPartial,
+    EPi,
+    EUniv,
+    EUApp,
+    EVar,
+    ETerm,
+)
 from mltt.elab.elab_apply import elab_apply
 from mltt.elab.etype import ElabEnv, ElabType
 from mltt.elab.names import NameEnv
-from mltt.surface.sast import (
-    SAnn,
-    SApp,
-    SArg,
-    SBinder,
-    SConst,
-    SCtor,
-    SHole,
-    SInd,
-    SInductiveDef,
-    SLet,
-    SLetPat,
-    SLam,
-    SMatch,
-    SPi,
-    SPartial,
-    SUApp,
-    SUniv,
-    SVar,
-    Span,
-    SurfaceError,
-    SurfaceTerm,
-)
+from mltt.surface.sast import Span, SurfaceError
 
 
-def elab_infer(
-    term: SurfaceTerm, env: ElabEnv, state: ElabState
-) -> tuple[Term, ElabType]:
+def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
     match term:
-        case SVar(name=name):
+        case EVar(name=name):
             ctx_term = env.lookup_context_term(name)
             if ctx_term is not None:
                 term_k, ty = ctx_term
@@ -69,7 +66,7 @@ def elab_infer(
             return term_k, ElabType(
                 state.zonk(ty.term), ty.implicit_spine, ty.binder_names
             )
-        case SConst(name=name):
+        case EConst(name=name):
             decl, gty = _require_global_info(
                 env, name, term.span, f"Unknown constant {name}"
             )
@@ -80,7 +77,7 @@ def elab_infer(
             return term_k, ElabType(
                 state.zonk(ty.term), ty.implicit_spine, ty.binder_names
             )
-        case SUniv(level=level):
+        case EUniv(level=level):
             level_expr: LevelExpr | int
             if level is None:
                 level_expr = state.fresh_level_meta("type", term.span)
@@ -90,42 +87,42 @@ def elab_infer(
                 level_expr = level
             term_k = Univ(level_expr)
             return term_k, ElabType(Univ(LevelExpr.of(level_expr).succ()))
-        case SAnn(term=inner, ty=ty_src):
+        case EAnn(term=inner, ty=ty_src):
             ty_term, ty_ty = elab_infer(ty_src, env, state)
             _expect_universe(ty_ty.term, env.kenv, term.span)
             term_k = elab_check(inner, env, state, ElabType(ty_term))
             return term_k, ElabType(ty_term)
-        case SHole():
+        case EHole():
             raise SurfaceError("Hole needs expected type", term.span)
-        case SLam():
+        case ELam():
             return _elab_lam_infer(term, env, state)
-        case SPi():
+        case EPi():
             return _elab_pi_infer(term, env, state)
-        case SApp(fn=fn, args=args):
+        case EApp(fn=fn, args=args):
             return elab_apply(fn, args, env, state, term.span, allow_partial=False)
-        case SUApp():
+        case EUApp():
             return _elab_uapp_infer(term, env, state)
-        case SPartial(term=inner):
+        case EPartial(term=inner):
             return _elab_partial_infer(inner, env, state, term.span)
-        case SLet():
+        case ELet():
             return _elab_let_infer(term, env, state)
-        case SMatch():
+        case EMatch():
             from mltt.elab.match import elab_match_infer
 
             return elab_match_infer(term, env, state)
-        case SLetPat():
+        case ELetPat():
             from mltt.elab.match import elab_let_pat_infer
 
             return elab_let_pat_infer(term, env, state)
-        case SInd():
+        case EInd():
             from mltt.elab.sind import elab_ind_infer
 
             return elab_ind_infer(term, env, state)
-        case SCtor():
+        case ECtor():
             from mltt.elab.sind import elab_ctor_infer
 
             return elab_ctor_infer(term, env, state)
-        case SInductiveDef():
+        case EInductiveDef():
             from mltt.elab.sind import elab_inductive_infer
 
             return elab_inductive_infer(term, env, state)
@@ -133,19 +130,17 @@ def elab_infer(
             raise SurfaceError("Unsupported surface term", term.span)
 
 
-def elab_check(
-    term: SurfaceTerm, env: ElabEnv, state: ElabState, expected: ElabType
-) -> Term:
+def elab_check(term: ETerm, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
     match term:
-        case SHole():
+        case EHole():
             return state.fresh_meta(env.kenv, expected.term, term.span, kind="hole")
-        case SLam():
+        case ELam():
             return _elab_lam_check(term, env, state, expected)
-        case SMatch():
+        case EMatch():
             from mltt.elab.match import elab_match_check
 
             return elab_match_check(term, env, state, expected)
-        case SAnn(term=inner, ty=ty_src):
+        case EAnn(term=inner, ty=ty_src):
             ty_term, ty_ty = elab_infer(ty_src, env, state)
             _expect_universe(ty_ty.term, env.kenv, term.span)
             term_k = elab_check(inner, env, state, ElabType(ty_term))
@@ -157,9 +152,9 @@ def elab_check(
             return term_k
 
 
-def resolve(term: SurfaceTerm, env: Env, names: NameEnv) -> Term:
+def resolve(term: ETerm, env: Env, names: NameEnv) -> Term:
     match term:
-        case SVar(name=name):
+        case EVar(name=name):
             idx = names.lookup(name)
             if idx is not None:
                 return Var(idx)
@@ -169,22 +164,22 @@ def resolve(term: SurfaceTerm, env: Env, names: NameEnv) -> Term:
                     return decl.value
                 return Const(name)
             raise SurfaceError(f"Unknown identifier {name}", term.span)
-        case SConst(name=name):
+        case EConst(name=name):
             if env.lookup_global(name) is None:
                 raise SurfaceError(f"Unknown constant {name}", term.span)
             return Const(name)
-        case SUniv(level=level):
+        case EUniv(level=level):
             if level is None:
                 raise SurfaceError("Universe requires elaboration", term.span)
             if isinstance(level, str):
                 raise SurfaceError("Universe requires elaboration", term.span)
             return Univ(level)
-        case SAnn(term=inner, ty=ty_src):
+        case EAnn(term=inner, ty=ty_src):
             _ = ty_src
             return resolve(inner, env, names)
-        case SHole():
+        case EHole():
             raise SurfaceError("Hole requires elaboration", term.span)
-        case SLam(binders=binders, body=body):
+        case ELam(binders=binders, body=body):
             if any(b.ty is None for b in binders):
                 raise SurfaceError("Missing binder type", term.span)
             tys: list[Term] = []
@@ -197,7 +192,7 @@ def resolve(term: SurfaceTerm, env: Env, names: NameEnv) -> Term:
                 term_k = Lam(ty, term_k)
                 names.pop()
             return term_k
-        case SPi(binders=binders, body=body):
+        case EPi(binders=binders, body=body):
             if any(b.ty is None for b in binders):
                 raise SurfaceError("Missing binder type", term.span)
             pi_tys: list[Term] = []
@@ -210,13 +205,13 @@ def resolve(term: SurfaceTerm, env: Env, names: NameEnv) -> Term:
                 term_k = Pi(ty, term_k)
                 names.pop()
             return term_k
-        case SApp(fn=fn, args=args):
+        case EApp(fn=fn, args=args):
             term_k = resolve(fn, env, names)
             for arg in args:
                 arg_term = resolve(arg.term, env, names)
                 term_k = App(term_k, arg_term)
             return term_k
-        case SUApp(head=head, levels=levels):
+        case EUApp(head=head, levels=levels):
             head_term = resolve(head, env, names)
             if any(isinstance(level, str) for level in levels):
                 raise SurfaceError("Universe requires elaboration", term.span)
@@ -228,9 +223,9 @@ def resolve(term: SurfaceTerm, env: Env, names: NameEnv) -> Term:
                     raise SurfaceError("Universe requires elaboration", term.span)
             level_terms = tuple(LConst(level) for level in int_levels)
             return UApp(head_term, level_terms)
-        case SPartial(term=inner):
+        case EPartial(term=inner):
             return resolve(inner, env, names)
-        case SLet(name=name, ty=ty_src, val=val_src, body=body):
+        case ELet(name=name, ty=ty_src, val=val_src, body=body):
             if ty_src is None:
                 raise SurfaceError("Missing let type; needs elaboration", term.span)
             ty_term = resolve(ty_src, env, names)
@@ -239,7 +234,7 @@ def resolve(term: SurfaceTerm, env: Env, names: NameEnv) -> Term:
             body_term = resolve(body, env, names)
             names.pop()
             return Let(ty_term, val_term, body_term)
-        case SMatch() | SLetPat() | SInd() | SCtor() | SInductiveDef():
+        case EMatch() | ELetPat() | EInd() | ECtor() | EInductiveDef():
             raise SurfaceError("Surface construct requires elaboration", term.span)
         case _:
             raise SurfaceError("Unsupported surface term", term.span)
@@ -262,7 +257,7 @@ def _require_global_info(
 
 
 def _elab_lam_infer(
-    term: SLam, env: ElabEnv, state: ElabState
+    term: ELam, env: ElabEnv, state: ElabState
 ) -> tuple[Term, ElabType]:
     if any(b.ty is None for b in term.binders):
         raise SurfaceError(
@@ -288,7 +283,7 @@ def _elab_lam_infer(
 
 
 def _elab_lam_check(
-    term: SLam, env: ElabEnv, state: ElabState, expected: ElabType
+    term: ELam, env: ElabEnv, state: ElabState, expected: ElabType
 ) -> Term:
     binder_tys: list[Term] = []
     binder_impls: list[bool] = []
@@ -317,7 +312,7 @@ def _elab_lam_check(
     return lam_term
 
 
-def _elab_pi_infer(term: SPi, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
+def _elab_pi_infer(term: EPi, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
     binder_tys, binder_impls, binder_levels, env1 = _elab_binders(
         env, state, term.binders
     )
@@ -341,11 +336,11 @@ def _elab_pi_infer(term: SPi, env: ElabEnv, state: ElabState) -> tuple[Term, Ela
 
 
 def _elab_uapp_infer(
-    term: SUApp, env: ElabEnv, state: ElabState
+    term: EUApp, env: ElabEnv, state: ElabState
 ) -> tuple[Term, ElabType]:
     head_term: Term
     match term.head:
-        case SVar(name=name):
+        case EVar(name=name):
             if env.lookup_local(name) is not None:
                 raise SurfaceError("UApp head must be a global", term.span)
             decl = env.lookup_global(name)
@@ -355,19 +350,19 @@ def _elab_uapp_infer(
                 head_term = decl.value
             else:
                 head_term = Const(name)
-        case SConst(name=name):
+        case EConst(name=name):
             decl = env.lookup_global(name)
             if decl is None:
                 raise SurfaceError(f"Unknown constant {name}", term.span)
             head_term = Const(name)
-        case SInd(name=name):
+        case EInd(name=name):
             decl = env.lookup_global(name)
             if decl is None or decl.value is None:
                 raise SurfaceError(f"Unknown inductive {name}", term.span)
             head_term = decl.value
             if isinstance(head_term, UApp) and isinstance(head_term.head, Ind):
                 head_term = head_term.head
-        case SCtor(name=name):
+        case ECtor(name=name):
             decl = env.lookup_global(name)
             if decl is None or decl.value is None:
                 raise SurfaceError(f"Unknown constructor {name}", term.span)
@@ -391,16 +386,16 @@ def _elab_uapp_infer(
 
 
 def _elab_partial_infer(
-    term: SurfaceTerm, env: ElabEnv, state: ElabState, span: Span
+    term: ETerm, env: ElabEnv, state: ElabState, span: Span
 ) -> tuple[Term, ElabType]:
     match term:
-        case SApp(fn=fn, args=args):
+        case EApp(fn=fn, args=args):
             return elab_apply(fn, args, env, state, span, allow_partial=True)
     return elab_infer(term, env, state)
 
 
 def _elab_let_infer(
-    term: SLet, env: ElabEnv, state: ElabState
+    term: ELet, env: ElabEnv, state: ElabState
 ) -> tuple[Term, ElabType]:
     if len(set(term.uparams)) != len(term.uparams):
         raise SurfaceError("Duplicate universe binder", term.span)
@@ -447,7 +442,7 @@ def _elab_let_infer(
 
 
 def _elab_binders(
-    env: ElabEnv, state: ElabState, binders: tuple[SBinder, ...]
+    env: ElabEnv, state: ElabState, binders: tuple[EBinder, ...]
 ) -> tuple[list[Term], list[bool], list[LevelExpr], ElabEnv]:
     binder_tys: list[Term] = []
     binder_impls: list[bool] = []
@@ -468,35 +463,35 @@ def _elab_binders(
     return binder_tys, binder_impls, binder_levels, env
 
 
-def _implicit_spine(term: SurfaceTerm | None) -> tuple[bool, ...]:
+def _implicit_spine(term: ETerm | None) -> tuple[bool, ...]:
     if term is None:
         return ()
     spine: list[bool] = []
     current = term
-    while isinstance(current, SPi):
+    while isinstance(current, EPi):
         spine.extend(b.implicit for b in current.binders)
         current = current.body
     return tuple(spine)
 
 
-def _binder_names(term: SurfaceTerm | None) -> tuple[str | None, ...]:
+def _binder_names(term: ETerm | None) -> tuple[str | None, ...]:
     if term is None:
         return ()
     names: list[str | None] = []
     current = term
-    while isinstance(current, SPi):
+    while isinstance(current, EPi):
         names.extend(_normalize_binder_name(b.name) for b in current.binders)
         current = current.body
     return tuple(names)
 
 
-def _binder_names_from_term(term: SurfaceTerm | None) -> tuple[str | None, ...]:
+def _binder_names_from_term(term: ETerm | None) -> tuple[str | None, ...]:
     if term is None:
         return ()
     match term:
-        case SLam(binders=binders):
+        case ELam(binders=binders):
             return tuple(_normalize_binder_name(b.name) for b in binders)
-        case SPi():
+        case EPi():
             return _binder_names(term)
     return ()
 

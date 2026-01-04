@@ -12,26 +12,25 @@ from mltt.elab.elab_state import Constraint, ElabState
 from mltt.elab.etype import ElabEnv, ElabType
 from mltt.elab.match import _resolve_inductive_head
 from mltt.elab.names import NameEnv
+from mltt.elab.east import (
+    EBinder,
+    ECtor,
+    EInd,
+    EInductiveDef,
+    EConstructorDecl,
+    EPi,
+    ETerm,
+)
 from mltt.elab.sast import (
     _elab_binders,
     _expect_universe,
     _require_global_info,
     elab_infer,
 )
-from mltt.surface.sast import (
-    SBinder,
-    SCtor,
-    SInd,
-    SInductiveDef,
-    SConstructorDecl,
-    SPi,
-    Span,
-    SurfaceError,
-    SurfaceTerm,
-)
+from mltt.surface.sast import Span, SurfaceError
 
 
-def elab_ind_infer(term: SInd, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
+def elab_ind_infer(term: EInd, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
     decl, gty = _require_global_info(
         env, term.name, term.span, f"Unknown inductive {term.name}"
     )
@@ -49,7 +48,7 @@ def elab_ind_infer(term: SInd, env: ElabEnv, state: ElabState) -> tuple[Term, El
 
 
 def elab_ctor_infer(
-    term: SCtor, env: ElabEnv, state: ElabState
+    term: ECtor, env: ElabEnv, state: ElabState
 ) -> tuple[Term, ElabType]:
     decl, gty = _require_global_info(
         env, term.name, term.span, f"Unknown constructor {term.name}"
@@ -70,15 +69,15 @@ def elab_ctor_infer(
 
 
 def elab_inductive_infer(
-    term: SInductiveDef, env: ElabEnv, state: ElabState
+    term: EInductiveDef, env: ElabEnv, state: ElabState
 ) -> tuple[Term, ElabType]:
     if env.lookup_global(term.name) is not None:
         raise SurfaceError(f"Duplicate inductive {term.name}", term.span)
     if len(set(term.uparams)) != len(term.uparams):
         raise SurfaceError("Duplicate universe binder", term.span)
-    index_binders: tuple[SBinder, ...] = ()
+    index_binders: tuple[EBinder, ...] = ()
     level_body = term.level
-    if isinstance(term.level, SPi):
+    if isinstance(term.level, EPi):
         index_binders = term.level.binders
         level_body = term.level.body
     for binder in index_binders:
@@ -231,13 +230,13 @@ def elab_inductive_infer(
     return body_term, body_ty
 
 
-def resolve_ind(term: SurfaceTerm, env: Env, names: NameEnv) -> Term:
+def resolve_ind(term: ETerm, env: Env, names: NameEnv) -> Term:
     raise SurfaceError("Inductive references require elaboration", term.span)
 
 
-def resolve_ctor(term: SurfaceTerm, env: Env, names: NameEnv) -> Term:
+def resolve_ctor(term: ETerm, env: Env, names: NameEnv) -> Term:
     raise SurfaceError("Constructor references require elaboration", term.span)
 
 
-def resolve_inductive(term: SurfaceTerm, env: Env, names: NameEnv) -> Term:
+def resolve_inductive(term: ETerm, env: Env, names: NameEnv) -> Term:
     raise SurfaceError("Inductive definitions require elaboration", term.span)

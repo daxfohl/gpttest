@@ -6,13 +6,14 @@ from mltt.elab.elab_state import ElabState
 from mltt.elab.etype import ElabEnv
 from mltt.elab.sast import elab_infer
 from mltt.surface.parse import parse_term
+from mltt.surface.to_elab import surface_to_elab
 from mltt.kernel.prelude import prelude_env
 
 
 def elab_ok(src: str) -> None:
     env = ElabEnv.from_env(prelude_env())
     state = ElabState()
-    term = parse_term(src)
+    term = surface_to_elab(parse_term(src))
     term_k, ty_k = elab_infer(term, env, state)
     state.solve(env.kenv)
     term_k = state.zonk(term_k)
@@ -24,7 +25,7 @@ def elab_ok(src: str) -> None:
 def elab_ok_in_env(src: str, env: Env) -> None:
     elab_env = ElabEnv.from_env(env)
     state = ElabState()
-    term = parse_term(src)
+    term = surface_to_elab(parse_term(src))
     term_k, ty_k = elab_infer(term, elab_env, state)
     state.solve(elab_env.kenv)
     term_k = state.zonk(term_k)
@@ -36,7 +37,7 @@ def elab_ok_in_env(src: str, env: Env) -> None:
 def elab_with_state(src: str) -> ElabState:
     env = ElabEnv.from_env(prelude_env())
     state = ElabState()
-    term = parse_term(src)
+    term = surface_to_elab(parse_term(src))
     elab_infer(term, env, state)
     state.solve(env.kenv)
     return state
@@ -46,7 +47,7 @@ def elab_eval(src: str) -> Term:
     kenv = prelude_env()
     env = ElabEnv.from_env(kenv)
     state = ElabState()
-    term = parse_term(src)
+    term = surface_to_elab(parse_term(src))
     term_k, _ty_k = elab_infer(term, env, state)
     state.solve(env.kenv)
     term_k = state.zonk(term_k)

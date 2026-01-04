@@ -5,14 +5,15 @@ from __future__ import annotations
 from mltt.kernel.ast import App, Lam, Pi, Term, UApp, Var
 from mltt.kernel.env import Const
 from mltt.kernel.ind import Ctor, Ind
+from mltt.elab.east import EArg, ETerm
 from mltt.elab.elab_state import ElabState
 from mltt.elab.etype import ElabEnv, ElabType
-from mltt.surface.sast import SArg, Span, SurfaceError, SurfaceTerm
+from mltt.surface.sast import Span, SurfaceError
 
 
 def elab_apply(
-    fn: SurfaceTerm,
-    args: tuple[SArg, ...],
+    fn: ETerm,
+    args: tuple[EArg, ...],
     env: ElabEnv,
     state: ElabState,
     span: Span,
@@ -39,7 +40,7 @@ def elab_apply(
     if any(arg.name is not None for arg in args) and not binder_names:
         raise SurfaceError("Named arguments require binder names", span)
     positional = [arg for arg in args if arg.name is None]
-    named: dict[str, SArg] = {}
+    named: dict[str, EArg] = {}
     for item in args:
         if item.name is None:
             continue
@@ -66,7 +67,7 @@ def elab_apply(
         binder_name = (
             binder_names[spine_index] if spine_index < len(binder_names) else None
         )
-        arg: SArg | None = None
+        arg: EArg | None = None
         consume_positional = False
         if binder_name is not None and binder_name in named:
             arg = named.pop(binder_name)
@@ -174,16 +175,14 @@ def elab_apply(
     return fn_term, fn_ty
 
 
-def _elab_infer(
-    term: SurfaceTerm, env: ElabEnv, state: ElabState
-) -> tuple[Term, ElabType]:
+def _elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
     from mltt.elab.sast import elab_infer
 
     return elab_infer(term, env, state)
 
 
 def _elab_check(
-    term: SurfaceTerm, env: ElabEnv, state: ElabState, expected: ElabType
+    term: ETerm, env: ElabEnv, state: ElabState, expected: ElabType
 ) -> Term:
     from mltt.elab.sast import elab_check
 
