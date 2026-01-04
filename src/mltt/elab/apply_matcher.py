@@ -67,7 +67,7 @@ class ArgMatcher:
             return ArgDecision(kind="stop")
         if allow_partial:
             return ArgDecision(kind="missing")
-        raise ElabError("Missing explicit argument", self._span)
+        return ArgDecision(kind="missing")
 
     def has_positional(self) -> bool:
         return bool(self._positional)

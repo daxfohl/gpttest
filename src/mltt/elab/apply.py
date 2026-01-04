@@ -28,14 +28,10 @@ from mltt.elab.ast import (
 )
 from mltt.elab.errors import ElabError
 from mltt.elab.state import ElabState
-from mltt.elab.types import (
-    BinderSpec,
-    ElabEnv,
-    ElabType,
-    apply_binder_specs,
-)
-from mltt.kernel.ast import App, Lam, Pi, Term, Var
-from mltt.kernel.env import Env
+from mltt.elab.types import BinderSpec, ElabEnv, ElabType, apply_binder_specs
+from mltt.kernel.ast import App, Lam, Let, MetaVar, Pi, Term, UApp, Univ, Var
+from mltt.kernel.env import Const, Env
+from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.tel import ArgList
 
 
@@ -103,6 +99,18 @@ def elab_apply(
                 )
                 continue
             case "missing":
+                if not allow_partial:
+                    missing_name = binder_info.name or "<unnamed>"
+                    dependent = _dependent_binder_names(remaining_binders)
+                    if dependent:
+                        suffix = ", ".join(dependent)
+                        message = (
+                            f"Missing explicit argument {missing_name}; "
+                            f"later arguments depend on it: {suffix}"
+                        )
+                    else:
+                        message = f"Missing explicit argument {missing_name}"
+                    raise ElabError(message, matcher.next_arg_span())
                 actuals = _shift_terms(actuals, 1)
                 missing_ty = _close_term(fn_ty_ctx_whnf.arg_ty, actuals)
                 missing_binders.append((missing_ty, binder_info.name))
@@ -202,6 +210,47 @@ def _shift_terms(terms: list[Term], amount: int) -> list[Term]:
     if amount == 0:
         return list(terms)
     return [term.shift(amount) for term in terms]
+
+
+def _dependent_binder_names(
+    binders: tuple[BinderSpec, ...],
+) -> list[str]:
+    names: list[str] = []
+    for idx, spec in enumerate(binders):
+        if spec.ty is not None and _term_uses_var(spec.ty, idx):
+            names.append(spec.name or "<unnamed>")
+    return names
+
+
+def _term_uses_var(term: Term, target: int, depth: int = 0) -> bool:
+    match term:
+        case Var(k):
+            return k == target + depth
+        case Lam(ty, body) | Pi(ty, body):
+            return _term_uses_var(ty, target, depth) or _term_uses_var(
+                body, target, depth + 1
+            )
+        case Let(arg_ty, value, body):
+            return (
+                _term_uses_var(arg_ty, target, depth)
+                or _term_uses_var(value, target, depth)
+                or _term_uses_var(body, target, depth + 1)
+            )
+        case App(f, a):
+            return _term_uses_var(f, target, depth) or _term_uses_var(a, target, depth)
+        case UApp(head, _levels):
+            return _term_uses_var(head, target, depth)
+        case Elim(inductive, motive, cases, scrutinee):
+            return (
+                _term_uses_var(inductive, target, depth)
+                or _term_uses_var(motive, target, depth)
+                or any(_term_uses_var(case, target, depth) for case in cases)
+                or _term_uses_var(scrutinee, target, depth)
+            )
+        case Const() | Ind() | Ctor() | MetaVar() | Univ():
+            return False
+        case _:
+            return False
 
 
 def _name_used_in_args(

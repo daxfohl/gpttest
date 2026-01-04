@@ -104,6 +104,18 @@ def test_named_args_dependent_type() -> None:
     assert elab_eval(src) == zero
 
 
+def test_named_args_dependent_missing_error() -> None:
+    src = """
+    let dep(impl A: Type 0, x: A, P: (y: A) -> Type 0, p: P(x)): P(x) := p;
+    dep(P := fun (y: Nat) => Nat, p := Nat.Zero)
+    """
+    with pytest.raises(
+        ElabError,
+        match="Missing explicit argument x; later arguments depend on it: p",
+    ):
+        elab_eval(src)
+
+
 def test_named_args_dependent_all_named() -> None:
     src = """
     let dep(impl A: Type 0, x: A, P: (y: A) -> Type 0, p: P(x)): P(x) := p;
