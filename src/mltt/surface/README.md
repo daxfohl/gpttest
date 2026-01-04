@@ -8,6 +8,7 @@ Capabilities:
 - Support type-argument sugar via `<A, B>` and universe application via `@{...}`.
 - Desugar equation-style recursion into match-with-IH form where applicable.
 - Desugar multi-scrutinee and tuple-pattern matches into nested matches.
+- Desugar nested constructor patterns into nested matches.
 
 Non-goals:
 - Type checking, constraint solving, or elaboration.

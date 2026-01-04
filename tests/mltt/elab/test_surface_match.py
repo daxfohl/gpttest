@@ -1,8 +1,10 @@
+import pytest
+
 from mltt.elab.elab_state import ElabState
 from mltt.elab.etype import ElabEnv
 from mltt.elab.sast import elab_infer
 from mltt.surface.sast import SurfaceError
-from mltt.surface.parse import parse_term
+from mltt.surface.parse import parse_term, parse_term_raw
 from mltt.kernel.prelude import prelude_env
 
 
@@ -21,8 +23,8 @@ def elab_ok(src: str) -> None:
 def elab_fails(src: str) -> None:
     env = ElabEnv.from_env(prelude_env())
     state = ElabState()
-    term = parse_term(src)
     try:
+        term = parse_term(src)
         elab_infer(term, env, state)
     except SurfaceError:
         return
@@ -125,3 +127,30 @@ def test_let_destruct_refutable_error() -> None:
     x
     """
     elab_fails(src)
+
+
+def test_match_requires_desugared_single_scrutinee() -> None:
+    env = ElabEnv.from_env(prelude_env())
+    state = ElabState()
+    term = parse_term_raw(
+        """
+        match n, b with
+        | _ => n
+        """
+    )
+    with pytest.raises(SurfaceError, match="Match must be desugared to one scrutinee"):
+        elab_infer(term, env, state)
+
+
+def test_let_tuple_pattern_requires_desugaring() -> None:
+    env = ElabEnv.from_env(prelude_env())
+    state = ElabState()
+    term = parse_term_raw(
+        """
+        let p := ctor Sigma.Pair(Nat, fun (x: Nat) => Nat, Nat.Zero, Nat.Zero);
+        let (x, y) := p;
+        x
+        """
+    )
+    with pytest.raises(SurfaceError, match="Tuple patterns must be desugared"):
+        elab_infer(term, env, state)

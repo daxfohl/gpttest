@@ -72,12 +72,20 @@ def test_desugar_equation_rec_multi_scrutinee_no_change() -> None:
     let f(m: Nat, n: Nat): Nat :=
       match m, n with
       | (Zero, Zero) => n
-      | (Succ k, Zero) => f(k, n)
-      | (Zero, Succ k) => n
-      | (Succ k, Succ j) => f(k, n);
+      | _ => n;
     f
     """
-    _assert_desugars(sugared, sugared)
+    desugared = """
+    let f(m: Nat, n: Nat): Nat :=
+      match m with
+      | Zero =>
+        (match n with
+        | Zero => n
+        | _ => n)
+      | _ => n;
+    f
+    """
+    _assert_desugars(sugared, desugared)
 
 
 def test_desugar_equation_rec_in_inductive_body() -> None:
@@ -117,3 +125,63 @@ def test_desugar_equation_rec_multiple_scrutinee_vars_error() -> None:
     """
     with pytest.raises(SurfaceError, match="multiple scrutinee vars"):
         desugar(parse_term_raw(sugared))
+
+
+def test_desugar_match_nested_pattern() -> None:
+    sugared = """
+    match xs with
+    | Cons x (Cons y ys) => y
+    | _ => Nat.Zero
+    """
+    desugared = """
+    match xs with
+    | Cons x _pat0 =>
+      (match _pat0 with
+      | Cons y ys => y
+      | _ => Nat.Zero)
+    | _ => Nat.Zero
+    """
+    _assert_desugars(sugared, desugared)
+
+
+def test_desugar_match_multi_scrutinee() -> None:
+    sugared = """
+    match n, b with
+    | (Zero, True) => Nat.Zero
+    | _ => Nat.Succ(Nat.Zero)
+    """
+    desugared = """
+    match n with
+    | Zero =>
+      (match b with
+      | True => Nat.Zero
+      | _ => Nat.Succ(Nat.Zero))
+    | _ => Nat.Succ(Nat.Zero)
+    """
+    _assert_desugars(sugared, desugared)
+
+
+def test_desugar_tuple_pattern_in_match() -> None:
+    sugared = """
+    match p with
+    | (x, y) => x
+    | _ => Nat.Zero
+    """
+    desugared = """
+    match p with
+    | Pair x y => x
+    | _ => Nat.Zero
+    """
+    _assert_desugars(sugared, desugared)
+
+
+def test_desugar_tuple_pattern_in_let() -> None:
+    sugared = """
+    let (a, b) := p;
+    a
+    """
+    desugared = """
+    let Pair a b := p;
+    a
+    """
+    _assert_desugars(sugared, desugared)
