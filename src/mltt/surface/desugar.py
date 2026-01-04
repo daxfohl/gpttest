@@ -562,13 +562,33 @@ def _desugar_match(match: SMatch) -> SurfaceTerm:
         motive=new_motive,
         branches=tuple(new_branches),
     )
-    if len(rebuilt.scrutinees) != 1:
-        return _strip_as_names(_desugar_multi(rebuilt))
-    expanded = _expand_tuple_branches(rebuilt.branches)
-    if _needs_nested(expanded):
-        return _strip_as_names(
-            _compile_nested(rebuilt, rebuilt.scrutinees[0], expanded)
+    expanded = (
+        _expand_tuple_branches(rebuilt.branches)
+        if len(rebuilt.scrutinees) == 1
+        else tuple(
+            SBranch(_expand_tuple_multi_pat(branch.pat), branch.rhs, branch.span)
+            for branch in rebuilt.branches
         )
+    )
+    has_multi = len(rebuilt.scrutinees) > 1
+    needs_nested = _needs_nested(expanded)
+    if has_multi or needs_nested:
+        default = _extract_default(expanded)
+        if default is None:
+            message = (
+                "Multi-scrutinee match requires a final '_' branch"
+                if has_multi
+                else "Nested patterns require a final '_' branch"
+            )
+            raise SurfaceError(message, match.span)
+        compiled = _compile_match_matrix(
+            rebuilt.scrutinees,
+            rebuilt.as_names,
+            rebuilt.motive,
+            expanded[:-1],
+            default.rhs,
+        )
+        return _strip_as_names(compiled)
     if expanded != rebuilt.branches:
         return _strip_as_names(dataclasses.replace(rebuilt, branches=expanded))
     return _strip_as_names(rebuilt)
@@ -767,31 +787,6 @@ def _desugar_inductive_def(term: SInductiveDef) -> SurfaceTerm:
     )
 
 
-def _compile_nested(
-    match: SMatch, scrutinee: SurfaceTerm, branches: tuple[SBranch, ...]
-) -> SurfaceTerm:
-    default = _extract_default(branches)
-    if default is None:
-        raise SurfaceError("Nested patterns require a final '_' branch", match.span)
-    counter = [0]
-    as_name = match.as_names[0] if match.as_names else None
-    return _compile_branches(
-        scrutinee,
-        branches[:-1],
-        default.rhs,
-        counter,
-        as_name=as_name,
-        motive=match.motive,
-    )
-
-
-def _expand_tuple_in_multi(branches: tuple[SBranch, ...]) -> tuple[SBranch, ...]:
-    return tuple(
-        SBranch(_expand_tuple_multi_pat(branch.pat), branch.rhs, branch.span)
-        for branch in branches
-    )
-
-
 def _expand_tuple_multi_pat(pat: Pat) -> Pat:
     match pat:
         case PatTuple():
@@ -809,32 +804,7 @@ def _expand_tuple_multi_pat(pat: Pat) -> Pat:
             return pat
 
 
-def _desugar_multi(match: SMatch) -> SurfaceTerm:
-    scrutinees = match.scrutinees
-    branches = _expand_tuple_in_multi(match.branches)
-    if len(scrutinees) == 1:
-        return dataclasses.replace(
-            match,
-            scrutinees=scrutinees,
-            as_names=match.as_names,
-            motive=match.motive,
-            branches=branches,
-        )
-    default = _extract_default(branches)
-    if default is None:
-        raise SurfaceError(
-            "Multi-scrutinee match requires a final '_' branch", match.span
-        )
-    return _compile_multi(
-        scrutinees,
-        match.as_names,
-        match.motive,
-        branches[:-1],
-        default.rhs,
-    )
-
-
-def _compile_multi(
+def _compile_match_matrix(
     scrutinees: tuple[SurfaceTerm, ...],
     as_names: tuple[str | None, ...],
     motive: SurfaceTerm | None,
@@ -880,7 +850,7 @@ def _compile_multi(
                 raise SurfaceError(
                     "Multi-scrutinee patterns must be tuple or _", head.span
                 )
-        inner = _compile_multi(
+        inner = _compile_match_matrix(
             scrutinees[1:],
             tail_as_names,
             None,
