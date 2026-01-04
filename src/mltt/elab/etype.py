@@ -1,4 +1,4 @@
-"""Elaboration-only type wrappers with implicit binder metadata."""
+"""Elaboration-only type wrappers with binder metadata."""
 
 from __future__ import annotations
 
@@ -9,12 +9,19 @@ from mltt.kernel.env import Env, GlobalDecl
 
 
 @dataclass(frozen=True)
+class ElabBinderInfo:
+    """Binder metadata (names + implicitness) for elaboration."""
+
+    name: str | None = None
+    implicit: bool = False
+
+
+@dataclass(frozen=True)
 class ElabType:
-    """Kernel type plus implicit binder flags for surface elaboration."""
+    """Kernel type plus binder metadata for surface elaboration."""
 
     term: Term
-    implicit_spine: tuple[bool, ...] = ()
-    binder_names: tuple[str | None, ...] = ()
+    binders: tuple[ElabBinderInfo, ...] = ()
 
     def whnf(self, env: Env) -> Term:
         return self.term.whnf(env)
@@ -22,9 +29,12 @@ class ElabType:
     def inst_levels(self, levels: tuple) -> "ElabType":
         if not levels:
             return self
-        return ElabType(
-            self.term.inst_levels(levels), self.implicit_spine, self.binder_names
-        )
+        return ElabType(self.term.inst_levels(levels), self.binders)
+
+    def shift(self, amount: int) -> "ElabType":
+        if amount == 0:
+            return self
+        return ElabType(self.term.shift(amount), self.binders)
 
 
 @dataclass(frozen=True)
@@ -34,7 +44,6 @@ class ElabEnv:
     kenv: Env
     locals: tuple[ElabType, ...] = ()
     eglobals: dict[str, ElabType] = field(default_factory=dict)
-    context_terms: dict[str, tuple[Term, ElabType]] = field(default_factory=dict)
 
     @staticmethod
     def from_env(env: Env) -> ElabEnv:
@@ -66,20 +75,7 @@ class ElabEnv:
         if k < 0 or k >= len(self.locals):
             raise IndexError(f"Unbound variable {k}")
         local = self.locals[k]
-        return ElabType(
-            local.term.shift(k + 1), local.implicit_spine, local.binder_names
-        )
-
-    def lookup_context_term(self, name: str) -> tuple[Term, ElabType] | None:
-        return self.context_terms.get(name)
-
-    def with_context_term(self, name: str, term: Term, ty: ElabType) -> "ElabEnv":
-        return ElabEnv(
-            kenv=self.kenv,
-            locals=self.locals,
-            eglobals=self.eglobals,
-            context_terms={**self.context_terms, name: (term, ty)},
-        )
+        return local.shift(k + 1)
 
     def push_binder(
         self, ty: ElabType, name: str | None = None, uarity: int = 0
@@ -88,7 +84,6 @@ class ElabEnv:
             kenv=self.kenv.push_binder(ty.term, name=name, uarity=uarity),
             locals=(ty,) + self.locals,
             eglobals=self.eglobals,
-            context_terms=self.context_terms,
         )
 
     def push_let(
@@ -102,5 +97,4 @@ class ElabEnv:
             kenv=self.kenv.push_let(ty.term, value, name=name, uarity=uarity),
             locals=(ty,) + self.locals,
             eglobals=self.eglobals,
-            context_terms=self.context_terms,
         )

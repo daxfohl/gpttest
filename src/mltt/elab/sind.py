@@ -9,7 +9,7 @@ from mltt.kernel.env import Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
 from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_uapp
 from mltt.elab.elab_state import Constraint, ElabState
-from mltt.elab.etype import ElabEnv, ElabType
+from mltt.elab.etype import ElabBinderInfo, ElabEnv, ElabType
 from mltt.elab.match import _resolve_inductive_head
 from mltt.elab.names import NameEnv
 from mltt.elab.east import (
@@ -30,6 +30,12 @@ from mltt.elab.sast import (
 from mltt.surface.sast import Span, SurfaceError
 
 
+def _normalize_binder_name(name: str | None) -> str | None:
+    if name == "_":
+        return None
+    return name
+
+
 def elab_ind_infer(term: EInd, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
     decl, gty = _require_global_info(
         env, term.name, term.span, f"Unknown inductive {term.name}"
@@ -44,7 +50,7 @@ def elab_ind_infer(term: EInd, env: ElabEnv, state: ElabState) -> tuple[Term, El
         raise SurfaceError(f"{term.name} is not an inductive", term.span)
     term_k, levels = state.apply_implicit_levels(ind, decl.uarity, term.span)
     ty = gty.inst_levels(levels)
-    return term_k, ElabType(state.zonk(ty.term), ty.implicit_spine, ty.binder_names)
+    return term_k, ElabType(state.zonk(ty.term), ty.binders)
 
 
 def elab_ctor_infer(
@@ -59,13 +65,13 @@ def elab_ctor_infer(
         ctor = decl.value.head
         term_k, levels = state.apply_implicit_levels(ctor, decl.uarity, term.span)
         ty = gty.inst_levels(levels)
-        return term_k, ElabType(state.zonk(ty.term), ty.implicit_spine, ty.binder_names)
+        return term_k, ElabType(state.zonk(ty.term), ty.binders)
     if not isinstance(decl.value, Ctor):
         raise SurfaceError(f"{term.name} is not a constructor", term.span)
     ctor = decl.value
     term_k, levels = state.apply_implicit_levels(ctor, decl.uarity, term.span)
     ty = gty.inst_levels(levels)
-    return term_k, ElabType(state.zonk(ty.term), ty.implicit_spine, ty.binder_names)
+    return term_k, ElabType(state.zonk(ty.term), ty.binders)
 
 
 def elab_inductive_infer(
@@ -112,10 +118,21 @@ def elab_inductive_infer(
         level=level_term.level,
         uarity=uarity,
     )
-    param_impls = tuple(binder.implicit for binder in term.params)
-    param_names = tuple(binder.name for binder in term.params)
-    index_names = tuple(binder.name for binder in index_binders)
-    binder_names = param_names + index_names
+    param_infos = tuple(
+        ElabBinderInfo(
+            name=_normalize_binder_name(binder.name),
+            implicit=binder.implicit,
+        )
+        for binder in term.params
+    )
+    index_infos = tuple(
+        ElabBinderInfo(
+            name=_normalize_binder_name(binder.name),
+            implicit=False,
+        )
+        for binder in index_binders
+    )
+    binder_infos = param_infos + index_infos
     globals_dict = dict(env.kenv.globals)
     ind_ty = ind.infer_type(env.kenv)
     globals_dict[term.name] = GlobalDecl(
@@ -129,7 +146,7 @@ def elab_inductive_infer(
         locals=env.locals,
         eglobals={
             **env.eglobals,
-            term.name: ElabType(ind_ty, param_impls, binder_names),
+            term.name: ElabType(ind_ty, binder_infos),
         },
     )
     env_params_with_ind = ElabEnv(
@@ -138,8 +155,7 @@ def elab_inductive_infer(
         eglobals=env_with_ind.eglobals,
     )
     ctors: list[Ctor] = []
-    ctor_impls_map: dict[str, tuple[bool, ...]] = {}
-    ctor_names_map: dict[str, tuple[str | None, ...]] = {}
+    ctor_infos_map: dict[str, tuple[ElabBinderInfo, ...]] = {}
     for ctor_decl in term.ctors:
         ctor_name = f"{term.name}.{ctor_decl.name}"
         if env.lookup_global(ctor_name) is not None:
@@ -173,10 +189,14 @@ def elab_inductive_infer(
         )
         ctor_ty = ctor.infer_type(env_with_ind.kenv)
         ctors.append(ctor)
-        ctor_impls = tuple(binder.implicit for binder in ctor_decl.fields)
-        ctor_names = tuple(binder.name for binder in ctor_decl.fields)
-        ctor_impls_map[ctor_name] = param_impls + ctor_impls
-        ctor_names_map[ctor_name] = binder_names + ctor_names
+        ctor_infos = tuple(
+            ElabBinderInfo(
+                name=_normalize_binder_name(binder.name),
+                implicit=binder.implicit,
+            )
+            for binder in ctor_decl.fields
+        )
+        ctor_infos_map[ctor_name] = param_infos + ctor_infos
         globals_dict[ctor_name] = GlobalDecl(
             ty=ctor_ty,
             value=ctor,
@@ -202,12 +222,10 @@ def elab_inductive_infer(
         locals=env.locals,
         eglobals={
             **env.eglobals,
-            term.name: ElabType(ind_ty, param_impls, binder_names),
+            term.name: ElabType(ind_ty, binder_infos),
             **{
-                name: ElabType(
-                    globals_dict[name].ty, ctor_impls_map[name], ctor_names_map[name]
-                )
-                for name in ctor_impls_map
+                name: ElabType(globals_dict[name].ty, ctor_infos_map[name])
+                for name in ctor_infos_map
             },
         },
     )

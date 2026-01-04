@@ -28,7 +28,7 @@ from mltt.elab.east import (
     ETerm,
 )
 from mltt.elab.elab_apply import elab_apply
-from mltt.elab.etype import ElabEnv, ElabType
+from mltt.elab.etype import ElabBinderInfo, ElabEnv, ElabType
 from mltt.elab.names import NameEnv
 from mltt.surface.sast import Span, SurfaceError
 
@@ -36,12 +36,6 @@ from mltt.surface.sast import Span, SurfaceError
 def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
     match term:
         case EVar(name=name):
-            ctx_term = env.lookup_context_term(name)
-            if ctx_term is not None:
-                term_k, ty = ctx_term
-                return term_k, ElabType(
-                    state.zonk(ty.term), ty.implicit_spine, ty.binder_names
-                )
             idx = env.lookup_local(name)
             if idx is not None:
                 binder = env.binders[idx]
@@ -49,9 +43,7 @@ def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabT
                     Var(idx), binder.uarity, term.span
                 )
                 ty = env.local_type(idx).inst_levels(levels)
-                return term_k, ElabType(
-                    state.zonk(ty.term), ty.implicit_spine, ty.binder_names
-                )
+                return term_k, ElabType(state.zonk(ty.term), ty.binders)
             decl, gty = _require_global_info(
                 env, name, term.span, f"Unknown identifier {name}"
             )
@@ -62,9 +54,7 @@ def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabT
                 head = Const(name)
             term_k, levels = state.apply_implicit_levels(head, decl.uarity, term.span)
             ty = gty.inst_levels(levels)
-            return term_k, ElabType(
-                state.zonk(ty.term), ty.implicit_spine, ty.binder_names
-            )
+            return term_k, ElabType(state.zonk(ty.term), ty.binders)
         case EConst(name=name):
             decl, gty = _require_global_info(
                 env, name, term.span, f"Unknown constant {name}"
@@ -73,9 +63,7 @@ def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabT
                 Const(name), decl.uarity, term.span
             )
             ty = gty.inst_levels(levels)
-            return term_k, ElabType(
-                state.zonk(ty.term), ty.implicit_spine, ty.binder_names
-            )
+            return term_k, ElabType(state.zonk(ty.term), ty.binders)
         case EUniv(level=level):
             level_expr: LevelExpr | int
             if level is None:
@@ -265,16 +253,16 @@ def _elab_lam_infer(
     body_term, body_ty = elab_infer(term.body, env1, state)
     lam_term = body_term
     lam_ty_term = body_ty.term
-    implicit_spine = body_ty.implicit_spine
-    binder_names = body_ty.binder_names
+    binder_infos = body_ty.binders
     for ty, implicit, name in reversed(
         list(zip(binder_tys, binder_impls, (b.name for b in term.binders)))
     ):
         lam_term = Lam(ty, lam_term)
         lam_ty_term = Pi(ty, lam_ty_term)
-        implicit_spine = (implicit,) + implicit_spine
-        binder_names = (name,) + binder_names
-    return lam_term, ElabType(lam_ty_term, implicit_spine, binder_names)
+        binder_infos = (ElabBinderInfo(_normalize_binder_name(name), implicit),) + (
+            binder_infos
+        )
+    return lam_term, ElabType(lam_ty_term, binder_infos)
 
 
 def _elab_lam_check(
@@ -288,18 +276,18 @@ def _elab_lam_check(
         pi_ty = expected_ty.term.whnf(env1.kenv)
         if not isinstance(pi_ty, Pi):
             raise SurfaceError("Lambda needs expected function type", term.span)
+        binder_ty_info: tuple[ElabBinderInfo, ...] = ()
         if binder.ty is None:
             binder_ty = pi_ty.arg_ty
         else:
             binder_ty, binder_ty_ty = elab_infer(binder.ty, env1, state)
             _expect_universe(binder_ty_ty.term, env1.kenv, binder.span)
             state.add_constraint(env1.kenv, binder_ty, pi_ty.arg_ty, binder.span)
+            binder_ty_info = _binder_info_from_type(binder.ty)
         binder_tys.append(binder_ty)
         binder_impls.append(binder.implicit)
-        env1 = env1.push_binder(
-            ElabType(binder_ty, _implicit_spine(binder.ty)), name=binder.name
-        )
-        expected_ty = ElabType(pi_ty.return_ty, expected_ty.implicit_spine[1:])
+        env1 = env1.push_binder(ElabType(binder_ty, binder_ty_info), name=binder.name)
+        expected_ty = ElabType(pi_ty.return_ty, expected_ty.binders[1:])
     body_term = elab_check(term.body, env1, state, expected_ty)
     lam_term = body_term
     for ty in reversed(binder_tys):
@@ -326,8 +314,10 @@ def _elab_pi_infer(term: EPi, env: ElabEnv, state: ElabState) -> tuple[Term, Ela
     if result_level is None:
         result_level = state.fresh_level_meta("type", term.span)
         state.add_level_constraint(body_level, result_level, term.span)
-    implicit_spine = tuple(binder_impls) + body_ty.implicit_spine
-    return pi_term, ElabType(Univ(result_level), implicit_spine)
+    binder_infos = tuple(
+        ElabBinderInfo(_normalize_binder_name(b.name), b.implicit) for b in term.binders
+    )
+    return pi_term, ElabType(Univ(result_level), binder_infos)
 
 
 def _elab_uapp_infer(
@@ -400,38 +390,25 @@ def _elab_let_infer(
     if term.ty is None:
         val_term, val_ty = elab_infer(val_src, env, state)
         ty_term = val_ty.term
-        implicit_spine = val_ty.implicit_spine
-        binder_names = val_ty.binder_names
+        binder_infos = val_ty.binders
         if not term.uparams:
             ty_term, val_term = state.merge_type_level_metas([ty_term, val_term])
     else:
         ty_term, ty_ty = elab_infer(term.ty, env, state)
         _expect_universe(ty_ty.term, env.kenv, term.span)
-        implicit_spine = _implicit_spine(term.ty)
-        binder_names = _binder_names(term.ty)
-        if not any(binder_names):
-            try:
-                val_term, val_ty = elab_infer(val_src, env, state)
-            except SurfaceError:
-                val_term = elab_check(val_src, env, state, ElabType(ty_term))
-            else:
-                state.add_constraint(env.kenv, val_ty.term, ty_term, term.span)
-                binder_names = val_ty.binder_names
-        else:
-            val_term = elab_check(val_src, env, state, ElabType(ty_term))
+        binder_infos = _binder_info_from_type(term.ty)
+        val_term = elab_check(val_src, env, state, ElabType(ty_term))
         if not term.uparams:
             ty_term, val_term = state.merge_type_level_metas([ty_term, val_term])
     state.level_names = old_level_names
     uarity, ty_term, val_term = state.generalize_levels_for_let(ty_term, val_term)
-    if not any(binder_names):
-        binder_names = _binder_names_from_term(term.val)
     env1 = env.push_let(
-        ElabType(ty_term, implicit_spine, binder_names),
+        ElabType(ty_term, binder_infos),
         val_term,
         name=term.name,
         uarity=uarity,
     )
-    env1.eglobals[term.name] = ElabType(ty_term, implicit_spine, binder_names)
+    env1.eglobals[term.name] = ElabType(ty_term, binder_infos)
     body_term, body_ty = elab_infer(term.body, env1, state)
     return Let(ty_term, val_term, body_term), body_ty
 
@@ -447,10 +424,8 @@ def _elab_binders(
             raise SurfaceError("Missing binder type", binder.span)
         ty_term, ty_ty = elab_infer(binder.ty, env, state)
         ty_ty_whnf = _expect_universe(ty_ty.term, env.kenv, binder.span)
-        implicit_spine = _implicit_spine(binder.ty)
-        binder_names = _binder_names(binder.ty)
         env = env.push_binder(
-            ElabType(ty_term, implicit_spine, binder_names), name=binder.name
+            ElabType(ty_term, _binder_info_from_type(binder.ty)), name=binder.name
         )
         binder_tys.append(ty_term)
         binder_impls.append(binder.implicit)
@@ -458,37 +433,21 @@ def _elab_binders(
     return binder_tys, binder_impls, binder_levels, env
 
 
-def _implicit_spine(term: ETerm | None) -> tuple[bool, ...]:
+def _binder_info_from_type(term: ETerm | None) -> tuple[ElabBinderInfo, ...]:
     if term is None:
         return ()
-    spine: list[bool] = []
+    infos: list[ElabBinderInfo] = []
     current = term
     while isinstance(current, EPi):
-        spine.extend(b.implicit for b in current.binders)
+        infos.extend(
+            ElabBinderInfo(
+                name=_normalize_binder_name(b.name),
+                implicit=b.implicit,
+            )
+            for b in current.binders
+        )
         current = current.body
-    return tuple(spine)
-
-
-def _binder_names(term: ETerm | None) -> tuple[str | None, ...]:
-    if term is None:
-        return ()
-    names: list[str | None] = []
-    current = term
-    while isinstance(current, EPi):
-        names.extend(_normalize_binder_name(b.name) for b in current.binders)
-        current = current.body
-    return tuple(names)
-
-
-def _binder_names_from_term(term: ETerm | None) -> tuple[str | None, ...]:
-    if term is None:
-        return ()
-    match term:
-        case ELam(binders=binders):
-            return tuple(_normalize_binder_name(b.name) for b in binders)
-        case EPi():
-            return _binder_names(term)
-    return ()
+    return tuple(infos)
 
 
 def _normalize_binder_name(name: str | None) -> str | None:
