@@ -104,8 +104,10 @@ class ElabState:
         self.level_constraints.append(LevelConstraint(lhs, rhs, span, reason))
 
     def generalize_levels_for_let(
-        self, ty: Term, value: Term
+        self, ty: Term, value: Term, *, merge_type_metas: bool
     ) -> tuple[int, Term, Term]:
+        if merge_type_metas:
+            ty, value = self.merge_type_level_metas([ty, value])
         meta_ids = self._collect_level_metas(ty) | self._collect_level_metas(value)
         if not meta_ids:
             return 0, ty, value

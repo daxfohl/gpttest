@@ -391,17 +391,17 @@ def _elab_let_infer(
         val_term, val_ty = elab_infer(val_src, env, state)
         ty_term = val_ty.term
         binder_infos = val_ty.binders
-        if not term.uparams:
-            ty_term, val_term = state.merge_type_level_metas([ty_term, val_term])
     else:
         ty_term, ty_ty = elab_infer(term.ty, env, state)
         _expect_universe(ty_ty.term, env.kenv, term.span)
         binder_infos = _binder_info_from_type(term.ty)
         val_term = elab_check(val_src, env, state, ElabType(ty_term))
-        if not term.uparams:
-            ty_term, val_term = state.merge_type_level_metas([ty_term, val_term])
     state.level_names = old_level_names
-    uarity, ty_term, val_term = state.generalize_levels_for_let(ty_term, val_term)
+    uarity, ty_term, val_term = state.generalize_levels_for_let(
+        ty_term,
+        val_term,
+        merge_type_metas=not term.uparams,
+    )
     env1 = env.push_let(
         ElabType(ty_term, binder_infos),
         val_term,
