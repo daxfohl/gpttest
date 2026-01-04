@@ -18,7 +18,13 @@ from mltt.elab.term import (
     require_global_info,
     elab_infer,
 )
-from mltt.elab.types import BinderSpec, ElabEnv, ElabType, normalize_binder_name
+from mltt.elab.types import (
+    BinderSpec,
+    ElabEnv,
+    ElabType,
+    attach_binder_types,
+    normalize_binder_name,
+)
 from mltt.kernel.ast import Term, Univ, UApp
 from mltt.kernel.env import Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
@@ -120,7 +126,6 @@ def elab_inductive_infer(
         )
         for binder in index_binders
     )
-    binder_infos = param_infos + index_infos
     globals_dict = dict(env.kenv.globals)
     ind_ty = ind.infer_type(env.kenv)
     globals_dict[term.name] = GlobalDecl(
@@ -129,6 +134,7 @@ def elab_inductive_infer(
         reducible=False,
         uarity=ind.uarity,
     )
+    binder_infos = attach_binder_types(ind_ty, param_infos + index_infos, env.kenv)
     env_with_ind = ElabEnv(
         kenv=Env(binders=env.kenv.binders, globals=MappingProxyType(globals_dict)),
         locals=env.locals,
@@ -182,7 +188,9 @@ def elab_inductive_infer(
             )
             for binder in ctor_decl.fields
         )
-        ctor_infos_map[ctor_name] = param_infos + ctor_infos
+        ctor_infos_map[ctor_name] = attach_binder_types(
+            ctor_ty, param_infos + ctor_infos, env_with_ind.kenv
+        )
         globals_dict[ctor_name] = GlobalDecl(
             ty=ctor_ty,
             value=ctor,

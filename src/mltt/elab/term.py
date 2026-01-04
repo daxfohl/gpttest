@@ -27,7 +27,13 @@ from mltt.elab.ast import (
 from mltt.elab.errors import ElabError
 from mltt.elab.names import NameEnv
 from mltt.elab.state import ElabState
-from mltt.elab.types import BinderSpec, ElabEnv, ElabType, normalize_binder_name
+from mltt.elab.types import (
+    BinderSpec,
+    ElabEnv,
+    ElabType,
+    attach_binder_types,
+    normalize_binder_name,
+)
 from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
@@ -252,9 +258,9 @@ def _elab_lam_infer(
     ):
         lam_term = Lam(ty, lam_term)
         lam_ty_term = Pi(ty, lam_ty_term)
-        binder_infos = (BinderSpec(normalize_binder_name(name), implicit),) + (
-            binder_infos
-        )
+        binder_infos = (
+            BinderSpec(normalize_binder_name(name), implicit, ty),
+        ) + binder_infos
     return lam_term, ElabType(lam_ty_term, binder_infos)
 
 
@@ -276,7 +282,9 @@ def _elab_lam_check(
             binder_ty, binder_ty_ty = elab_infer(binder.ty, env1, state)
             expect_universe(binder_ty_ty.term, env1.kenv, binder.span)
             state.add_constraint(env1.kenv, binder_ty, pi_ty.arg_ty, binder.span)
-            binder_ty_info = _binder_specs_from_type(binder.ty)
+            binder_ty_info = attach_binder_types(
+                binder_ty, _binder_specs_from_type(binder.ty), env1.kenv
+            )
         binder_tys.append(binder_ty)
         binder_impls.append(binder.implicit)
         env1 = env1.push_binder(ElabType(binder_ty, binder_ty_info), name=binder.name)
@@ -308,7 +316,8 @@ def _elab_pi_infer(term: EPi, env: ElabEnv, state: ElabState) -> tuple[Term, Ela
         result_level = state.fresh_level_meta("type", term.span)
         state.add_level_constraint(body_level, result_level, term.span)
     binder_infos = tuple(
-        BinderSpec(normalize_binder_name(b.name), b.implicit) for b in term.binders
+        BinderSpec(normalize_binder_name(b.name), b.implicit, ty)
+        for b, ty in zip(term.binders, binder_tys, strict=True)
     )
     return pi_term, ElabType(Univ(result_level), binder_infos)
 
@@ -391,7 +400,9 @@ def _elab_let_infer(
     else:
         ty_term, ty_ty = elab_infer(term.ty, env, state)
         expect_universe(ty_ty.term, env.kenv, term.span)
-        binder_infos = _binder_specs_from_type(term.ty)
+        binder_infos = attach_binder_types(
+            ty_term, _binder_specs_from_type(term.ty), env.kenv
+        )
         val_term = elab_check(val_src, env, state, ElabType(ty_term))
     uarity, ty_term, val_term = state.generalize_let(ty_term, val_term)
     env1 = env.push_let(
@@ -416,9 +427,10 @@ def elab_binders(
             raise ElabError("Missing binder type", binder.span)
         ty_term, ty_ty = elab_infer(binder.ty, env, state)
         ty_ty_whnf = expect_universe(ty_ty.term, env.kenv, binder.span)
-        env = env.push_binder(
-            ElabType(ty_term, _binder_specs_from_type(binder.ty)), name=binder.name
+        binder_infos = attach_binder_types(
+            ty_term, _binder_specs_from_type(binder.ty), env.kenv
         )
+        env = env.push_binder(ElabType(ty_term, binder_infos), name=binder.name)
         binder_tys.append(ty_term)
         binder_impls.append(binder.implicit)
         binder_levels.append(ty_ty_whnf.level)

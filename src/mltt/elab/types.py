@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from mltt.kernel.ast import Term
+from mltt.kernel.ast import Pi, Term
 from mltt.kernel.env import Env, GlobalDecl
 
 
@@ -31,6 +31,42 @@ def normalize_binder_name(name: str | None) -> str | None:
     if name == "_":
         return None
     return name
+
+
+def attach_binder_types(
+    term: Term, binders: tuple[BinderSpec, ...], env: Env
+) -> tuple[BinderSpec, ...]:
+    if not binders:
+        return binders
+    updated: list[BinderSpec] = []
+    current = term
+    for spec in binders:
+        current_whnf = current.whnf(env)
+        if not isinstance(current_whnf, Pi):
+            updated.append(spec)
+            current = current_whnf
+            continue
+        updated.append(
+            BinderSpec(name=spec.name, implicit=spec.implicit, ty=current_whnf.arg_ty)
+        )
+        current = current_whnf.return_ty
+    return tuple(updated)
+
+
+def apply_binder_specs(
+    binders: tuple[BinderSpec, ...], arg_term: Term
+) -> tuple[BinderSpec, ...]:
+    if not binders:
+        return binders
+    updated: list[BinderSpec] = []
+    for spec in binders:
+        if spec.ty is None:
+            updated.append(spec)
+        else:
+            updated.append(
+                BinderSpec(spec.name, spec.implicit, spec.ty.subst(arg_term))
+            )
+    return tuple(updated)
 
 
 @dataclass(frozen=True)
