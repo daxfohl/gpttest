@@ -412,6 +412,9 @@ def _compile_branches(
     branches: tuple[SBranch, ...],
     fallback: SurfaceTerm,
     counter: list[int],
+    *,
+    as_name: str | None,
+    motive: SurfaceTerm | None,
 ) -> SurfaceTerm:
     def compile_branch_list(
         branches: tuple[SBranch, ...], default_term: SurfaceTerm
@@ -432,8 +435,23 @@ def _compile_branches(
                         val=scrutinee,
                         body=head.rhs,
                     )
-        next_fallback = _compile_branches(scrutinee, tuple(rest), fallback, counter)
-        return _compile_pat(scrutinee, head.pat, head.rhs, next_fallback, counter)
+        next_fallback = _compile_branches(
+            scrutinee,
+            tuple(rest),
+            fallback,
+            counter,
+            as_name=as_name,
+            motive=motive,
+        )
+        return _compile_pat(
+            scrutinee,
+            head.pat,
+            head.rhs,
+            next_fallback,
+            counter,
+            as_name=as_name,
+            motive=motive,
+        )
 
     return compile_branch_list(branches, fallback)
 
@@ -444,6 +462,9 @@ def _compile_pat(
     success: SurfaceTerm,
     fallback: SurfaceTerm,
     counter: list[int],
+    *,
+    as_name: str | None,
+    motive: SurfaceTerm | None,
 ) -> SurfaceTerm:
     pat = _expand_tuple_pat(pat)
     match pat:
@@ -472,6 +493,8 @@ def _compile_pat(
                         success=nested_success,
                         fallback=fallback,
                         counter=counter,
+                        as_name=None,
+                        motive=None,
                     )
             branch_pat = PatCtor(span=pat.span, ctor=pat.ctor, args=tuple(pat_args))
             branch = SBranch(pat=branch_pat, rhs=nested_success, span=pat.span)
@@ -479,8 +502,8 @@ def _compile_pat(
             return SMatch(
                 span=pat.span,
                 scrutinees=(scrutinee,),
-                as_names=(None,),
-                motive=None,
+                as_names=(as_name,),
+                motive=motive,
                 branches=branches,
             )
         case PatVar():
@@ -489,8 +512,8 @@ def _compile_pat(
                 return SMatch(
                     span=pat.span,
                     scrutinees=(scrutinee,),
-                    as_names=(None,),
-                    motive=None,
+                    as_names=(as_name,),
+                    motive=motive,
                     branches=(branch, SBranch(PatWild(pat.span), fallback, pat.span)),
                 )
             return SLet(
@@ -539,7 +562,15 @@ def _compile_nested(
     if default is None:
         raise SurfaceError("Nested patterns require a final '_' branch", match.span)
     counter = [0]
-    return _compile_branches(scrutinee, branches[:-1], default.rhs, counter)
+    as_name = match.as_names[0] if match.as_names else None
+    return _compile_branches(
+        scrutinee,
+        branches[:-1],
+        default.rhs,
+        counter,
+        as_name=as_name,
+        motive=match.motive,
+    )
 
 
 def _expand_tuple_in_multi(branches: tuple[SBranch, ...]) -> tuple[SBranch, ...]:
@@ -567,8 +598,6 @@ def _expand_tuple_multi_pat(pat: Pat) -> Pat:
 
 
 def _desugar_multi(match: SMatch) -> SurfaceTerm:
-    if match.motive is not None or any(n is not None for n in match.as_names):
-        raise SurfaceError("Dependent match needs one scrutinee", match.span)
     scrutinees = match.scrutinees
     branches = _expand_tuple_in_multi(match.branches)
     if len(scrutinees) == 1:
@@ -584,18 +613,36 @@ def _desugar_multi(match: SMatch) -> SurfaceTerm:
         raise SurfaceError(
             "Multi-scrutinee match requires a final '_' branch", match.span
         )
-    return _compile_multi(scrutinees, branches[:-1], default.rhs)
+    return _compile_multi(
+        scrutinees,
+        match.as_names,
+        match.motive,
+        branches[:-1],
+        default.rhs,
+    )
 
 
 def _compile_multi(
     scrutinees: tuple[SurfaceTerm, ...],
+    as_names: tuple[str | None, ...],
+    motive: SurfaceTerm | None,
     branches: tuple[SBranch, ...],
     fallback: SurfaceTerm,
 ) -> SurfaceTerm:
     if len(scrutinees) == 1:
         counter = [0]
-        return _compile_branches(scrutinees[0], branches, fallback, counter)
+        as_name = as_names[0] if as_names else None
+        return _compile_branches(
+            scrutinees[0],
+            branches,
+            fallback,
+            counter,
+            as_name=as_name,
+            motive=motive,
+        )
     scrutinee = scrutinees[0]
+    as_name = as_names[0] if as_names else None
+    tail_as_names = as_names[1:] if as_names else ()
 
     def compile_branch_list(
         branches: tuple[SBranch, ...], default_term: SurfaceTerm
@@ -622,11 +669,23 @@ def _compile_multi(
                     "Multi-scrutinee patterns must be tuple or _", head.span
                 )
         inner = _compile_multi(
-            scrutinees[1:], (SBranch(rest_pat, head.rhs, head.span),), default_term
+            scrutinees[1:],
+            tail_as_names,
+            None,
+            (SBranch(rest_pat, head.rhs, head.span),),
+            default_term,
         )
         next_default = compile_branch_list(tuple(rest), default_term)
         counter = [0]
-        return _compile_pat(scrutinee, first_pat, inner, next_default, counter)
+        return _compile_pat(
+            scrutinee,
+            first_pat,
+            inner,
+            next_default,
+            counter,
+            as_name=as_name,
+            motive=motive,
+        )
 
     return compile_branch_list(branches, fallback)
 

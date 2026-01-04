@@ -161,6 +161,15 @@ def test_desugar_match_multi_scrutinee() -> None:
     _assert_desugars(sugared, desugared)
 
 
+def test_desugar_dependent_multi_scrutinee() -> None:
+    sugared = """
+    match n, b return Nat with
+    | _ => Nat.Zero
+    """
+    desugared = "Nat.Zero"
+    _assert_desugars(sugared, desugared)
+
+
 def test_desugar_tuple_pattern_in_match() -> None:
     sugared = """
     match p with
