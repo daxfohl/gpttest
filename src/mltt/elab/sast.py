@@ -383,8 +383,6 @@ def _elab_let_infer(
 ) -> tuple[Term, ElabType]:
     if len(set(term.uparams)) != len(term.uparams):
         raise SurfaceError("Duplicate universe binder", term.span)
-    old_level_names = state.level_names
-    state.level_names = list(reversed(term.uparams)) + state.level_names
     val_src = term.val
     if term.ty is None:
         val_term, val_ty = elab_infer(val_src, env, state)
@@ -395,7 +393,6 @@ def _elab_let_infer(
         _expect_universe(ty_ty.term, env.kenv, term.span)
         binder_infos = _binder_info_from_type(term.ty)
         val_term = elab_check(val_src, env, state, ElabType(ty_term))
-    state.level_names = old_level_names
     uarity, ty_term, val_term = state.generalize_levels_for_let(ty_term, val_term)
     env1 = env.push_let(
         ElabType(ty_term, binder_infos),

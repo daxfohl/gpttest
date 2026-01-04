@@ -55,14 +55,6 @@ class ElabState:
     level_metas: dict[int, LMetaInfo] = field(default_factory=dict)
     level_constraints: list[LevelConstraint] = field(default_factory=list)
     next_level_id: int = 0
-    level_names: list[str] = field(default_factory=list)
-
-    def lookup_level(self, name: str, span: Span) -> LevelExpr:
-        try:
-            idx = self.level_names.index(name)
-        except ValueError:
-            raise SurfaceError(f"Unknown universe level {name}", span)
-        return LVar(idx)
 
     def fresh_meta(
         self, env: Env, expected: Term, span: Span | None, *, kind: str

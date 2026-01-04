@@ -89,8 +89,6 @@ def elab_inductive_infer(
     for binder in index_binders:
         if binder.implicit:
             raise SurfaceError("Inductive indices cannot be implicit", binder.span)
-    old_level_names = state.level_names
-    state.level_names = list(reversed(term.uparams)) + state.level_names
     param_tys, _param_impls, _param_levels, env_params = _elab_binders(
         env, state, term.params
     )
@@ -234,7 +232,6 @@ def elab_inductive_infer(
         locals=env.locals,
         eglobals=env_full.eglobals,
     )
-    state.level_names = old_level_names
     body_term, body_ty = elab_infer(term.body, env1, state)
     if isinstance(body_term, UApp) and isinstance(body_term.head, Ind):
         body_term = body_term.head
