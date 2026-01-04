@@ -3,8 +3,7 @@ import pytest
 from mltt.elab.etype import ElabEnv
 from mltt.elab.elab_state import ElabState
 from mltt.elab.sast import elab_infer
-from mltt.surface.parse import parse_term
-from mltt.surface.to_elab import surface_to_elab
+from mltt.surface.parse import parse_elab_term
 from mltt.surface.sast import SurfaceError
 from mltt.kernel.prelude import prelude_env
 from mltt.elab.elab_helpers import elab_with_state
@@ -25,6 +24,6 @@ def test_hole_in_check_mode_lambda_body() -> None:
 def test_reject_hole_in_infer_mode() -> None:
     env = ElabEnv.from_env(prelude_env())
     state = ElabState()
-    term = surface_to_elab(parse_term("_"))
+    term = parse_elab_term("_")
     with pytest.raises(SurfaceError, match="Hole needs expected type"):
         elab_infer(term, env, state)

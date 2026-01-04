@@ -4,14 +4,13 @@ from mltt.kernel.env import Env
 from mltt.elab.etype import ElabEnv
 from mltt.elab.elab_state import ElabState
 from mltt.elab.sast import elab_infer
-from mltt.surface.parse import parse_term
-from mltt.surface.to_elab import surface_to_elab
+from mltt.surface.parse import parse_elab_term
 
 
 def elab_ok_in_env(src: str, env: Env) -> None:
     elab_env = ElabEnv.from_env(env)
     state = ElabState()
-    term = surface_to_elab(parse_term(src))
+    term = parse_elab_term(src)
     term_k, ty_k = elab_infer(term, elab_env, state)
     state.solve(elab_env.kenv)
     term_k = state.zonk(term_k)

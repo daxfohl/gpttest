@@ -7,6 +7,9 @@ from typing import cast
 import ply.lex as lex  # type: ignore[import-untyped]
 import ply.yacc as yacc  # type: ignore[import-untyped]
 
+from mltt.elab.east import ETerm
+from mltt.surface.desugar import desugar
+from mltt.surface.to_elab import surface_to_elab
 from mltt.surface.sast import (
     Span,
     SurfaceError,
@@ -872,6 +875,8 @@ def parse_term_raw(source: str) -> SurfaceTerm:
 
 def parse_term(source: str) -> SurfaceTerm:
     term = parse_term_raw(source)
-    from mltt.surface.desugar import desugar
-
     return desugar(term)
+
+
+def parse_elab_term(source: str) -> ETerm:
+    return surface_to_elab(parse_term(source))
