@@ -155,6 +155,23 @@ def test_desugar_match_nested_pattern() -> None:
     _assert_desugars(sugared, desugared)
 
 
+def test_desugar_dependent_nested_pattern() -> None:
+    sugared = """
+    match xs return Nat with
+    | Cons x (Cons y ys) => y
+    | _ => Nat.Zero
+    """
+    desugared = """
+    match xs return Nat with
+    | Cons x _pat0 =>
+      (match _pat0 with
+      | Cons y ys => y
+      | _ => Nat.Zero)
+    | _ => Nat.Zero
+    """
+    _assert_desugars(sugared, desugared)
+
+
 def test_desugar_match_multi_scrutinee() -> None:
     sugared = """
     match n, b with
@@ -163,6 +180,23 @@ def test_desugar_match_multi_scrutinee() -> None:
     """
     desugared = """
     match n with
+    | Zero =>
+      (match b with
+      | True => Nat.Zero
+      | _ => Nat.Succ(Nat.Zero))
+    | _ => Nat.Succ(Nat.Zero)
+    """
+    _assert_desugars(sugared, desugared)
+
+
+def test_desugar_dependent_multi_scrutinee_branches() -> None:
+    sugared = """
+    match n, b return Nat with
+    | (Zero, True) => Nat.Zero
+    | _ => Nat.Succ(Nat.Zero)
+    """
+    desugared = """
+    match n return Nat with
     | Zero =>
       (match b with
       | True => Nat.Zero
