@@ -1,4 +1,4 @@
-"""Metavariable and constraint state for elaboration."""
+"""Solver state: metas, constraints, and level bookkeeping."""
 
 from __future__ import annotations
 

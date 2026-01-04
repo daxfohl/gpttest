@@ -1,4 +1,4 @@
-"""Universe level metadata for solving."""
+"""Universe level metadata and constraints for the solver."""
 
 from __future__ import annotations
 

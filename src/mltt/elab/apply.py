@@ -1,4 +1,4 @@
-"""Application elaboration helpers."""
+"""Elaboration-time application handling (implicit insertion, partials, names)."""
 
 from __future__ import annotations
 

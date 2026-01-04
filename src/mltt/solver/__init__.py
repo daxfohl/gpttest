@@ -1,4 +1,4 @@
-"""Constraint solver for elaboration."""
+"""Solver facade: state, constraints, and solving utilities."""
 
 from mltt.solver.constraints import Constraint
 from mltt.solver.levels import LMetaInfo, LevelConstraint

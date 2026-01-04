@@ -1,4 +1,4 @@
-"""Constraint solving and zonking helpers."""
+"""Constraint solving, meta assignment, and zonking."""
 
 from __future__ import annotations
 

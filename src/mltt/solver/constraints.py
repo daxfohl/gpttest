@@ -1,4 +1,4 @@
-"""Constraint data structures for the solver."""
+"""Constraint records consumed by the solver."""
 
 from __future__ import annotations
 

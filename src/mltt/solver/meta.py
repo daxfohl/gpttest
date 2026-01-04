@@ -1,4 +1,4 @@
-"""Metavariable entries for elaboration solving."""
+"""Metavariable entries managed by the solver."""
 
 from __future__ import annotations
 

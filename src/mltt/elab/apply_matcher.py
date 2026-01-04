@@ -1,4 +1,4 @@
-"""Argument matching helpers for applications."""
+"""Argument matching policy for elaboration (positional/named/partial/implicit)."""
 
 from __future__ import annotations
 

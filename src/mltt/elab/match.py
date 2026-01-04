@@ -1,4 +1,4 @@
-"""Surface pattern matching."""
+"""Elaboration for surface matches (motive/case typing, eliminator build)."""
 
 from __future__ import annotations
 
