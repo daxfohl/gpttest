@@ -30,7 +30,8 @@ from mltt.elab.east import (
 )
 from mltt.elab.elab_state import ElabState
 from mltt.elab.etype import ElabBinderInfo, ElabEnv, ElabType
-from mltt.surface.sast import Span, SurfaceError
+from mltt.elab.errors import ElabError
+from mltt.surface.sast import Span
 
 
 def elab_apply(
@@ -58,7 +59,7 @@ def elab_apply(
         fn_ty_ctx_whnf = fn_ty_ctx.whnf(ctx_env.kenv)
         if not isinstance(fn_ty_ctx_whnf, Pi):
             if matcher.has_positional() or matcher.has_named():
-                raise SurfaceError(
+                raise ElabError(
                     "Application of non-function",
                     matcher.next_arg_span(),
                 )
@@ -155,7 +156,7 @@ def elab_apply(
     if matcher.has_named():
         unknown = matcher.unknown_named()
         assert unknown is not None
-        raise SurfaceError(f"Unknown named argument {unknown}", span)
+        raise ElabError(f"Unknown named argument {unknown}", span)
     if missing_binders:
         for ty, name in reversed(missing_binders):
             fn_term_closed = Lam(ty, fn_term_closed)
@@ -328,5 +329,5 @@ def _apply_fn_type(
 ) -> ElabType:
     fn_ty_whnf = fn_ty.term.whnf(env)
     if not isinstance(fn_ty_whnf, Pi):
-        raise SurfaceError("Application of non-function", span)
+        raise ElabError("Application of non-function", span)
     return ElabType(fn_ty_whnf.return_ty.subst(arg_term), remaining_binders)

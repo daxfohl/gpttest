@@ -1,8 +1,9 @@
 from mltt.elab.elab_state import ElabState
+from mltt.elab.errors import ElabError
 from mltt.elab.etype import ElabEnv
 from mltt.elab.sast import elab_infer
-from mltt.surface.sast import SurfaceError
 from mltt.surface.parse import parse_elab_term
+from mltt.surface.sast import SurfaceError
 from mltt.kernel.prelude import prelude_env
 
 
@@ -24,9 +25,9 @@ def elab_fails(src: str) -> None:
     try:
         term = parse_elab_term(src)
         elab_infer(term, env, state)
-    except SurfaceError:
+    except (ElabError, SurfaceError):
         return
-    raise AssertionError("Expected surface error")
+    raise AssertionError("Expected elaboration error")
 
 
 def test_match_pred() -> None:

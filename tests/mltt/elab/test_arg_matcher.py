@@ -2,8 +2,9 @@ import pytest
 
 from mltt.elab.arg_matcher import ArgMatcher
 from mltt.elab.east import EArg, ENamedArg, EVar
+from mltt.elab.errors import ElabError
 from mltt.elab.etype import ElabBinderInfo
-from mltt.surface.sast import Span, SurfaceError
+from mltt.surface.sast import Span
 
 
 def _arg(name: str, *, implicit: bool = False) -> EArg:
@@ -20,7 +21,7 @@ def test_matcher_named_requires_binders() -> None:
     binders = (ElabBinderInfo(name=None, implicit=False),)
     args = ()
     named = (_named("x", "x"),)
-    with pytest.raises(SurfaceError, match="Named arguments require binder names"):
+    with pytest.raises(ElabError, match="Named arguments require binder names"):
         ArgMatcher(binders, args, named, Span(0, 0))
 
 

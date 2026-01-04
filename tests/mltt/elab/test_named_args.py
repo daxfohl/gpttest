@@ -1,8 +1,9 @@
 import pytest
 
 from mltt.kernel.tel import mk_app
-from mltt.surface.sast import SurfaceError
+from mltt.elab.errors import ElabError
 from mltt.elab.elab_helpers import elab_eval, elab_ok, get_ctor
+from mltt.surface.sast import SurfaceError
 
 
 def test_implicit_id_explicit() -> None:
@@ -71,7 +72,7 @@ def test_too_few_args_rejected() -> None:
     let k<A, B>(a: A, b: B): A := a;
     k(Nat.Zero)
     """
-    with pytest.raises(SurfaceError, match="Missing explicit argument"):
+    with pytest.raises(ElabError, match="Missing explicit argument"):
         elab_eval(src)
 
 
@@ -80,7 +81,7 @@ def test_too_many_args_rejected() -> None:
     let k<A, B>(a: A, b: B): A := a;
     k(Nat.Zero, Nat.Zero, Nat.Zero)
     """
-    with pytest.raises(SurfaceError, match="Application of non-function"):
+    with pytest.raises(ElabError, match="Application of non-function"):
         elab_eval(src)
 
 

@@ -11,7 +11,8 @@ from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
 from mltt.kernel.tel import ArgList, Telescope, decompose_uapp, mk_app, mk_lams, mk_uapp
-from mltt.surface.sast import Span, SurfaceError
+from mltt.elab.errors import ElabError
+from mltt.surface.sast import Span
 
 
 def _resolve_inductive_head(env: Env, head: Term) -> Ind | None:
@@ -87,9 +88,9 @@ def _match_branch_types(
             ctor_field_types[j].shift(m - j)
         )
         if rec_head != ind:
-            raise SurfaceError("Recursive field head mismatch", span)
+            raise ElabError("Recursive field head mismatch", span)
         if level_actuals and rec_levels and rec_levels != level_actuals:
-            raise SurfaceError("Recursive field universe mismatch", span)
+            raise ElabError("Recursive field universe mismatch", span)
         rec_params = rec_field_args[:p]
         rec_indices = rec_field_args[p : p + q]
         _ = rec_params
@@ -113,7 +114,7 @@ def _branch_binders(
     match pat:
         case EPatCtor():
             if len(pat.args) not in {field_count, len(tel)}:
-                raise SurfaceError("Match pattern has wrong arity", pat.span)
+                raise ElabError("Match pattern has wrong arity", pat.span)
             if len(pat.args) == field_count:
                 full_args = pat.args + tuple(
                     EPatWild(pat.span) for _ in range(len(tel) - field_count)
@@ -127,7 +128,7 @@ def _branch_binders(
                     case EPatWild():
                         binders.append((None, ty))
                     case _:
-                        raise SurfaceError(
+                        raise ElabError(
                             "Match pattern must be constructor or _", arg.span
                         )
             return binders
@@ -135,12 +136,12 @@ def _branch_binders(
             if _looks_like_ctor(pat.name):
                 if len(tel) == 0:
                     return []
-                raise SurfaceError("Constructor pattern needs fields", pat.span)
+                raise ElabError("Constructor pattern needs fields", pat.span)
             return [(pat.name, ty) for ty in tel]
         case EPatWild():
             return [(None, ty) for ty in tel]
         case _:
-            raise SurfaceError("Unsupported match pattern", pat.span)
+            raise ElabError("Unsupported match pattern", pat.span)
 
 
 def _branch_map(
@@ -156,14 +157,14 @@ def _branch_map(
             case EPatVar():
                 ctor_name = pat.name
                 if not _looks_like_ctor(ctor_name):
-                    raise SurfaceError(
+                    raise ElabError(
                         "Match pattern must be constructor or _", branch.span
                     )
                 branch_map[ctor_name] = branch
             case EPatCtor():
                 branch_map[pat.ctor] = branch
             case _:
-                raise SurfaceError("Unsupported match pattern", branch.span)
+                raise ElabError("Unsupported match pattern", branch.span)
     for ctor in ind.constructors:
         qualified = f"{ind.name}.{ctor.name}"
         if ctor.name not in branch_map and qualified in branch_map:
@@ -177,7 +178,7 @@ def elab_match_infer(
 ) -> tuple[Term, ElabType]:
     if match.motive is None:
         if len(match.branches) != 1:
-            raise SurfaceError(
+            raise ElabError(
                 "Cannot infer match result type; use check-mode", match.span
             )
         level = state.fresh_level_meta("type", match.span)
@@ -206,11 +207,11 @@ def _elab_match_core(
     )
     ind = _resolve_inductive_head(env.kenv, head)
     if ind is None:
-        raise SurfaceError("Match scrutinee is not an inductive type", match.span)
+        raise ElabError("Match scrutinee is not an inductive type", match.span)
     p = len(ind.param_types)
     q = len(ind.index_types)
     if len(args) != p + q:
-        raise SurfaceError("Match scrutinee has wrong arity", match.span)
+        raise ElabError("Match scrutinee has wrong arity", match.span)
     params_actual = args[:p]
     indices_actual = args[p:]
     branch_map, default_branch = _branch_map(match.branches, env, ind)
@@ -225,9 +226,7 @@ def _elab_match_core(
     if q > 0 and isinstance(scrut_term, Var):
         index_vars = [idx for idx in indices_actual if isinstance(idx, Var)]
         if len(index_vars) != len(indices_actual):
-            raise SurfaceError(
-                "Cannot infer motive with non-variable indices", match.span
-            )
+            raise ElabError("Cannot infer motive with non-variable indices", match.span)
         index_vars = [
             Var(idx.k - 1 if idx.k > scrut_term.k else idx.k) for idx in index_vars
         ]
@@ -244,7 +243,7 @@ def _elab_match_core(
             branch_rhs = default_branch
         else:
             if branch is None:
-                raise SurfaceError(
+                raise ElabError(
                     f"Missing branch for constructor {ctor.name}", match.span
                 )
             binder_names = _branch_binders(branch.pat, ctor, tel, field_count)
@@ -262,17 +261,17 @@ def _elab_match_with_motive(
     match: EMatch, env: ElabEnv, state: ElabState
 ) -> tuple[Term, ElabType]:
     if match.motive is None:
-        raise SurfaceError("Match motive missing", match.span)
+        raise ElabError("Match motive missing", match.span)
     scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
         match.scrutinee, env, state
     )
     ind = _resolve_inductive_head(env.kenv, head)
     if ind is None:
-        raise SurfaceError("Match scrutinee is not an inductive type", match.span)
+        raise ElabError("Match scrutinee is not an inductive type", match.span)
     p = len(ind.param_types)
     q = len(ind.index_types)
     if len(args) != p + q:
-        raise SurfaceError("Match scrutinee has wrong arity", match.span)
+        raise ElabError("Match scrutinee has wrong arity", match.span)
     params_actual = args[:p]
     indices_actual = args[p:]
     motive_term, motive_ty = elab_infer(match.motive, env, state)
@@ -296,7 +295,7 @@ def _elab_match_with_motive(
             branch_rhs = default_branch
         else:
             if branch is None:
-                raise SurfaceError(
+                raise ElabError(
                     f"Missing branch for constructor {ctor.name}", match.span
                 )
             binder_names = _branch_binders(branch.pat, ctor, tel, field_count)

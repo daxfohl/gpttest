@@ -10,6 +10,7 @@ Capabilities:
 - Elaborate surface `match` into kernel eliminators with correct motive checking.
 - Elaborate surface inductive definitions and constructors into kernel metadata.
 - Track elaboration environments, implicit binder flags, and local/global types.
+- Report elaboration errors as `ElabError` with source spans.
 
 Non-goals:
 - Parsing or desugaring surface syntax.

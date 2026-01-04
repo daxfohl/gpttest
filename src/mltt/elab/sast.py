@@ -31,7 +31,8 @@ from mltt.elab.east import (
 from mltt.elab.elab_apply import elab_apply
 from mltt.elab.etype import ElabBinderInfo, ElabEnv, ElabType
 from mltt.elab.names import NameEnv
-from mltt.surface.sast import Span, SurfaceError
+from mltt.elab.errors import ElabError
+from mltt.surface.sast import Span
 
 
 def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
@@ -79,7 +80,7 @@ def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabT
             term_k = elab_check(inner, env, state, ElabType(ty_term))
             return term_k, ElabType(ty_term)
         case EHole():
-            raise SurfaceError("Hole needs expected type", term.span)
+            raise ElabError("Hole needs expected type", term.span)
         case ELam():
             return _elab_lam_infer(term, env, state)
         case EPi():
@@ -111,7 +112,7 @@ def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabT
 
             return elab_inductive_infer(term, env, state)
         case _:
-            raise SurfaceError("Unsupported surface term", term.span)
+            raise ElabError("Unsupported surface term", term.span)
 
 
 def elab_check(term: ETerm, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
@@ -147,23 +148,23 @@ def resolve(term: ETerm, env: Env, names: NameEnv) -> Term:
                 if isinstance(decl.value, (Ind, Ctor)):
                     return decl.value
                 return Const(name)
-            raise SurfaceError(f"Unknown identifier {name}", term.span)
+            raise ElabError(f"Unknown identifier {name}", term.span)
         case EConst(name=name):
             if env.lookup_global(name) is None:
-                raise SurfaceError(f"Unknown constant {name}", term.span)
+                raise ElabError(f"Unknown constant {name}", term.span)
             return Const(name)
         case EUniv(level=level):
             if level is None:
-                raise SurfaceError("Universe requires elaboration", term.span)
+                raise ElabError("Universe requires elaboration", term.span)
             return Univ(_level_expr(level))
         case EAnn(term=inner, ty=ty_src):
             _ = ty_src
             return resolve(inner, env, names)
         case EHole():
-            raise SurfaceError("Hole requires elaboration", term.span)
+            raise ElabError("Hole requires elaboration", term.span)
         case ELam(binders=binders, body=body):
             if any(b.ty is None for b in binders):
-                raise SurfaceError("Missing binder type", term.span)
+                raise ElabError("Missing binder type", term.span)
             tys: list[Term] = []
             for binder in binders:
                 assert binder.ty is not None
@@ -176,7 +177,7 @@ def resolve(term: ETerm, env: Env, names: NameEnv) -> Term:
             return term_k
         case EPi(binders=binders, body=body):
             if any(b.ty is None for b in binders):
-                raise SurfaceError("Missing binder type", term.span)
+                raise ElabError("Missing binder type", term.span)
             pi_tys: list[Term] = []
             for binder in binders:
                 assert binder.ty is not None
@@ -193,7 +194,7 @@ def resolve(term: ETerm, env: Env, names: NameEnv) -> Term:
                 arg_term = resolve(arg.term, env, names)
                 term_k = App(term_k, arg_term)
             if named_args:
-                raise SurfaceError("Named arguments require elaboration", term.span)
+                raise ElabError("Named arguments require elaboration", term.span)
             return term_k
         case EUApp(head=head, levels=levels):
             head_term = resolve(head, env, names)
@@ -203,7 +204,7 @@ def resolve(term: ETerm, env: Env, names: NameEnv) -> Term:
             return resolve(inner, env, names)
         case ELet(name=name, ty=ty_src, val=val_src, body=body):
             if ty_src is None:
-                raise SurfaceError("Missing let type; needs elaboration", term.span)
+                raise ElabError("Missing let type; needs elaboration", term.span)
             ty_term = resolve(ty_src, env, names)
             val_term = resolve(val_src, env, names)
             names.push(name)
@@ -211,15 +212,15 @@ def resolve(term: ETerm, env: Env, names: NameEnv) -> Term:
             names.pop()
             return Let(ty_term, val_term, body_term)
         case EMatch() | EInd() | ECtor() | EInductiveDef():
-            raise SurfaceError("Surface construct requires elaboration", term.span)
+            raise ElabError("Surface construct requires elaboration", term.span)
         case _:
-            raise SurfaceError("Unsupported surface term", term.span)
+            raise ElabError("Unsupported surface term", term.span)
 
 
 def _expect_universe(term: Term, env: Env, span: Span) -> Univ:
     ty_whnf = term.whnf(env)
     if not isinstance(ty_whnf, Univ):
-        raise SurfaceError(f"{type(term).__name__} must be a universe", span)
+        raise ElabError(f"{type(term).__name__} must be a universe", span)
     return ty_whnf
 
 
@@ -228,7 +229,7 @@ def _require_global_info(
 ) -> tuple[GlobalDecl, ElabType]:
     info = env.global_info(name)
     if info is None:
-        raise SurfaceError(message, span)
+        raise ElabError(message, span)
     return info
 
 
@@ -236,7 +237,7 @@ def _elab_lam_infer(
     term: ELam, env: ElabEnv, state: ElabState
 ) -> tuple[Term, ElabType]:
     if any(b.ty is None for b in term.binders):
-        raise SurfaceError(
+        raise ElabError(
             "Cannot infer unannotated lambda; add binder types or use check-mode",
             term.span,
         )
@@ -268,7 +269,7 @@ def _elab_lam_check(
     for binder in term.binders:
         pi_ty = expected_ty.term.whnf(env1.kenv)
         if not isinstance(pi_ty, Pi):
-            raise SurfaceError("Lambda needs expected function type", term.span)
+            raise ElabError("Lambda needs expected function type", term.span)
         binder_ty_info: tuple[ElabBinderInfo, ...] = ()
         if binder.ty is None:
             binder_ty = pi_ty.arg_ty
@@ -320,10 +321,10 @@ def _elab_uapp_infer(
     match term.head:
         case EVar(name=name):
             if env.lookup_local(name) is not None:
-                raise SurfaceError("UApp head must be a global", term.span)
+                raise ElabError("UApp head must be a global", term.span)
             decl = env.lookup_global(name)
             if decl is None:
-                raise SurfaceError(f"Unknown identifier {name}", term.span)
+                raise ElabError(f"Unknown identifier {name}", term.span)
             if isinstance(decl.value, (Ind, Ctor)):
                 head_term = decl.value
             else:
@@ -331,19 +332,19 @@ def _elab_uapp_infer(
         case EConst(name=name):
             decl = env.lookup_global(name)
             if decl is None:
-                raise SurfaceError(f"Unknown constant {name}", term.span)
+                raise ElabError(f"Unknown constant {name}", term.span)
             head_term = Const(name)
         case EInd(name=name):
             decl = env.lookup_global(name)
             if decl is None or decl.value is None:
-                raise SurfaceError(f"Unknown inductive {name}", term.span)
+                raise ElabError(f"Unknown inductive {name}", term.span)
             head_term = decl.value
             if isinstance(head_term, UApp) and isinstance(head_term.head, Ind):
                 head_term = head_term.head
         case ECtor(name=name):
             decl = env.lookup_global(name)
             if decl is None or decl.value is None:
-                raise SurfaceError(f"Unknown constructor {name}", term.span)
+                raise ElabError(f"Unknown constructor {name}", term.span)
             head_term = decl.value
             if isinstance(head_term, UApp) and isinstance(head_term.head, Ctor):
                 head_term = head_term.head
@@ -382,7 +383,7 @@ def _elab_let_infer(
     term: ELet, env: ElabEnv, state: ElabState
 ) -> tuple[Term, ElabType]:
     if len(set(term.uparams)) != len(term.uparams):
-        raise SurfaceError("Duplicate universe binder", term.span)
+        raise ElabError("Duplicate universe binder", term.span)
     val_src = term.val
     if term.ty is None:
         val_term, val_ty = elab_infer(val_src, env, state)
@@ -413,7 +414,7 @@ def _elab_binders(
     binder_levels: list[LevelExpr] = []
     for binder in binders:
         if binder.ty is None:
-            raise SurfaceError("Missing binder type", binder.span)
+            raise ElabError("Missing binder type", binder.span)
         ty_term, ty_ty = elab_infer(binder.ty, env, state)
         ty_ty_whnf = _expect_universe(ty_ty.term, env.kenv, binder.span)
         env = env.push_binder(

@@ -1,7 +1,7 @@
 import pytest
 
 from mltt.kernel.tel import mk_app
-from mltt.surface.sast import SurfaceError
+from mltt.elab.errors import ElabError
 from mltt.elab.elab_helpers import elab_eval, elab_ok, get_ctor
 
 
@@ -50,7 +50,7 @@ def test_let_infer_requires_check_mode() -> None:
       | Succ _ => Nat.Zero;
     x
     """
-    with pytest.raises(SurfaceError, match="Cannot infer match result type"):
+    with pytest.raises(ElabError, match="Cannot infer match result type"):
         elab_eval(src)
 
 

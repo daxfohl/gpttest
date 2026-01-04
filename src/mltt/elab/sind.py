@@ -27,7 +27,8 @@ from mltt.elab.sast import (
     _require_global_info,
     elab_infer,
 )
-from mltt.surface.sast import Span, SurfaceError
+from mltt.elab.errors import ElabError
+from mltt.surface.sast import Span
 
 
 def _normalize_binder_name(name: str | None) -> str | None:
@@ -41,13 +42,13 @@ def elab_ind_infer(term: EInd, env: ElabEnv, state: ElabState) -> tuple[Term, El
         env, term.name, term.span, f"Unknown inductive {term.name}"
     )
     if decl.value is None:
-        raise SurfaceError(f"Unknown inductive {term.name}", term.span)
+        raise ElabError(f"Unknown inductive {term.name}", term.span)
     if isinstance(decl.value, UApp) and isinstance(decl.value.head, Ind):
         ind = decl.value.head
     elif isinstance(decl.value, Ind):
         ind = decl.value
     else:
-        raise SurfaceError(f"{term.name} is not an inductive", term.span)
+        raise ElabError(f"{term.name} is not an inductive", term.span)
     term_k, levels = state.apply_implicit_levels(ind, decl.uarity, term.span)
     ty = gty.inst_levels(levels)
     return term_k, ElabType(state.zonk(ty.term), ty.binders)
@@ -60,14 +61,14 @@ def elab_ctor_infer(
         env, term.name, term.span, f"Unknown constructor {term.name}"
     )
     if decl.value is None:
-        raise SurfaceError(f"Unknown constructor {term.name}", term.span)
+        raise ElabError(f"Unknown constructor {term.name}", term.span)
     if isinstance(decl.value, UApp) and isinstance(decl.value.head, Ctor):
         ctor = decl.value.head
         term_k, levels = state.apply_implicit_levels(ctor, decl.uarity, term.span)
         ty = gty.inst_levels(levels)
         return term_k, ElabType(state.zonk(ty.term), ty.binders)
     if not isinstance(decl.value, Ctor):
-        raise SurfaceError(f"{term.name} is not a constructor", term.span)
+        raise ElabError(f"{term.name} is not a constructor", term.span)
     ctor = decl.value
     term_k, levels = state.apply_implicit_levels(ctor, decl.uarity, term.span)
     ty = gty.inst_levels(levels)
@@ -78,9 +79,9 @@ def elab_inductive_infer(
     term: EInductiveDef, env: ElabEnv, state: ElabState
 ) -> tuple[Term, ElabType]:
     if env.lookup_global(term.name) is not None:
-        raise SurfaceError(f"Duplicate inductive {term.name}", term.span)
+        raise ElabError(f"Duplicate inductive {term.name}", term.span)
     if len(set(term.uparams)) != len(term.uparams):
-        raise SurfaceError("Duplicate universe binder", term.span)
+        raise ElabError("Duplicate universe binder", term.span)
     index_binders: tuple[EBinder, ...] = ()
     level_body = term.level
     if isinstance(term.level, EPi):
@@ -88,7 +89,7 @@ def elab_inductive_infer(
         level_body = term.level.body
     for binder in index_binders:
         if binder.implicit:
-            raise SurfaceError("Inductive indices cannot be implicit", binder.span)
+            raise ElabError("Inductive indices cannot be implicit", binder.span)
     param_tys, _param_impls, _param_levels, env_params = _elab_binders(
         env, state, term.params
     )
@@ -98,7 +99,7 @@ def elab_inductive_infer(
     level_term, level_ty = elab_infer(level_body, env_indices, state)
     _expect_universe(level_ty.term, env_indices.kenv, level_body.span)
     if not isinstance(level_term, Univ):
-        raise SurfaceError("Inductive level must be a Type", level_body.span)
+        raise ElabError("Inductive level must be a Type", level_body.span)
     uarity = len(term.uparams)
     if uarity == 0:
         terms = [*param_tys, *index_tys, level_term]
@@ -108,7 +109,7 @@ def elab_inductive_infer(
         index_tys = generalized[len(param_tys) : len(param_tys) + len(index_tys)]
         level_term = generalized[-1]
     if not isinstance(level_term, Univ):
-        raise SurfaceError("Inductive level must be a Type", level_body.span)
+        raise ElabError("Inductive level must be a Type", level_body.span)
     ind = Ind(
         name=term.name,
         param_types=Telescope.of(*param_tys),
@@ -157,7 +158,7 @@ def elab_inductive_infer(
     for ctor_decl in term.ctors:
         ctor_name = f"{term.name}.{ctor_decl.name}"
         if env.lookup_global(ctor_name) is not None:
-            raise SurfaceError(f"Duplicate constructor {ctor_name}", ctor_decl.span)
+            raise ElabError(f"Duplicate constructor {ctor_name}", ctor_decl.span)
         field_tys, _field_impls, _field_levels, env_fields = _elab_binders(
             env_params_with_ind, state, ctor_decl.fields
         )
@@ -167,13 +168,11 @@ def elab_inductive_infer(
         head, _levels, args = decompose_uapp(result_term)
         ind_head = _resolve_inductive_head(env_with_ind.kenv, head)
         if ind_head != ind:
-            raise SurfaceError(
-                "Constructor result must be the inductive", ctor_decl.span
-            )
+            raise ElabError("Constructor result must be the inductive", ctor_decl.span)
         p = len(ind.param_types)
         q = len(ind.index_types)
         if len(args) != p + q:
-            raise SurfaceError("Constructor result has wrong arity", ctor_decl.span)
+            raise ElabError("Constructor result has wrong arity", ctor_decl.span)
         params_actual = args[:p]
         result_indices = args[p:]
         # Parameters may be implicit; allow non-var terms and rely on constraints.
@@ -241,12 +240,12 @@ def elab_inductive_infer(
 
 
 def resolve_ind(term: ETerm, env: Env, names: NameEnv) -> Term:
-    raise SurfaceError("Inductive references require elaboration", term.span)
+    raise ElabError("Inductive references require elaboration", term.span)
 
 
 def resolve_ctor(term: ETerm, env: Env, names: NameEnv) -> Term:
-    raise SurfaceError("Constructor references require elaboration", term.span)
+    raise ElabError("Constructor references require elaboration", term.span)
 
 
 def resolve_inductive(term: ETerm, env: Env, names: NameEnv) -> Term:
-    raise SurfaceError("Inductive definitions require elaboration", term.span)
+    raise ElabError("Inductive definitions require elaboration", term.span)

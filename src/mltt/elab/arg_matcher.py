@@ -7,7 +7,8 @@ from typing import Iterable, Literal
 
 from mltt.elab.east import EArg, ENamedArg
 from mltt.elab.etype import ElabBinderInfo
-from mltt.surface.sast import Span, SurfaceError
+from mltt.elab.errors import ElabError
+from mltt.surface.sast import Span
 
 
 ArgKind = Literal["explicit", "implicit", "missing", "stop"]
@@ -34,7 +35,7 @@ class ArgMatcher:
         for item in named:
             named_map[item.name] = item
         if named_map and not any(b.name for b in binders):
-            raise SurfaceError("Named arguments require binder names", span)
+            raise ElabError("Named arguments require binder names", span)
         self._named = named_map
 
     def match_for_binder(
@@ -55,7 +56,7 @@ class ArgMatcher:
                     return ArgDecision(kind="explicit", arg=candidate)
                 return ArgDecision(kind="implicit")
             if candidate.implicit:
-                raise SurfaceError(
+                raise ElabError(
                     "Implicit argument provided where explicit expected",
                     candidate.term.span,
                 )
@@ -67,7 +68,7 @@ class ArgMatcher:
             return ArgDecision(kind="stop")
         if allow_partial:
             return ArgDecision(kind="missing")
-        raise SurfaceError("Missing explicit argument", self._span)
+        raise ElabError("Missing explicit argument", self._span)
 
     def has_positional(self) -> bool:
         return bool(self._positional)
