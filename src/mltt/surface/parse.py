@@ -463,7 +463,7 @@ def p_term_match(p: yacc.YaccProduction) -> None:
     as_name, motive, branches = p[3]
     span = Span(_item_span(p, 1).start, branches[-1].span.end)
     scrutinees = p[2]
-    as_names = (as_name,) if as_name is not None else tuple(None for _ in scrutinees)
+    as_names = (as_name,) if as_name is not None else ()
     p[0] = SMatch(
         span=span,
         scrutinees=scrutinees,

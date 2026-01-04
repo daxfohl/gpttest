@@ -9,6 +9,8 @@ from mltt.surface.sast import (
     SAnn,
     SApp,
     SArg,
+    SBinder,
+    SConstructorDecl,
     SLet,
     SLetPat,
     SLam,
@@ -84,24 +86,9 @@ def _desugar_term(term: SurfaceTerm) -> SurfaceTerm:
         case SMatch():
             return _desugar_match(term)
         case SLetPat():
-            _check_duplicate_binders((SBranch(term.pat, term.body, term.span),))
-            new_value = _desugar_term(term.value)
-            new_body = _desugar_term(term.body)
-            new_pat = _expand_tuple_pat(term.pat)
-            if (
-                new_value is not term.value
-                or new_body is not term.body
-                or new_pat is not term.pat
-            ):
-                return dataclasses.replace(
-                    term, value=new_value, body=new_body, pat=new_pat
-                )
-            return term
+            return _desugar_let_pat(term)
         case SInductiveDef():
-            new_body = _desugar_term(term.body)
-            if new_body is not term.body:
-                return dataclasses.replace(term, body=new_body)
-            return term
+            return _desugar_inductive_def(term)
         case _:
             return term
 
@@ -546,13 +533,205 @@ def _desugar_match(match: SMatch) -> SurfaceTerm:
         branches=tuple(new_branches),
     )
     if len(rebuilt.scrutinees) != 1:
-        return _desugar_multi(rebuilt)
+        return _strip_as_names(_desugar_multi(rebuilt))
     expanded = _expand_tuple_branches(rebuilt.branches)
     if _needs_nested(expanded):
-        return _compile_nested(rebuilt, rebuilt.scrutinees[0], expanded)
+        return _strip_as_names(
+            _compile_nested(rebuilt, rebuilt.scrutinees[0], expanded)
+        )
     if expanded != rebuilt.branches:
-        return dataclasses.replace(rebuilt, branches=expanded)
-    return rebuilt
+        return _strip_as_names(dataclasses.replace(rebuilt, branches=expanded))
+    return _strip_as_names(rebuilt)
+
+
+def _strip_as_names(term: SurfaceTerm) -> SurfaceTerm:
+    match term:
+        case SMatch():
+            new_scrutinees = tuple(_strip_as_names(s) for s in term.scrutinees)
+            new_branches = tuple(
+                SBranch(br.pat, _strip_as_names(br.rhs), br.span)
+                for br in term.branches
+            )
+            new_motive = (
+                _strip_as_names(term.motive) if term.motive is not None else None
+            )
+            if len(new_scrutinees) != 1:
+                return SMatch(
+                    span=term.span,
+                    scrutinees=new_scrutinees,
+                    as_names=(),
+                    motive=new_motive,
+                    branches=new_branches,
+                )
+            as_name = term.as_names[0] if term.as_names else None
+            match_term = SMatch(
+                span=term.span,
+                scrutinees=new_scrutinees,
+                as_names=(),
+                motive=new_motive,
+                branches=new_branches,
+            )
+            if as_name is None:
+                return match_term
+            return SLet(
+                span=term.span,
+                uparams=(),
+                name=as_name,
+                ty=None,
+                val=new_scrutinees[0],
+                body=SMatch(
+                    span=term.span,
+                    scrutinees=(SVar(span=term.span, name=as_name),),
+                    as_names=(),
+                    motive=new_motive,
+                    branches=new_branches,
+                ),
+            )
+        case SLet():
+            new_val = _strip_as_names(term.val)
+            new_body = _strip_as_names(term.body)
+            if new_val is not term.val or new_body is not term.body:
+                return dataclasses.replace(term, val=new_val, body=new_body)
+            return term
+        case SLam():
+            new_body = _strip_as_names(term.body)
+            if new_body is not term.body:
+                return SLam(span=term.span, binders=term.binders, body=new_body)
+            return term
+        case SPi():
+            new_body = _strip_as_names(term.body)
+            if new_body is not term.body:
+                return SPi(span=term.span, binders=term.binders, body=new_body)
+            return term
+        case SApp():
+            new_fn = _strip_as_names(term.fn)
+            new_args: list[SArg] = []
+            changed = new_fn is not term.fn
+            for arg in term.args:
+                new_term = _strip_as_names(arg.term)
+                changed = changed or new_term is not arg.term
+                new_args.append(SArg(new_term, implicit=arg.implicit, name=arg.name))
+            if changed:
+                return SApp(span=term.span, fn=new_fn, args=tuple(new_args))
+            return term
+        case SPartial():
+            new_term = _strip_as_names(term.term)
+            if new_term is not term.term:
+                return SPartial(span=term.span, term=new_term)
+            return term
+        case SAnn():
+            new_term = _strip_as_names(term.term)
+            if new_term is not term.term:
+                return SAnn(span=term.span, term=new_term, ty=term.ty)
+            return term
+        case SUApp():
+            new_head = _strip_as_names(term.head)
+            if new_head is not term.head:
+                return SUApp(span=term.span, head=new_head, levels=term.levels)
+            return term
+        case SInductiveDef():
+            new_body = _strip_as_names(term.body)
+            if new_body is not term.body:
+                return dataclasses.replace(term, body=new_body)
+            return term
+        case _:
+            return term
+
+
+def _desugar_let_pat(term: SLetPat) -> SurfaceTerm:
+    _check_duplicate_binders((SBranch(term.pat, term.body, term.span),))
+    new_value = _desugar_term(term.value)
+    new_body = _desugar_term(term.body)
+    new_pat = _expand_tuple_pat(term.pat)
+    match new_pat:
+        case PatVar():
+            if not _looks_like_ctor(new_pat.name):
+                return SLet(
+                    span=term.span,
+                    uparams=(),
+                    name=new_pat.name,
+                    ty=None,
+                    val=new_value,
+                    body=new_body,
+                )
+        case PatWild():
+            return SLet(
+                span=term.span,
+                uparams=(),
+                name="_",
+                ty=None,
+                val=new_value,
+                body=new_body,
+            )
+        case _:
+            pass
+    if _pat_nested(new_pat):
+        raise SurfaceError("Nested let patterns must be desugared", term.span)
+    match_term = SMatch(
+        span=term.span,
+        scrutinees=(new_value,),
+        as_names=(),
+        motive=None,
+        branches=(SBranch(new_pat, new_body, term.span),),
+    )
+    return _strip_as_names(match_term)
+
+
+def _desugar_inductive_def(term: SInductiveDef) -> SurfaceTerm:
+    level = _desugar_term(term.level)
+    body = _desugar_term(term.body)
+    has_indices = isinstance(level, SPi) and bool(level.binders)
+    params = term.params
+    ctors: list[SConstructorDecl] = []
+    changed = level is not term.level or body is not term.body
+    for ctor in term.ctors:
+        fields = tuple(
+            SBinder(
+                name=binder.name,
+                ty=_desugar_term(binder.ty) if binder.ty is not None else None,
+                span=binder.span,
+                implicit=binder.implicit,
+            )
+            for binder in ctor.fields
+        )
+        if fields != ctor.fields:
+            changed = True
+        result = _desugar_term(ctor.result) if ctor.result is not None else None
+        if result is None:
+            if has_indices:
+                raise SurfaceError("Constructor must specify result indices", ctor.span)
+            head = SVar(span=ctor.span, name=term.name)
+            args = tuple(
+                SArg(
+                    term=SVar(span=ctor.span, name=binder.name),
+                    implicit=binder.implicit,
+                    name=None,
+                )
+                for binder in params
+            )
+            result = SApp(span=ctor.span, fn=head, args=args) if args else head
+            changed = True
+        elif result is not ctor.result:
+            changed = True
+        ctors.append(
+            SConstructorDecl(
+                name=ctor.name,
+                fields=fields,
+                result=result,
+                span=ctor.span,
+            )
+        )
+    if not changed:
+        return term
+    return SInductiveDef(
+        span=term.span,
+        name=term.name,
+        uparams=term.uparams,
+        params=term.params,
+        level=level,
+        ctors=tuple(ctors),
+        body=body,
+    )
 
 
 def _compile_nested(

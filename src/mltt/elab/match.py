@@ -1,21 +1,12 @@
-"""Surface pattern matching and let-pattern sugar."""
+"""Surface pattern matching."""
 
 from __future__ import annotations
 
-from mltt.elab.east import (
-    EBranch,
-    ELetPat,
-    EMatch,
-    EPat,
-    EPatCtor,
-    EPatVar,
-    EPatWild,
-    ETerm,
-)
+from mltt.elab.east import EBranch, EMatch, EPat, EPatCtor, EPatVar, EPatWild, ETerm
 from mltt.elab.elab_state import ElabState
 from mltt.elab.etype import ElabEnv, ElabType
 from mltt.elab.sast import _expect_universe, elab_check, elab_infer
-from mltt.kernel.ast import Lam, Term, UApp, Var
+from mltt.kernel.ast import Lam, Term, UApp, Univ, Var
 from mltt.kernel.env import Const, Env
 from mltt.kernel.ind import Ctor, Elim, Ind
 from mltt.kernel.levels import LevelExpr
@@ -49,27 +40,6 @@ def _elab_scrutinee_info(
     scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
     head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
     return scrut_term, scrut_ty_whnf, head, level_actuals, args
-
-
-def _abstract_var(term: Term, target: int) -> Term:
-    shifted = term.shift(1)
-
-    def replace_var(t: Term, depth: int) -> Term:
-        if isinstance(t, Var) and t.k == target + depth + 1:
-            return Var(depth)
-        return t._replace_terms(
-            lambda sub, meta: replace_var(sub, depth + meta.binder_count)
-        )
-
-    return replace_var(shifted, 0)
-
-
-def _apply_as_name(
-    as_name: str | None, scrut: Term, scrut_ty: Term
-) -> tuple[Term, Term]:
-    if as_name is None:
-        return scrut, scrut_ty
-    return Var(0), scrut_ty.shift(1)
 
 
 def _mk_ctor_indices(
@@ -205,15 +175,23 @@ def _branch_map(
 def elab_match_infer(
     match: EMatch, env: ElabEnv, state: ElabState
 ) -> tuple[Term, ElabType]:
-    if match.motive is None and match.as_name is None:
-        raise SurfaceError("Cannot infer match result type; use check-mode", match.span)
+    if match.motive is None:
+        if len(match.branches) != 1:
+            raise SurfaceError(
+                "Cannot infer match result type; use check-mode", match.span
+            )
+        level = state.fresh_level_meta("type", match.span)
+        expected_ty = Univ(level)
+        expected = state.fresh_meta(env.kenv, expected_ty, match.span, kind="match")
+        term = _elab_match_core(match, env, state, ElabType(expected))
+        return term, ElabType(expected)
     return _elab_match_with_motive(match, env, state)
 
 
 def elab_match_check(
     match: EMatch, env: ElabEnv, state: ElabState, expected: ElabType
 ) -> Term:
-    if match.motive is not None or match.as_name is not None:
+    if match.motive is not None:
         term, term_ty = _elab_match_with_motive(match, env, state)
         state.add_constraint(env.kenv, term_ty.term, expected.term, match.span)
         return term
@@ -297,19 +275,12 @@ def _elab_match_with_motive(
         raise SurfaceError("Match scrutinee has wrong arity", match.span)
     params_actual = args[:p]
     indices_actual = args[p:]
-    as_name = match.as_name
-    env_motive = env
-    if as_name is not None:
-        env_motive = env_motive.push_binder(ElabType(scrut_ty_whnf), name=as_name)
-    motive_term, motive_ty = elab_infer(match.motive, env_motive, state)
-    _expect_universe(motive_ty.term, env_motive.kenv, match.motive.span)
+    motive_term, motive_ty = elab_infer(match.motive, env, state)
+    _expect_universe(motive_ty.term, env.kenv, match.motive.span)
     scrut_ty_in_ctx = mk_uapp(
         ind, level_actuals, params_actual.shift(q), ArgList.vars(q)
     )
-    if as_name is not None:
-        motive_body = motive_term.shift(q, cutoff=1)
-    else:
-        motive_body = motive_term.shift(q)
+    motive_body = motive_term.shift(q)
     motive_fn = mk_lams(*ind.index_types, body=Lam(scrut_ty_in_ctx, motive_body))
     branch_map, default_branch = _branch_map(match.branches, env, ind)
     cases: list[Term] = []
@@ -338,90 +309,3 @@ def _elab_match_with_motive(
     match_term = Elim(ind, motive_fn, tuple(cases), scrut_term)
     match_ty = mk_app(motive_fn, indices_actual, scrut_term)
     return match_term, ElabType(match_ty)
-
-
-def elab_let_pat_infer(
-    term: ELetPat, env: ElabEnv, state: ElabState
-) -> tuple[Term, ElabType]:
-    value_term, value_ty = elab_infer(term.value, env, state)
-    value_ty_whnf = value_ty.term.whnf(env.kenv)
-    if not _is_irrefutable(env.kenv, value_ty_whnf, term.pat):
-        raise SurfaceError("Refutable pattern in let; use match", term.span)
-    env_body = env
-    for name, ty in _collect_binders(env.kenv, value_ty_whnf, term.pat):
-        env_body = env_body.push_binder(ElabType(ty), name=name)
-    body_term, body_ty = elab_infer(term.body, env_body, state)
-    match_term = EMatch(
-        span=term.span,
-        scrutinee=term.value,
-        as_name=None,
-        motive=None,
-        branches=(EBranch(term.pat, term.body, term.span),),
-    )
-    match_term_k = elab_check(match_term, env, state, body_ty)
-    _ = value_term
-    return match_term_k, body_ty
-
-
-def _is_irrefutable(env: Env, scrut_ty: Term, pat: EPat) -> bool:
-    match pat:
-        case EPatVar() | EPatWild():
-            return True
-        case EPatCtor():
-            pass
-        case _:
-            return False
-    head, level_actuals, args = decompose_uapp(scrut_ty)
-    ind = _resolve_inductive_head(env, head)
-    if ind is None or len(ind.constructors) != 1:
-        return False
-    ctor = ind.constructors[0]
-    if pat.ctor not in {ctor.name, f"{ind.name}.{ctor.name}"}:
-        return False
-    p = len(ind.param_types)
-    params_actual = args[:p]
-    field_tys = Telescope.of(
-        *[
-            t.inst_levels(level_actuals).instantiate(params_actual, depth_above=i)
-            for i, t in enumerate(ctor.field_schemas)
-        ]
-    )
-    if len(pat.args) != len(field_tys):
-        return False
-    for field_ty, subpat in zip(field_tys, pat.args, strict=True):
-        if not _is_irrefutable(env, field_ty, subpat):
-            return False
-    return True
-
-
-def _collect_binders(env: Env, scrut_ty: Term, pat: EPat) -> list[tuple[str, Term]]:
-    match pat:
-        case EPatVar():
-            return [(pat.name, scrut_ty)]
-        case EPatWild():
-            return []
-        case EPatCtor():
-            pass
-        case _:
-            return []
-    head, level_actuals, args = decompose_uapp(scrut_ty)
-    ind = _resolve_inductive_head(env, head)
-    if ind is None or len(ind.constructors) != 1:
-        return []
-    ctor = ind.constructors[0]
-    if pat.ctor not in {ctor.name, f"{ind.name}.{ctor.name}"}:
-        return []
-    p = len(ind.param_types)
-    params_actual = args[:p]
-    field_tys = Telescope.of(
-        *[
-            t.inst_levels(level_actuals).instantiate(params_actual, depth_above=i)
-            for i, t in enumerate(ctor.field_schemas)
-        ]
-    )
-    if len(pat.args) != len(field_tys):
-        return []
-    binders: list[tuple[str, Term]] = []
-    for field_ty, subpat in zip(field_tys, pat.args, strict=True):
-        binders.extend(_collect_binders(env, field_ty, subpat))
-    return binders

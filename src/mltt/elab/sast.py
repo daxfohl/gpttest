@@ -18,7 +18,6 @@ from mltt.elab.east import (
     EInd,
     EInductiveDef,
     ELet,
-    ELetPat,
     ELam,
     EMatch,
     EPartial,
@@ -110,10 +109,6 @@ def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabT
             from mltt.elab.match import elab_match_infer
 
             return elab_match_infer(term, env, state)
-        case ELetPat():
-            from mltt.elab.match import elab_let_pat_infer
-
-            return elab_let_pat_infer(term, env, state)
         case EInd():
             from mltt.elab.sind import elab_ind_infer
 
@@ -234,7 +229,7 @@ def resolve(term: ETerm, env: Env, names: NameEnv) -> Term:
             body_term = resolve(body, env, names)
             names.pop()
             return Let(ty_term, val_term, body_term)
-        case EMatch() | ELetPat() | EInd() | ECtor() | EInductiveDef():
+        case EMatch() | EInd() | ECtor() | EInductiveDef():
             raise SurfaceError("Surface construct requires elaboration", term.span)
         case _:
             raise SurfaceError("Unsupported surface term", term.span)

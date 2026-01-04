@@ -101,8 +101,8 @@ def test_desugar_equation_rec_in_inductive_body() -> None:
     """
     desugared = """
     inductive Nat: Type 0 :=
-    | Zero
-    | Succ(k: Nat);
+    | Zero: Nat
+    | Succ(k: Nat): Nat;
     let add(m: Nat, n: Nat): Nat :=
       match m with
       | Zero => n
@@ -190,7 +190,36 @@ def test_desugar_tuple_pattern_in_let() -> None:
     a
     """
     desugared = """
-    let Pair a b := p;
-    a
+    match p with
+    | Pair a b => a
+    """
+    _assert_desugars(sugared, desugared)
+
+
+def test_desugar_match_as_name() -> None:
+    sugared = """
+    match n as m return Nat with
+    | _ => m
+    """
+    desugared = """
+    let m := n;
+    match m return Nat with
+    | _ => m
+    """
+    _assert_desugars(sugared, desugared)
+
+
+def test_desugar_ctor_result_default() -> None:
+    sugared = """
+    inductive Maybe(A: Type 0): Type 0 :=
+    | Nothing
+    | Just(x: A);
+    Maybe
+    """
+    desugared = """
+    inductive Maybe(A: Type 0): Type 0 :=
+    | Nothing: Maybe(A)
+    | Just(x: A): Maybe(A);
+    Maybe
     """
     _assert_desugars(sugared, desugared)

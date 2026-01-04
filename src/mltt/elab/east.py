@@ -122,16 +122,8 @@ class EBranch:
 @dataclass(frozen=True)
 class EMatch(ETerm):
     scrutinee: ETerm
-    as_name: str | None
     motive: ETerm | None
     branches: tuple[EBranch, ...]
-
-
-@dataclass(frozen=True)
-class ELetPat(ETerm):
-    pat: EPat
-    value: ETerm
-    body: ETerm
 
 
 @dataclass(frozen=True)
@@ -148,7 +140,7 @@ class ECtor(ETerm):
 class EConstructorDecl:
     name: str
     fields: tuple[EBinder, ...]
-    result: ETerm | None
+    result: ETerm
     span: Span
 
 

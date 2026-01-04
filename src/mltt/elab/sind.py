@@ -148,27 +148,22 @@ def elab_inductive_infer(
             env_params_with_ind, state, ctor_decl.fields
         )
         result_indices = ArgList.empty()
-        if len(index_tys) != 0 and ctor_decl.result is None:
+        result_term, result_ty = elab_infer(ctor_decl.result, env_fields, state)
+        _expect_universe(result_ty.term, env_fields.kenv, ctor_decl.span)
+        head, _levels, args = decompose_uapp(result_term)
+        ind_head = _resolve_inductive_head(env_with_ind.kenv, head)
+        if ind_head != ind:
             raise SurfaceError(
-                "Constructor must specify result indices", ctor_decl.span
+                "Constructor result must be the inductive", ctor_decl.span
             )
-        if ctor_decl.result is not None:
-            result_term, result_ty = elab_infer(ctor_decl.result, env_fields, state)
-            _expect_universe(result_ty.term, env_fields.kenv, ctor_decl.span)
-            head, _levels, args = decompose_uapp(result_term)
-            ind_head = _resolve_inductive_head(env_with_ind.kenv, head)
-            if ind_head != ind:
-                raise SurfaceError(
-                    "Constructor result must be the inductive", ctor_decl.span
-                )
-            p = len(ind.param_types)
-            q = len(ind.index_types)
-            if len(args) != p + q:
-                raise SurfaceError("Constructor result has wrong arity", ctor_decl.span)
-            params_actual = args[:p]
-            result_indices = args[p:]
-            # Parameters may be implicit; allow non-var terms and rely on constraints.
-            result_indices = ArgList.of(*result_indices)
+        p = len(ind.param_types)
+        q = len(ind.index_types)
+        if len(args) != p + q:
+            raise SurfaceError("Constructor result has wrong arity", ctor_decl.span)
+        params_actual = args[:p]
+        result_indices = args[p:]
+        # Parameters may be implicit; allow non-var terms and rely on constraints.
+        result_indices = ArgList.of(*result_indices)
         ctor = Ctor(
             name=ctor_decl.name,
             inductive=ind,

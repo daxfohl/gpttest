@@ -16,7 +16,6 @@ from mltt.elab.east import (
     EInductiveDef,
     ELam,
     ELet,
-    ELetPat,
     EMatch,
     EPartial,
     EPat,
@@ -120,22 +119,16 @@ def _convert_term(term: SurfaceTerm) -> ETerm:
                 raise SurfaceError(
                     "Match must be desugared to one scrutinee", term.span
                 )
-            if len(term.as_names) != 1:
-                raise SurfaceError("Match as-name must be normalized", term.span)
+            if term.as_names:
+                raise SurfaceError("Match as-name must be desugared", term.span)
             return EMatch(
                 span=term.span,
                 scrutinee=_convert_term(term.scrutinees[0]),
-                as_name=term.as_names[0],
                 motive=_convert_term(term.motive) if term.motive is not None else None,
                 branches=tuple(_convert_branch(branch) for branch in term.branches),
             )
         case SLetPat():
-            return ELetPat(
-                span=term.span,
-                pat=_convert_pat(term.pat),
-                value=_convert_term(term.value),
-                body=_convert_term(term.body),
-            )
+            raise SurfaceError("Let patterns must be desugared", term.span)
         case SInd():
             return EInd(span=term.span, name=term.name)
         case SCtor():
@@ -198,9 +191,11 @@ def _convert_pat(pat: Pat) -> EPat:
 
 
 def _convert_ctor_decl(ctor: SConstructorDecl) -> EConstructorDecl:
+    if ctor.result is None:
+        raise SurfaceError("Constructor result must be desugared", ctor.span)
     return EConstructorDecl(
         name=ctor.name,
         fields=tuple(_convert_binder(b) for b in ctor.fields),
-        result=_convert_term(ctor.result) if ctor.result is not None else None,
+        result=_convert_term(ctor.result),
         span=ctor.span,
     )

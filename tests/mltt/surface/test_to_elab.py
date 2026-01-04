@@ -53,3 +53,39 @@ def test_to_elab_rejects_nested_pattern() -> None:
     )
     with pytest.raises(SurfaceError, match="Nested patterns must be desugared"):
         surface_to_elab(term)
+
+
+def test_to_elab_rejects_let_tuple_pattern() -> None:
+    term = parse_term_raw(
+        """
+        let p := ctor Sigma.Pair(Nat, fun (x: Nat) => Nat, Nat.Zero, Nat.Zero);
+        let (x, y) := p;
+        x
+        """
+    )
+    with pytest.raises(SurfaceError, match="Let patterns must be desugared"):
+        surface_to_elab(term)
+
+
+def test_to_elab_rejects_match_as_name() -> None:
+    term = parse_term_raw(
+        """
+        match n as m return Nat with
+        | _ => Nat.Zero
+        """
+    )
+    with pytest.raises(SurfaceError, match="Match as-name must be desugared"):
+        surface_to_elab(term)
+
+
+def test_to_elab_rejects_ctor_result_omitted() -> None:
+    term = parse_term_raw(
+        """
+        inductive Maybe(A: Type 0): Type 0 :=
+        | Nothing
+        | Just(x: A);
+        Maybe
+        """
+    )
+    with pytest.raises(SurfaceError, match="Constructor result must be desugared"):
+        surface_to_elab(term)
