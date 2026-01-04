@@ -11,7 +11,7 @@ from mltt.elab.ast import (
 )
 from mltt.elab.errors import ElabError
 from mltt.elab.match import resolve_inductive_head
-from mltt.elab.state import ElabState
+from mltt.solver.state import ElabState
 from mltt.elab.term import (
     elab_binders,
     expect_universe,

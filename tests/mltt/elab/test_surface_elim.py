@@ -1,6 +1,6 @@
 from types import MappingProxyType
 
-from mltt.elab.state import ElabState
+from mltt.solver.state import ElabState
 from mltt.elab.term import elab_infer
 from mltt.elab.types import ElabEnv
 from mltt.kernel.env import Env

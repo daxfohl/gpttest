@@ -1,5 +1,5 @@
 from mltt.elab.errors import ElabError
-from mltt.elab.state import ElabState
+from mltt.solver.state import ElabState
 from mltt.elab.term import elab_infer
 from mltt.elab.types import ElabEnv
 from mltt.kernel.prelude import prelude_env

@@ -5,7 +5,7 @@ from __future__ import annotations
 from mltt.common.span import Span
 from mltt.elab.ast import EBranch, EMatch, EPat, EPatCtor, EPatVar, EPatWild, ETerm
 from mltt.elab.errors import ElabError
-from mltt.elab.state import ElabState
+from mltt.solver.state import ElabState
 from mltt.elab.term import expect_universe, elab_check, elab_infer
 from mltt.elab.types import ElabEnv, ElabType
 from mltt.kernel.ast import Lam, Term, UApp, Univ, Var

@@ -1,5 +1,5 @@
 from mltt.common.span import Span
-from mltt.elab.state import ElabState
+from mltt.solver.state import ElabState
 from mltt.kernel.ast import App, Lam, Pi, Univ, Var
 from mltt.kernel.env import Env
 

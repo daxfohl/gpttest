@@ -26,7 +26,7 @@ from mltt.elab.ast import (
 )
 from mltt.elab.errors import ElabError
 from mltt.elab.names import NameEnv
-from mltt.elab.state import ElabState
+from mltt.solver.state import ElabState
 from mltt.elab.types import (
     BinderSpec,
     ElabEnv,

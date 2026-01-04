@@ -27,7 +27,7 @@ from mltt.elab.ast import (
     EVar,
 )
 from mltt.elab.errors import ElabError
-from mltt.elab.state import ElabState
+from mltt.solver.state import ElabState
 from mltt.elab.types import BinderSpec, ElabEnv, ElabType, apply_binder_specs
 from mltt.kernel.ast import App, Lam, Let, MetaVar, Pi, Term, UApp, Univ, Var
 from mltt.kernel.env import Const, Env
