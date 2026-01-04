@@ -47,10 +47,11 @@ def test_desugar_equation_rec_simple() -> None:
     add
     """
     desugared = """
-    let add(m: Nat, n: Nat): Nat :=
-      match m with
-      | Zero => n
-      | Succ k ih => succ(ih);
+    let add: (m: Nat, n: Nat) -> Nat :=
+      fun (m: Nat, n: Nat) =>
+        match m with
+        | Zero => n
+        | Succ k ih => succ(ih);
     add
     """
     _assert_desugars(sugared, desugared)
@@ -64,7 +65,15 @@ def test_desugar_equation_rec_non_binder_scrutinee_no_change() -> None:
       | Succ k => f(k, n);
     f
     """
-    _assert_desugars(sugared, sugared)
+    desugared = """
+    let f: (m: Nat, n: Nat) -> Nat :=
+      fun (m: Nat, n: Nat) =>
+        match Nat.Zero with
+        | Zero => f(m, n)
+        | Succ k => f(k, n);
+    f
+    """
+    _assert_desugars(sugared, desugared)
 
 
 def test_desugar_equation_rec_multi_scrutinee_no_change() -> None:
@@ -76,13 +85,14 @@ def test_desugar_equation_rec_multi_scrutinee_no_change() -> None:
     f
     """
     desugared = """
-    let f(m: Nat, n: Nat): Nat :=
-      match m with
-      | Zero =>
-        (match n with
-        | Zero => n
-        | _ => n)
-      | _ => n;
+    let f: (m: Nat, n: Nat) -> Nat :=
+      fun (m: Nat, n: Nat) =>
+        match m with
+        | Zero =>
+          (match n with
+          | Zero => n
+          | _ => n)
+        | _ => n;
     f
     """
     _assert_desugars(sugared, desugared)
@@ -103,10 +113,11 @@ def test_desugar_equation_rec_in_inductive_body() -> None:
     inductive Nat: Type 0 :=
     | Zero: Nat
     | Succ(k: Nat): Nat;
-    let add(m: Nat, n: Nat): Nat :=
-      match m with
-      | Zero => n
-      | Succ k ih => ih;
+    let add: (m: Nat, n: Nat) -> Nat :=
+      fun (m: Nat, n: Nat) =>
+        match m with
+        | Zero => n
+        | Succ k ih => ih;
     add
     """
     _assert_desugars(sugared, desugared)

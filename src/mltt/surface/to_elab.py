@@ -106,6 +106,8 @@ def _convert_term(term: SurfaceTerm) -> ETerm:
         case SPartial():
             return EPartial(span=term.span, term=_convert_term(term.term))
         case SLet():
+            if term.params:
+                raise SurfaceError("Let parameters must be desugared", term.span)
             return ELet(
                 span=term.span,
                 uparams=term.uparams,

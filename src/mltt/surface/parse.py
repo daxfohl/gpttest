@@ -146,309 +146,140 @@ def _span(p: yacc.YaccProduction, start: int, end: int) -> Span:
 def p_term_let(p: yacc.YaccProduction) -> None:
     "term : LET IDENT COLON term DEFINE term SEMI term"
     span = _span(p, 1, 8)
-    p[0] = SLet(
-        span=span,
-        uparams=(),
-        name=p[2],
-        ty=p[4],
-        val=p[6],
-        body=p[8],
-    )
+    p[0] = _make_let(span, (), p[2], (), p[4], p[6], p[8])
 
 
 def p_term_let_infer(p: yacc.YaccProduction) -> None:
     "term : LET IDENT DEFINE term SEMI term"
     span = _span(p, 1, 6)
-    p[0] = SLet(
-        span=span,
-        uparams=(),
-        name=p[2],
-        ty=None,
-        val=p[4],
-        body=p[6],
-    )
+    p[0] = _make_let(span, (), p[2], (), None, p[4], p[6])
 
 
 def p_term_let_suffix_uparams(p: yacc.YaccProduction) -> None:
     "term : LET IDENT u_binder COLON term DEFINE term SEMI term"
     span = _span(p, 1, 9)
-    p[0] = SLet(
-        span=span,
-        uparams=p[3],
-        name=p[2],
-        ty=p[5],
-        val=p[7],
-        body=p[9],
-    )
+    p[0] = _make_let(span, p[3], p[2], (), p[5], p[7], p[9])
 
 
 def p_term_let_infer_suffix_uparams(p: yacc.YaccProduction) -> None:
     "term : LET IDENT u_binder DEFINE term SEMI term"
     span = _span(p, 1, 7)
-    p[0] = SLet(
-        span=span,
-        uparams=p[3],
-        name=p[2],
-        ty=None,
-        val=p[5],
-        body=p[7],
-    )
+    p[0] = _make_let(span, p[3], p[2], (), None, p[5], p[7])
 
 
 def p_term_let_binders(p: yacc.YaccProduction) -> None:
     "term : LET IDENT let_binders COLON term DEFINE term SEMI term"
     span = _span(p, 1, 9)
-    ty_span = Span(p[3][0].span.start, p[5].span.end)
-    val_span = Span(p[3][0].span.start, p[7].span.end)
-    ty = SPi(span=ty_span, binders=p[3], body=p[5])
-    val = SLam(span=val_span, binders=p[3], body=p[7])
-    p[0] = SLet(
-        span=span,
-        uparams=(),
-        name=p[2],
-        ty=ty,
-        val=val,
-        body=p[9],
-    )
+    p[0] = _make_let(span, (), p[2], p[3], p[5], p[7], p[9])
 
 
 def p_term_let_binders_infer(p: yacc.YaccProduction) -> None:
     "term : LET IDENT let_binders DEFINE term SEMI term"
     span = _span(p, 1, 7)
-    val_span = Span(p[3][0].span.start, p[5].span.end)
-    val = SLam(span=val_span, binders=p[3], body=p[5])
-    p[0] = SLet(
-        span=span,
-        uparams=(),
-        name=p[2],
-        ty=None,
-        val=val,
-        body=p[7],
-    )
+    p[0] = _make_let(span, (), p[2], p[3], None, p[5], p[7])
 
 
 def p_term_let_binders_suffix_uparams(p: yacc.YaccProduction) -> None:
     "term : LET IDENT u_binder let_binders COLON term DEFINE term SEMI term"
     span = _span(p, 1, 10)
-    ty_span = Span(p[4][0].span.start, p[6].span.end)
-    val_span = Span(p[4][0].span.start, p[8].span.end)
-    ty = SPi(span=ty_span, binders=p[4], body=p[6])
-    val = SLam(span=val_span, binders=p[4], body=p[8])
-    p[0] = SLet(
-        span=span,
-        uparams=p[3],
-        name=p[2],
-        ty=ty,
-        val=val,
-        body=p[10],
-    )
+    p[0] = _make_let(span, p[3], p[2], p[4], p[6], p[8], p[10])
 
 
 def p_term_let_binders_infer_suffix_uparams(p: yacc.YaccProduction) -> None:
     "term : LET IDENT u_binder let_binders DEFINE term SEMI term"
     span = _span(p, 1, 8)
-    val_span = Span(p[4][0].span.start, p[6].span.end)
-    val = SLam(span=val_span, binders=p[4], body=p[6])
-    p[0] = SLet(
-        span=span,
-        uparams=p[3],
-        name=p[2],
-        ty=None,
-        val=val,
-        body=p[8],
-    )
+    p[0] = _make_let(span, p[3], p[2], p[4], None, p[6], p[8])
 
 
 def p_term_let_type_params(p: yacc.YaccProduction) -> None:
     "term : LET IDENT type_params COLON term DEFINE term SEMI term"
     span = _span(p, 1, 9)
-    binders = p[3]
-    ty_span = Span(binders[0].span.start, p[5].span.end)
-    val_span = Span(binders[0].span.start, p[7].span.end)
-    ty = SPi(span=ty_span, binders=binders, body=p[5])
-    val = SLam(span=val_span, binders=binders, body=p[7])
-    p[0] = SLet(
-        span=span,
-        uparams=(),
-        name=p[2],
-        ty=ty,
-        val=val,
-        body=p[9],
-    )
+    p[0] = _make_let(span, (), p[2], p[3], p[5], p[7], p[9])
 
 
 def p_term_let_type_params_infer(p: yacc.YaccProduction) -> None:
     "term : LET IDENT type_params DEFINE term SEMI term"
     span = _span(p, 1, 7)
-    val_span = Span(p[3][0].span.start, p[5].span.end)
-    val = SLam(span=val_span, binders=p[3], body=p[5])
-    p[0] = SLet(
-        span=span,
-        uparams=(),
-        name=p[2],
-        ty=None,
-        val=val,
-        body=p[7],
-    )
+    p[0] = _make_let(span, (), p[2], p[3], None, p[5], p[7])
 
 
 def p_term_let_type_params_binders(p: yacc.YaccProduction) -> None:
     "term : LET IDENT type_params let_binders COLON term DEFINE term SEMI term"
     span = _span(p, 1, 10)
-    binders = p[3] + p[4]
-    ty_span = Span(binders[0].span.start, p[6].span.end)
-    val_span = Span(binders[0].span.start, p[8].span.end)
-    ty = SPi(span=ty_span, binders=binders, body=p[6])
-    val = SLam(span=val_span, binders=binders, body=p[8])
-    p[0] = SLet(
-        span=span,
-        uparams=(),
-        name=p[2],
-        ty=ty,
-        val=val,
-        body=p[10],
-    )
+    p[0] = _make_let(span, (), p[2], p[3] + p[4], p[6], p[8], p[10])
 
 
 def p_term_let_type_params_binders_infer(p: yacc.YaccProduction) -> None:
     "term : LET IDENT type_params let_binders DEFINE term SEMI term"
     span = _span(p, 1, 8)
-    binders = p[3] + p[4]
-    val_span = Span(binders[0].span.start, p[6].span.end)
-    val = SLam(span=val_span, binders=binders, body=p[6])
-    p[0] = SLet(
-        span=span,
-        uparams=(),
-        name=p[2],
-        ty=None,
-        val=val,
-        body=p[8],
-    )
+    p[0] = _make_let(span, (), p[2], p[3] + p[4], None, p[6], p[8])
 
 
 def p_term_let_type_params_uparams(p: yacc.YaccProduction) -> None:
     "term : LET IDENT u_binder type_params let_binders COLON term DEFINE term SEMI term"
     span = _span(p, 1, 11)
-    binders = p[4] + p[5]
-    ty_span = Span(binders[0].span.start, p[7].span.end)
-    val_span = Span(binders[0].span.start, p[9].span.end)
-    ty = SPi(span=ty_span, binders=binders, body=p[7])
-    val = SLam(span=val_span, binders=binders, body=p[9])
-    p[0] = SLet(
-        span=span,
-        uparams=p[3],
-        name=p[2],
-        ty=ty,
-        val=val,
-        body=p[11],
-    )
+    p[0] = _make_let(span, p[3], p[2], p[4] + p[5], p[7], p[9], p[11])
 
 
 def p_term_let_type_params_infer_uparams(p: yacc.YaccProduction) -> None:
     "term : LET IDENT u_binder type_params let_binders DEFINE term SEMI term"
     span = _span(p, 1, 9)
-    binders = p[4] + p[5]
-    val_span = Span(binders[0].span.start, p[7].span.end)
-    val = SLam(span=val_span, binders=binders, body=p[7])
-    p[0] = SLet(
-        span=span,
-        uparams=p[3],
-        name=p[2],
-        ty=None,
-        val=val,
-        body=p[9],
-    )
+    p[0] = _make_let(span, p[3], p[2], p[4] + p[5], None, p[7], p[9])
 
 
 def p_term_let_uparams_type_params(p: yacc.YaccProduction) -> None:
     "term : LET u_binders_nonempty IDENT type_params let_binders COLON term DEFINE term SEMI term"
     span = _span(p, 1, 11)
-    binders = p[4] + p[5]
-    ty_span = Span(binders[0].span.start, p[7].span.end)
-    val_span = Span(binders[0].span.start, p[9].span.end)
-    ty = SPi(span=ty_span, binders=binders, body=p[7])
-    val = SLam(span=val_span, binders=binders, body=p[9])
-    p[0] = SLet(
-        span=span,
-        uparams=p[2],
-        name=p[3],
-        ty=ty,
-        val=val,
-        body=p[11],
-    )
+    p[0] = _make_let(span, p[2], p[3], p[4] + p[5], p[7], p[9], p[11])
 
 
 def p_term_let_uparams_type_params_infer(p: yacc.YaccProduction) -> None:
     "term : LET u_binders_nonempty IDENT type_params let_binders DEFINE term SEMI term"
     span = _span(p, 1, 9)
-    binders = p[4] + p[5]
-    val_span = Span(binders[0].span.start, p[7].span.end)
-    val = SLam(span=val_span, binders=binders, body=p[7])
-    p[0] = SLet(
-        span=span,
-        uparams=p[2],
-        name=p[3],
-        ty=None,
-        val=val,
-        body=p[9],
-    )
+    p[0] = _make_let(span, p[2], p[3], p[4] + p[5], None, p[7], p[9])
 
 
 def p_term_let_uparams(p: yacc.YaccProduction) -> None:
     "term : LET u_binders_nonempty IDENT COLON term DEFINE term SEMI term"
     span = _span(p, 1, 9)
-    p[0] = SLet(
-        span=span,
-        uparams=p[2],
-        name=p[3],
-        ty=p[5],
-        val=p[7],
-        body=p[9],
-    )
+    p[0] = _make_let(span, p[2], p[3], (), p[5], p[7], p[9])
 
 
 def p_term_let_infer_uparams(p: yacc.YaccProduction) -> None:
     "term : LET u_binders_nonempty IDENT DEFINE term SEMI term"
     span = _span(p, 1, 7)
-    p[0] = SLet(
-        span=span,
-        uparams=p[2],
-        name=p[3],
-        ty=None,
-        val=p[5],
-        body=p[7],
-    )
+    p[0] = _make_let(span, p[2], p[3], (), None, p[5], p[7])
 
 
 def p_term_let_uparams_binders(p: yacc.YaccProduction) -> None:
     "term : LET u_binders_nonempty IDENT let_binders COLON term DEFINE term SEMI term"
     span = _span(p, 1, 10)
-    ty_span = Span(p[4][0].span.start, p[6].span.end)
-    val_span = Span(p[4][0].span.start, p[8].span.end)
-    ty = SPi(span=ty_span, binders=p[4], body=p[6])
-    val = SLam(span=val_span, binders=p[4], body=p[8])
-    p[0] = SLet(
-        span=span,
-        uparams=p[2],
-        name=p[3],
-        ty=ty,
-        val=val,
-        body=p[10],
-    )
+    p[0] = _make_let(span, p[2], p[3], p[4], p[6], p[8], p[10])
 
 
 def p_term_let_uparams_binders_infer(p: yacc.YaccProduction) -> None:
     "term : LET u_binders_nonempty IDENT let_binders DEFINE term SEMI term"
     span = _span(p, 1, 8)
-    val_span = Span(p[4][0].span.start, p[6].span.end)
-    val = SLam(span=val_span, binders=p[4], body=p[6])
-    p[0] = SLet(
+    p[0] = _make_let(span, p[2], p[3], p[4], None, p[6], p[8])
+
+
+def _make_let(
+    span: Span,
+    uparams: tuple[str, ...],
+    name: str,
+    params: tuple[SBinder, ...],
+    ty: SurfaceTerm | None,
+    val: SurfaceTerm,
+    body: SurfaceTerm,
+) -> SLet:
+    return SLet(
         span=span,
-        uparams=p[2],
-        name=p[3],
-        ty=None,
+        uparams=uparams,
+        name=name,
+        params=params,
+        ty=ty,
         val=val,
-        body=p[8],
+        body=body,
     )
 
 

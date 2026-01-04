@@ -18,6 +18,7 @@ from mltt.surface.sast import (
     SPartial,
     SUApp,
     SVar,
+    Span,
     SurfaceError,
     SurfaceTerm,
 )
@@ -41,12 +42,7 @@ def desugar(term: SurfaceTerm) -> SurfaceTerm:
 def _desugar_term(term: SurfaceTerm) -> SurfaceTerm:
     match term:
         case SLet():
-            new_val = _desugar_equation_rec_in_lambda(term.name, term.val)
-            new_val = _desugar_term(new_val)
-            new_body = _desugar_term(term.body)
-            if new_val is not term.val or new_body is not term.body:
-                return dataclasses.replace(term, val=new_val, body=new_body)
-            return term
+            return _desugar_let(term)
         case SLam():
             new_body = _desugar_term(term.body)
             if new_body is not term.body:
@@ -91,6 +87,39 @@ def _desugar_term(term: SurfaceTerm) -> SurfaceTerm:
             return _desugar_inductive_def(term)
         case _:
             return term
+
+
+def _desugar_let(term: SLet) -> SurfaceTerm:
+    params = term.params
+    new_val = term.val
+    if params:
+        val_span = Span(params[0].span.start, new_val.span.end)
+        new_val = SLam(span=val_span, binders=params, body=new_val)
+    new_val = _desugar_equation_rec_in_lambda(term.name, new_val)
+    new_val = _desugar_term(new_val)
+    new_body = _desugar_term(term.body)
+    new_ty: SurfaceTerm | None = None
+    if term.ty is not None:
+        new_ty = _desugar_term(term.ty)
+        if params:
+            ty_span = Span(params[0].span.start, new_ty.span.end)
+            new_ty = SPi(span=ty_span, binders=params, body=new_ty)
+    if (
+        new_val is term.val
+        and new_body is term.body
+        and new_ty is term.ty
+        and not params
+    ):
+        return term
+    return SLet(
+        span=term.span,
+        uparams=term.uparams,
+        name=term.name,
+        params=(),
+        ty=new_ty,
+        val=new_val,
+        body=new_body,
+    )
 
 
 def _desugar_equation_rec_in_lambda(name: str, term: SurfaceTerm) -> SurfaceTerm:
@@ -418,6 +447,7 @@ def _compile_branches(
                         span=head.span,
                         uparams=(),
                         name=head.pat.name,
+                        params=(),
                         ty=None,
                         val=scrutinee,
                         body=head.rhs,
@@ -507,6 +537,7 @@ def _compile_pat(
                 span=pat.span,
                 uparams=(),
                 name=pat.name,
+                params=(),
                 ty=None,
                 val=scrutinee,
                 body=success,
@@ -577,6 +608,7 @@ def _strip_as_names(term: SurfaceTerm) -> SurfaceTerm:
                 span=term.span,
                 uparams=(),
                 name=as_name,
+                params=(),
                 ty=None,
                 val=new_scrutinees[0],
                 body=SMatch(
@@ -650,6 +682,7 @@ def _desugar_let_pat(term: SLetPat) -> SurfaceTerm:
                     span=term.span,
                     uparams=(),
                     name=new_pat.name,
+                    params=(),
                     ty=None,
                     val=new_value,
                     body=new_body,
@@ -659,6 +692,7 @@ def _desugar_let_pat(term: SLetPat) -> SurfaceTerm:
                 span=term.span,
                 uparams=(),
                 name="_",
+                params=(),
                 ty=None,
                 val=new_value,
                 body=new_body,

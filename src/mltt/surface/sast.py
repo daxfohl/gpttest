@@ -106,6 +106,7 @@ class SPartial(SurfaceTerm):
 class SLet(SurfaceTerm):
     uparams: tuple[str, ...]
     name: str
+    params: tuple[SBinder, ...]
     ty: SurfaceTerm | None
     val: SurfaceTerm
     body: SurfaceTerm
