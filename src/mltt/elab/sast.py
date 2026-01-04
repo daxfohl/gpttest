@@ -5,7 +5,7 @@ from __future__ import annotations
 from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
-from mltt.kernel.levels import LConst, LevelExpr
+from mltt.kernel.levels import LConst, LVar, LevelExpr
 from mltt.elab.elab_state import ElabState
 from mltt.elab.east import (
     EAnn,
@@ -22,6 +22,7 @@ from mltt.elab.east import (
     EMatch,
     EPartial,
     EPi,
+    ELevel,
     EUniv,
     EUApp,
     EVar,
@@ -68,10 +69,8 @@ def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabT
             level_expr: LevelExpr | int
             if level is None:
                 level_expr = state.fresh_level_meta("type", term.span)
-            elif isinstance(level, str):
-                level_expr = state.lookup_level(level, term.span)
             else:
-                level_expr = level
+                level_expr = _level_expr(level)
             term_k = Univ(level_expr)
             return term_k, ElabType(Univ(LevelExpr.of(level_expr).succ()))
         case EAnn(term=inner, ty=ty_src):
@@ -156,9 +155,7 @@ def resolve(term: ETerm, env: Env, names: NameEnv) -> Term:
         case EUniv(level=level):
             if level is None:
                 raise SurfaceError("Universe requires elaboration", term.span)
-            if isinstance(level, str):
-                raise SurfaceError("Universe requires elaboration", term.span)
-            return Univ(level)
+            return Univ(_level_expr(level))
         case EAnn(term=inner, ty=ty_src):
             _ = ty_src
             return resolve(inner, env, names)
@@ -200,15 +197,7 @@ def resolve(term: ETerm, env: Env, names: NameEnv) -> Term:
             return term_k
         case EUApp(head=head, levels=levels):
             head_term = resolve(head, env, names)
-            if any(isinstance(level, str) for level in levels):
-                raise SurfaceError("Universe requires elaboration", term.span)
-            int_levels: list[int] = []
-            for level in levels:
-                if isinstance(level, int):
-                    int_levels.append(level)
-                else:
-                    raise SurfaceError("Universe requires elaboration", term.span)
-            level_terms = tuple(LConst(level) for level in int_levels)
+            level_terms = tuple(_level_expr(level) for level in levels)
             return UApp(head_term, level_terms)
         case EPartial(term=inner):
             return resolve(inner, env, names)
@@ -363,15 +352,19 @@ def _elab_uapp_infer(
             if isinstance(head_term, UApp):
                 head_term = head_term.head
     level_terms: tuple[LevelExpr, ...] = tuple(
-        (
-            LConst(level)
-            if isinstance(level, int)
-            else state.lookup_level(level, term.span)
-        )
-        for level in term.levels
+        _level_expr(level) for level in term.levels
     )
     uapp = UApp(head_term, level_terms)
     return uapp, ElabType(uapp.infer_type(env.kenv))
+
+
+def _level_expr(level: ELevel) -> LevelExpr:
+    match level:
+        case ELevel(kind="const", value=value):
+            return LConst(value)
+        case ELevel(kind="bound", value=value):
+            return LVar(value)
+    raise ValueError("Unknown level expression")
 
 
 def _elab_partial_infer(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from mltt.surface.sast import Span
 
@@ -44,7 +45,13 @@ class EConst(ETerm):
 
 @dataclass(frozen=True)
 class EUniv(ETerm):
-    level: int | str | None
+    level: "ELevel | None"
+
+
+@dataclass(frozen=True)
+class ELevel:
+    kind: Literal["const", "bound"]
+    value: int
 
 
 @dataclass(frozen=True)
@@ -80,7 +87,7 @@ class EApp(ETerm):
 @dataclass(frozen=True)
 class EUApp(ETerm):
     head: ETerm
-    levels: tuple[int | str, ...]
+    levels: tuple[ELevel, ...]
 
 
 @dataclass(frozen=True)
