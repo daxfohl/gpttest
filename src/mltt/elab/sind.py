@@ -237,15 +237,3 @@ def elab_inductive_infer(
     if isinstance(body_term, Ind) and body_term.name == term.name:
         body_term = ind
     return body_term, body_ty
-
-
-def resolve_ind(term: ETerm, env: Env, names: NameEnv) -> Term:
-    raise ElabError("Inductive references require elaboration", term.span)
-
-
-def resolve_ctor(term: ETerm, env: Env, names: NameEnv) -> Term:
-    raise ElabError("Constructor references require elaboration", term.span)
-
-
-def resolve_inductive(term: ETerm, env: Env, names: NameEnv) -> Term:
-    raise ElabError("Inductive definitions require elaboration", term.span)
