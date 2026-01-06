@@ -1,12 +1,12 @@
 from mltt.common.span import Span
 from mltt.kernel.ast import App, Lam, Pi, Univ, Var
 from mltt.kernel.env import Env
-from mltt.solver.state import ElabState
+from mltt.solver.solver import Solver
 
 
 def test_spine_meta_solve() -> None:
     env = Env.of(Var(0), Univ(0))
-    state = ElabState()
+    state = Solver()
     meta = state.fresh_meta(env, Pi(Var(1), Var(1)), Span(0, 0), kind="implicit")
     state.add_constraint(env, App(meta, Var(0)), Var(0), Span(0, 0))
     state.solve(env)

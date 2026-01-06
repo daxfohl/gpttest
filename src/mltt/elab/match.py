@@ -5,7 +5,7 @@ from __future__ import annotations
 from mltt.common.span import Span
 from mltt.elab.ast import EBranch, EMatch, EPat, EPatCtor, EPatVar, EPatWild, ETerm
 from mltt.elab.errors import ElabError
-from mltt.solver.state import ElabState
+from mltt.solver.solver import Solver
 from mltt.elab.term import expect_universe, elab_check, elab_infer
 from mltt.elab.types import ElabEnv, ElabType
 from mltt.kernel.ast import Lam, Term, UApp, Univ, Var
@@ -35,7 +35,7 @@ def _looks_like_ctor(name: str) -> bool:
 
 
 def _elab_scrutinee_info(
-    scrutinee: ETerm, env: ElabEnv, state: ElabState
+    scrutinee: ETerm, env: ElabEnv, state: Solver
 ) -> tuple[Term, Term, Term, tuple[LevelExpr, ...], Spine]:
     scrut_term, scrut_ty = elab_infer(scrutinee, env, state)
     scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
@@ -174,7 +174,7 @@ def _branch_map(
 
 
 def elab_match_infer(
-    match: EMatch, env: ElabEnv, state: ElabState
+    match: EMatch, env: ElabEnv, state: Solver
 ) -> tuple[Term, ElabType]:
     if match.motive is None:
         if len(match.branches) != 1:
@@ -190,7 +190,7 @@ def elab_match_infer(
 
 
 def elab_match_check(
-    match: EMatch, env: ElabEnv, state: ElabState, expected: ElabType
+    match: EMatch, env: ElabEnv, state: Solver, expected: ElabType
 ) -> Term:
     if match.motive is not None:
         term, term_ty = _elab_match_with_motive(match, env, state)
@@ -200,7 +200,7 @@ def elab_match_check(
 
 
 def _elab_match_core(
-    match: EMatch, env: ElabEnv, state: ElabState, expected: ElabType
+    match: EMatch, env: ElabEnv, state: Solver, expected: ElabType
 ) -> Term:
     scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
         match.scrutinee, env, state
@@ -256,7 +256,7 @@ def _elab_match_core(
 
 
 def _elab_match_with_motive(
-    match: EMatch, env: ElabEnv, state: ElabState
+    match: EMatch, env: ElabEnv, state: Solver
 ) -> tuple[Term, ElabType]:
     if match.motive is None:
         raise ElabError("Match motive missing", match.span)

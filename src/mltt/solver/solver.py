@@ -3,68 +3,276 @@
 from __future__ import annotations
 
 from collections import deque
+from dataclasses import dataclass, field
 
 from mltt.common.span import Span
 from mltt.elab.errors import ElabError
 from mltt.kernel.ast import App, Lam, MetaVar, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Env
-from mltt.kernel.ind import Elim
-from mltt.kernel.levels import LMax, LMeta, LSucc, LevelExpr
+from mltt.kernel.ind import Elim, Ind
+from mltt.kernel.levels import LConst, LMax, LMeta, LSucc, LVar, LevelExpr
 from mltt.solver.constraints import Constraint
-from mltt.solver.state import ElabState
+from mltt.solver.levels import LMetaInfo, LevelConstraint
+from mltt.solver.meta import Meta
 
 
-def solve(state: ElabState, env: Env) -> None:
-    _ConstraintSolver(state).solve(env)
+@dataclass
+class Solver:
+    metas: dict[int, Meta] = field(default_factory=dict)
+    constraints: list[Constraint] = field(default_factory=list)
+    next_id: int = 0
+    level_metas: dict[int, LMetaInfo] = field(default_factory=dict)
+    level_constraints: list[LevelConstraint] = field(default_factory=list)
+    next_level_id: int = 0
 
+    def fresh_meta(
+        self, env: Env, expected: Term, span: Span | None, *, kind: str
+    ) -> MetaVar:
+        mid = self.next_id
+        self.next_id += 1
+        self.metas[mid] = Meta(
+            ctx_len=len(env.binders), ty=expected, span=span, kind=kind
+        )
+        return MetaVar(mid)
 
-def ensure_solved(state: ElabState) -> None:
-    _ConstraintSolver(state).ensure_solved()
+    def fresh_level_meta(self, origin: str, span: Span | None) -> LMeta:
+        mid = self.next_level_id
+        self.next_level_id += 1
+        self.level_metas[mid] = LMetaInfo(span=span, origin=origin)
+        return LMeta(mid)
 
+    def apply_implicit_levels(
+        self, head: Term, uarity: int, span: Span
+    ) -> tuple[Term, tuple[LevelExpr, ...]]:
+        if uarity <= 0:
+            return head, ()
+        levels = tuple(self.fresh_level_meta("implicit", span) for _ in range(uarity))
+        return UApp(head, levels), levels
 
-def zonk(state: ElabState, term: Term) -> Term:
-    return _ConstraintSolver(state).zonk(term)
+    def add_constraint(self, env: Env, lhs: Term, rhs: Term, span: Span | None) -> None:
+        constraint = Constraint(len(env.binders), lhs, rhs, span)
+        if self._solve_meta(env, constraint, lhs, rhs):
+            return
+        self.constraints.append(constraint)
 
+    def add_level_constraint(
+        self,
+        lhs: LevelExpr,
+        rhs: LevelExpr,
+        span: Span | None,
+        reason: str | None = None,
+    ) -> None:
+        self.level_constraints.append(LevelConstraint(lhs, rhs, span, reason))
 
-def zonk_level(state: ElabState, level: LevelExpr) -> LevelExpr:
-    return _ConstraintSolver(state).zonk_level(level)
+    def generalize_let(self, ty: Term, value: Term) -> tuple[int, Term, Term]:
+        meta_ids = self._collect_level_metas(ty) | self._collect_level_metas(value)
+        if not meta_ids:
+            return 0, ty, value
+        equalities = self._level_meta_equalities()
+        parent: dict[int, int] = {mid: mid for mid in meta_ids}
 
+        def find(mid: int) -> int:
+            while parent[mid] != mid:
+                parent[mid] = parent[parent[mid]]
+                mid = parent[mid]
+            return mid
 
-def solve_meta(
-    state: ElabState,
-    env: Env,
-    constraint: Constraint,
-    lhs: Term,
-    rhs: Term,
-) -> bool:
-    return _ConstraintSolver(state)._solve_meta(env, constraint, lhs, rhs)
+        def union(a: int, b: int) -> None:
+            ra = find(a)
+            rb = find(b)
+            if ra != rb:
+                parent[rb] = ra
 
+        for a, b in equalities:
+            if a in parent and b in parent:
+                union(a, b)
 
-class _ConstraintSolver:
-    def __init__(self, state: ElabState) -> None:
-        self._state = state
+        groups: dict[int, list[int]] = {}
+        for mid in meta_ids:
+            groups.setdefault(find(mid), []).append(mid)
+
+        to_generalize: list[list[int]] = []
+        for members in groups.values():
+            infos = [self.level_metas.get(mid) for mid in members]
+            if any(info is None or info.solution is not None for info in infos):
+                continue
+            if any(info.upper_bounds for info in infos if info is not None):
+                continue
+            if any(info.lower_bound != LConst(0) for info in infos if info is not None):
+                continue
+            to_generalize.append(sorted(members))
+
+        if not to_generalize:
+            return 0, ty, value
+
+        mapping: dict[int, LevelExpr] = {}
+        for idx, group in enumerate(to_generalize):
+            for mid in group:
+                mapping[mid] = LVar(idx)
+        ty_gen = self._replace_level_metas(ty, mapping)
+        value_gen = self._replace_level_metas(value, mapping)
+        if mapping:
+            self.constraints = [
+                Constraint(
+                    c.ctx_len,
+                    self._replace_level_metas(c.lhs, mapping),
+                    self._replace_level_metas(c.rhs, mapping),
+                    c.span,
+                    c.kind,
+                )
+                for c in self.constraints
+            ]
+            self.level_constraints = [
+                LevelConstraint(
+                    self._replace_level_expr(c.lhs, mapping),
+                    self._replace_level_expr(c.rhs, mapping),
+                    c.span,
+                    c.reason,
+                )
+                for c in self.level_constraints
+            ]
+        for group in to_generalize:
+            for mid in group:
+                self.level_metas.pop(mid, None)
+        return len(to_generalize), ty_gen, value_gen
+
+    def merge_type_level_metas(self, terms: list[Term]) -> list[Term]:
+        meta_ids: list[int] = []
+        for term in terms:
+            meta_ids.extend(self._collect_level_metas(term))
+        seen: set[int] = set()
+        type_metas: list[int] = []
+        for mid in meta_ids:
+            if mid in seen:
+                continue
+            info = self.level_metas.get(mid)
+            if info is None or info.solution is not None or info.origin != "type":
+                continue
+            seen.add(mid)
+            type_metas.append(mid)
+        if len(type_metas) <= 1:
+            return terms
+        root = type_metas[0]
+        mapping: dict[int, LevelExpr] = {mid: LMeta(root) for mid in type_metas[1:]}
+        terms = [self._replace_level_metas(term, mapping) for term in terms]
+        if mapping:
+            self.constraints = [
+                Constraint(
+                    c.ctx_len,
+                    self._replace_level_metas(c.lhs, mapping),
+                    self._replace_level_metas(c.rhs, mapping),
+                    c.span,
+                    c.kind,
+                )
+                for c in self.constraints
+            ]
+            self.level_constraints = [
+                LevelConstraint(
+                    self._replace_level_expr(c.lhs, mapping),
+                    self._replace_level_expr(c.rhs, mapping),
+                    c.span,
+                    c.reason,
+                )
+                for c in self.level_constraints
+            ]
+        for mid in type_metas[1:]:
+            self.level_metas.pop(mid, None)
+        return terms
+
+    def generalize_levels(self, terms: list[Term]) -> tuple[int, list[Term]]:
+        meta_ids: set[int] = set()
+        for term in terms:
+            meta_ids |= self._collect_level_metas(term)
+        if not meta_ids:
+            return 0, terms
+        equalities = self._level_meta_equalities()
+        parent: dict[int, int] = {mid: mid for mid in meta_ids}
+
+        def find(mid: int) -> int:
+            while parent[mid] != mid:
+                parent[mid] = parent[parent[mid]]
+                mid = parent[mid]
+            return mid
+
+        def union(a: int, b: int) -> None:
+            ra = find(a)
+            rb = find(b)
+            if ra != rb:
+                parent[rb] = ra
+
+        for a, b in equalities:
+            if a in parent and b in parent:
+                union(a, b)
+
+        groups: dict[int, list[int]] = {}
+        for mid in meta_ids:
+            groups.setdefault(find(mid), []).append(mid)
+
+        to_generalize: list[list[int]] = []
+        for members in groups.values():
+            infos = [self.level_metas.get(mid) for mid in members]
+            if any(info is None or info.solution is not None for info in infos):
+                continue
+            if any(info.upper_bounds for info in infos if info is not None):
+                continue
+            if any(info.lower_bound != LConst(0) for info in infos if info is not None):
+                continue
+            to_generalize.append(sorted(members))
+
+        if not to_generalize:
+            return 0, terms
+
+        mapping: dict[int, LevelExpr] = {}
+        for idx, group in enumerate(to_generalize):
+            for mid in group:
+                mapping[mid] = LVar(idx)
+        terms_gen = [self._replace_level_metas(term, mapping) for term in terms]
+        if mapping:
+            self.constraints = [
+                Constraint(
+                    c.ctx_len,
+                    self._replace_level_metas(c.lhs, mapping),
+                    self._replace_level_metas(c.rhs, mapping),
+                    c.span,
+                    c.kind,
+                )
+                for c in self.constraints
+            ]
+            self.level_constraints = [
+                LevelConstraint(
+                    self._replace_level_expr(c.lhs, mapping),
+                    self._replace_level_expr(c.rhs, mapping),
+                    c.span,
+                    c.reason,
+                )
+                for c in self.level_constraints
+            ]
+        for group in to_generalize:
+            for mid in group:
+                self.level_metas.pop(mid, None)
+        return len(to_generalize), terms_gen
 
     def solve(self, env: Env) -> None:
-        queue: deque[Constraint] = deque(self._state.constraints)
+        queue: deque[Constraint] = deque(self.constraints)
         postponed: list[Constraint] = []
-        self._state.constraints = []
+        self.constraints = []
         progress = True
         while queue or progress:
             progress = False
             while queue:
                 constraint = queue.popleft()
                 result = self._solve_constraint(env, constraint)
-                if self._state.constraints:
+                if self.constraints:
                     queue.extendleft(
                         reversed(
                             [
                                 c
-                                for c in self._state.constraints
+                                for c in self.constraints
                                 if self._constraint_has_meta(c)
                             ]
                         )
                     )
-                    self._state.constraints = []
+                    self.constraints = []
                 if result == "solved":
                     progress = True
                     continue
@@ -86,17 +294,13 @@ class _ConstraintSolver:
                             lhs = self.zonk(smallest.lhs)
                             rhs = self.zonk(smallest.rhs)
                             raise ElabError(f"Stuck constraint: {lhs} ≡ {rhs}", span)
-            if self._state.constraints:
+            if self.constraints:
                 queue.extendleft(
                     reversed(
-                        [
-                            c
-                            for c in self._state.constraints
-                            if self._constraint_has_meta(c)
-                        ]
+                        [c for c in self.constraints if self._constraint_has_meta(c)]
                     )
                 )
-                self._state.constraints = []
+                self.constraints = []
                 progress = True
             progress = self._solve_level_constraints() or progress
 
@@ -107,7 +311,7 @@ class _ConstraintSolver:
             if isinstance(t, MetaVar):
                 if t.mid in cache:
                     return cache[t.mid]
-                meta = self._state.metas.get(t.mid)
+                meta = self.metas.get(t.mid)
                 if meta is not None and meta.solution is not None:
                     cache[t.mid] = walk(meta.solution)
                     return cache[t.mid]
@@ -126,7 +330,7 @@ class _ConstraintSolver:
     def zonk_level(self, level: LevelExpr) -> LevelExpr:
         match level:
             case LMeta(mid):
-                meta = self._state.level_metas.get(mid)
+                meta = self.level_metas.get(mid)
                 if meta is not None and meta.solution is not None:
                     return self.zonk_level(meta.solution)
                 return level
@@ -139,9 +343,7 @@ class _ConstraintSolver:
 
     def ensure_solved(self) -> None:
         unsolved = [
-            (mid, meta)
-            for mid, meta in self._state.metas.items()
-            if meta.solution is None
+            (mid, meta) for mid, meta in self.metas.items() if meta.solution is None
         ]
         if unsolved:
             mid, meta = unsolved[0]
@@ -154,7 +356,7 @@ class _ConstraintSolver:
                     f"Cannot synthesize value for hole ?m{mid}; expected type {ty}"
                 )
             raise ElabError(message, span)
-        for mid, info in self._state.level_metas.items():
+        for mid, info in self.level_metas.items():
             if info.solution is None:
                 span = info.span or Span(0, 0)
                 raise ElabError(f"Cannot infer universe level ?u{mid}", span)
@@ -186,18 +388,18 @@ class _ConstraintSolver:
                 if lhs_head == rhs_head:
                     return "progress"
         if isinstance(lhs, Univ) and isinstance(rhs, Univ):
-            self._state.add_level_constraint(lhs.level, rhs.level, constraint.span)
-            self._state.add_level_constraint(rhs.level, lhs.level, constraint.span)
+            self.add_level_constraint(lhs.level, rhs.level, constraint.span)
+            self.add_level_constraint(rhs.level, lhs.level, constraint.span)
             return "progress"
         if type(lhs) is not type(rhs):
             raise ElabError(
                 f"Cannot unify {lhs} with {rhs}", constraint.span or Span(0, 0)
             )
         if isinstance(lhs, Pi) and isinstance(rhs, Pi):
-            self._state.constraints.append(
+            self.constraints.append(
                 Constraint(constraint.ctx_len, lhs.arg_ty, rhs.arg_ty, constraint.span)
             )
-            self._state.constraints.append(
+            self.constraints.append(
                 Constraint(
                     constraint.ctx_len + 1,
                     lhs.return_ty,
@@ -207,15 +409,15 @@ class _ConstraintSolver:
             )
             return "progress"
         if isinstance(lhs, Lam) and isinstance(rhs, Lam):
-            self._state.constraints.append(
+            self.constraints.append(
                 Constraint(constraint.ctx_len + 1, lhs.body, rhs.body, constraint.span)
             )
             return "progress"
         if isinstance(lhs, App) and isinstance(rhs, App):
-            self._state.constraints.append(
+            self.constraints.append(
                 Constraint(constraint.ctx_len, lhs.func, rhs.func, constraint.span)
             )
-            self._state.constraints.append(
+            self.constraints.append(
                 Constraint(constraint.ctx_len, lhs.arg, rhs.arg, constraint.span)
             )
             return "progress"
@@ -224,16 +426,16 @@ class _ConstraintSolver:
             and isinstance(rhs, Elim)
             and lhs.inductive == rhs.inductive
         ):
-            self._state.constraints.append(
+            self.constraints.append(
                 Constraint(constraint.ctx_len, lhs.motive, rhs.motive, constraint.span)
             )
-            self._state.constraints.append(
+            self.constraints.append(
                 Constraint(
                     constraint.ctx_len, lhs.scrutinee, rhs.scrutinee, constraint.span
                 )
             )
             for l_case, r_case in zip(lhs.cases, rhs.cases, strict=True):
-                self._state.constraints.append(
+                self.constraints.append(
                     Constraint(constraint.ctx_len, l_case, r_case, constraint.span)
                 )
             return "progress"
@@ -281,7 +483,7 @@ class _ConstraintSolver:
         return found
 
     def _try_solve_meta(self, env: Env, meta_term: MetaVar, rhs: Term) -> bool:
-        meta = self._state.metas.get(meta_term.mid)
+        meta = self.metas.get(meta_term.mid)
         if meta is None or meta.solution is not None:
             return False
         rhs = self.zonk(rhs)
@@ -301,7 +503,8 @@ class _ConstraintSolver:
         rhs: Term,
         constraint: Constraint,
     ) -> bool:
-        meta = self._state.metas.get(meta_term.mid)
+        _ = constraint
+        meta = self.metas.get(meta_term.mid)
         if meta is None or meta.solution is not None:
             return False
         if not spine:
@@ -348,18 +551,16 @@ class _ConstraintSolver:
         return arg_tys
 
     def _solve_level_constraints(self) -> bool:
-        from mltt.solver.levels import LevelConstraint
-
         progress = False
-        queue: deque[LevelConstraint] = deque(self._state.level_constraints)
-        self._state.level_constraints = []
+        queue: deque[LevelConstraint] = deque(self.level_constraints)
+        self.level_constraints = []
         while queue:
             constraint = queue.popleft()
             lhs = self.zonk_level(constraint.lhs)
             rhs = self.zonk_level(constraint.rhs)
             match rhs:
                 case LMeta(mid):
-                    info = self._state.level_metas[mid]
+                    info = self.level_metas[mid]
                     new_lb = self._level_max(info.lower_bound, lhs)
                     if new_lb != info.lower_bound:
                         info.lower_bound = new_lb
@@ -367,7 +568,7 @@ class _ConstraintSolver:
                     continue
             match lhs:
                 case LMeta(mid):
-                    info = self._state.level_metas[mid]
+                    info = self.level_metas[mid]
                     info.upper_bounds.append(rhs)
                     continue
                 case LMax(a, b):
@@ -386,7 +587,7 @@ class _ConstraintSolver:
                     raise ElabError(
                         f"Universe level mismatch: {lhs} ≤ {rhs} does not hold", span
                     )
-        for mid, info in self._state.level_metas.items():
+        for mid, info in self.level_metas.items():
             if info.solution is None:
                 candidate = self.zonk_level(info.lower_bound)
                 for ub in info.upper_bounds:
@@ -453,7 +654,7 @@ class _ConstraintSolver:
         if isinstance(term, MetaVar):
             if term.mid == mid:
                 return True
-            meta = self._state.metas.get(term.mid)
+            meta = self.metas.get(term.mid)
             if meta is not None and meta.solution is not None:
                 return self._occurs(mid, meta.solution)
             return False
@@ -500,3 +701,100 @@ class _ConstraintSolver:
                 return UApp(head, tuple(self.zonk_level(level) for level in levels))
             case _:
                 return term
+
+    def _collect_level_metas(self, term: Term) -> set[int]:
+        found: set[int] = set()
+
+        def collect_level(level: LevelExpr) -> None:
+            match level:
+                case LMeta(mid):
+                    found.add(mid)
+                case LSucc(e):
+                    collect_level(e)
+                case LMax(a, b):
+                    collect_level(a)
+                    collect_level(b)
+                case _:
+                    return
+
+        def walk(t: Term) -> None:
+            match t:
+                case Univ(level):
+                    collect_level(level)
+                case UApp(head, levels):
+                    walk(head)
+                    for level in levels:
+                        collect_level(level)
+                case Ind(level=level):
+                    collect_level(level)
+                case _:
+
+                    def visit(sub: Term, _m: object) -> Term:
+                        walk(sub)
+                        return sub
+
+                    _ = t._replace_terms(visit)
+                    return None
+
+        walk(term)
+        return found
+
+    def _level_meta_equalities(self) -> set[tuple[int, int]]:
+        pairs: set[tuple[int, int]] = set()
+
+        def meta_id(term: Term) -> int | None:
+            if isinstance(term, Univ) and isinstance(term.level, LMeta):
+                return term.level.mid
+            return None
+
+        for constraint in self.constraints:
+            lhs_id = meta_id(constraint.lhs)
+            rhs_id = meta_id(constraint.rhs)
+            if lhs_id is not None and rhs_id is not None and lhs_id != rhs_id:
+                a, b = sorted((lhs_id, rhs_id))
+                pairs.add((a, b))
+        return pairs
+
+    def _replace_level_metas(self, term: Term, mapping: dict[int, LevelExpr]) -> Term:
+        def replace_level(level: LevelExpr) -> LevelExpr:
+            match level:
+                case LMeta(mid) if mid in mapping:
+                    return mapping[mid]
+                case LSucc(e):
+                    return LSucc(replace_level(e))
+                case LMax(a, b):
+                    return LMax(replace_level(a), replace_level(b))
+                case _:
+                    return level
+
+        def walk(t: Term) -> Term:
+            match t:
+                case Univ(level):
+                    return Univ(replace_level(level))
+                case UApp(head, levels):
+                    head_term = walk(head)
+                    new_levels = tuple(replace_level(level) for level in levels)
+                    return UApp(head_term, new_levels)
+                case Ind(level=level):
+                    _ = level
+                    return t
+                case _:
+                    return t._replace_terms(lambda sub, _m: walk(sub))
+
+        return walk(term)
+
+    def _replace_level_expr(
+        self, level: LevelExpr, mapping: dict[int, LevelExpr]
+    ) -> LevelExpr:
+        match level:
+            case LMeta(mid) if mid in mapping:
+                return mapping[mid]
+            case LSucc(e):
+                return LSucc(self._replace_level_expr(e, mapping))
+            case LMax(a, b):
+                return LMax(
+                    self._replace_level_expr(a, mapping),
+                    self._replace_level_expr(b, mapping),
+                )
+            case _:
+                return level

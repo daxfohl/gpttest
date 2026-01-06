@@ -1,6 +1,6 @@
 from types import MappingProxyType
 
-from mltt.solver.state import ElabState
+from mltt.solver.solver import Solver
 from mltt.elab.term import elab_infer
 from mltt.elab.types import ElabEnv
 from mltt.kernel.env import Env
@@ -9,7 +9,7 @@ from mltt.surface.parse import parse_elab_term
 
 def elab_ok_in_env(src: str, env: Env) -> None:
     elab_env = ElabEnv.from_env(env)
-    state = ElabState()
+    state = Solver()
     term = parse_elab_term(src)
     term_k, ty_k = elab_infer(term, elab_env, state)
     state.solve(elab_env.kenv)

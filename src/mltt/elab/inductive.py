@@ -11,7 +11,7 @@ from mltt.elab.ast import (
 )
 from mltt.elab.errors import ElabError
 from mltt.elab.match import resolve_inductive_head
-from mltt.solver.state import ElabState
+from mltt.solver.solver import Solver
 from mltt.elab.term import (
     elab_binders,
     expect_universe,
@@ -32,7 +32,7 @@ from mltt.kernel.tel import Spine, Telescope, decompose_uapp
 from types import MappingProxyType
 
 
-def elab_ind_infer(term: EInd, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
+def elab_ind_infer(term: EInd, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
     decl, gty = require_global_info(
         env, term.name, term.span, f"Unknown inductive {term.name}"
     )
@@ -49,9 +49,7 @@ def elab_ind_infer(term: EInd, env: ElabEnv, state: ElabState) -> tuple[Term, El
     return term_k, ElabType(state.zonk(ty.term), ty.binders)
 
 
-def elab_ctor_infer(
-    term: ECtor, env: ElabEnv, state: ElabState
-) -> tuple[Term, ElabType]:
+def elab_ctor_infer(term: ECtor, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
     decl, gty = require_global_info(
         env, term.name, term.span, f"Unknown constructor {term.name}"
     )
@@ -71,7 +69,7 @@ def elab_ctor_infer(
 
 
 def elab_inductive_infer(
-    term: EInductiveDef, env: ElabEnv, state: ElabState
+    term: EInductiveDef, env: ElabEnv, state: Solver
 ) -> tuple[Term, ElabType]:
     if env.lookup_global(term.name) is not None:
         raise ElabError(f"Duplicate inductive {term.name}", term.span)

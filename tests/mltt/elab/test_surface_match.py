@@ -1,5 +1,5 @@
 from mltt.elab.errors import ElabError
-from mltt.solver.state import ElabState
+from mltt.solver.solver import Solver
 from mltt.elab.term import elab_infer
 from mltt.elab.types import ElabEnv
 from mltt.kernel.prelude import prelude_env
@@ -9,7 +9,7 @@ from mltt.surface.sast import SurfaceError
 
 def elab_ok(src: str) -> None:
     env = ElabEnv.from_env(prelude_env())
-    state = ElabState()
+    state = Solver()
     term = parse_elab_term(src)
     term_k, ty_k = elab_infer(term, env, state)
     state.solve(env.kenv)
@@ -21,7 +21,7 @@ def elab_ok(src: str) -> None:
 
 def elab_fails(src: str) -> None:
     env = ElabEnv.from_env(prelude_env())
-    state = ElabState()
+    state = Solver()
     try:
         term = parse_elab_term(src)
         elab_infer(term, env, state)

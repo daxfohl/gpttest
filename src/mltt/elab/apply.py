@@ -27,7 +27,7 @@ from mltt.elab.ast import (
     EVar,
 )
 from mltt.elab.errors import ElabError
-from mltt.solver.state import ElabState
+from mltt.solver.solver import Solver
 from mltt.elab.types import BinderSpec, ElabEnv, ElabType, apply_binder_specs
 from mltt.kernel.ast import App, Lam, Let, MetaVar, Pi, Term, UApp, Univ, Var
 from mltt.kernel.env import Const, Env
@@ -40,7 +40,7 @@ def elab_apply(
     args: tuple[EArg, ...],
     named_args: tuple[ENamedArg, ...],
     env: ElabEnv,
-    state: ElabState,
+    state: Solver,
     span: Span,
     *,
     allow_partial: bool,
@@ -192,15 +192,13 @@ def elab_apply(
     return fn_term_closed, fn_ty_closed
 
 
-def _elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
+def _elab_infer(term: ETerm, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
     from mltt.elab.term import elab_infer
 
     return elab_infer(term, env, state)
 
 
-def _elab_check(
-    term: ETerm, env: ElabEnv, state: ElabState, expected: ElabType
-) -> Term:
+def _elab_check(term: ETerm, env: ElabEnv, state: Solver, expected: ElabType) -> Term:
     from mltt.elab.term import elab_check
 
     return elab_check(term, env, state, expected)
@@ -347,7 +345,7 @@ def _term_mentions_name(term: ETerm, name: str) -> bool:
 
 
 def _close_new_constraints(
-    state: ElabState,
+    state: Solver,
     start: int,
     actuals: list[Term],
     base_ctx_len: int,
@@ -364,7 +362,7 @@ def _close_new_constraints(
 
 
 def _close_new_metas(
-    state: ElabState,
+    state: Solver,
     before: set[int],
     actuals: list[Term],
     base_ctx_len: int,

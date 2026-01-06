@@ -1,6 +1,6 @@
 from operator import methodcaller
 
-from mltt.solver.state import ElabState
+from mltt.solver.solver import Solver
 from mltt.elab.term import elab_infer
 from mltt.elab.types import ElabEnv
 from mltt.kernel.ast import Let, Term
@@ -11,7 +11,7 @@ from mltt.surface.parse import parse_elab_term
 
 def elab_ok(src: str) -> None:
     env = ElabEnv.from_env(prelude_env())
-    state = ElabState()
+    state = Solver()
     term = parse_elab_term(src)
     term_k, ty_k = elab_infer(term, env, state)
     state.solve(env.kenv)
@@ -23,7 +23,7 @@ def elab_ok(src: str) -> None:
 
 def elab_ok_in_env(src: str, env: Env) -> None:
     elab_env = ElabEnv.from_env(env)
-    state = ElabState()
+    state = Solver()
     term = parse_elab_term(src)
     term_k, ty_k = elab_infer(term, elab_env, state)
     state.solve(elab_env.kenv)
@@ -33,9 +33,9 @@ def elab_ok_in_env(src: str, env: Env) -> None:
     _ = (term_k, ty_term)
 
 
-def elab_with_state(src: str) -> ElabState:
+def elab_with_state(src: str) -> Solver:
     env = ElabEnv.from_env(prelude_env())
-    state = ElabState()
+    state = Solver()
     term = parse_elab_term(src)
     elab_infer(term, env, state)
     state.solve(env.kenv)
@@ -45,7 +45,7 @@ def elab_with_state(src: str) -> ElabState:
 def elab_eval(src: str) -> Term:
     kenv = prelude_env()
     env = ElabEnv.from_env(kenv)
-    state = ElabState()
+    state = Solver()
     term = parse_elab_term(src)
     term_k, _ty_k = elab_infer(term, env, state)
     state.solve(env.kenv)

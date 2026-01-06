@@ -26,7 +26,7 @@ from mltt.elab.ast import (
 )
 from mltt.elab.errors import ElabError
 from mltt.elab.names import NameEnv
-from mltt.solver.state import ElabState
+from mltt.solver.solver import Solver
 from mltt.elab.types import (
     BinderSpec,
     ElabEnv,
@@ -40,7 +40,7 @@ from mltt.kernel.ind import Ctor, Ind
 from mltt.kernel.levels import LConst, LVar, LevelExpr
 
 
-def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
+def elab_infer(term: ETerm, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
     match term:
         case EVar(name=name):
             idx = env.lookup_local(name)
@@ -120,7 +120,7 @@ def elab_infer(term: ETerm, env: ElabEnv, state: ElabState) -> tuple[Term, ElabT
             raise ElabError("Unsupported surface term", term.span)
 
 
-def elab_check(term: ETerm, env: ElabEnv, state: ElabState, expected: ElabType) -> Term:
+def elab_check(term: ETerm, env: ElabEnv, state: Solver, expected: ElabType) -> Term:
     match term:
         case EHole():
             return state.fresh_meta(env.kenv, expected.term, term.span, kind="hole")
@@ -238,9 +238,7 @@ def require_global_info(
     return info
 
 
-def _elab_lam_infer(
-    term: ELam, env: ElabEnv, state: ElabState
-) -> tuple[Term, ElabType]:
+def _elab_lam_infer(term: ELam, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
     if any(b.ty is None for b in term.binders):
         raise ElabError(
             "Cannot infer unannotated lambda; add binder types or use check-mode",
@@ -265,7 +263,7 @@ def _elab_lam_infer(
 
 
 def _elab_lam_check(
-    term: ELam, env: ElabEnv, state: ElabState, expected: ElabType
+    term: ELam, env: ElabEnv, state: Solver, expected: ElabType
 ) -> Term:
     binder_tys: list[Term] = []
     binder_impls: list[bool] = []
@@ -296,7 +294,7 @@ def _elab_lam_check(
     return lam_term
 
 
-def _elab_pi_infer(term: EPi, env: ElabEnv, state: ElabState) -> tuple[Term, ElabType]:
+def _elab_pi_infer(term: EPi, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
     binder_tys, binder_impls, binder_levels, env1 = elab_binders(
         env, state, term.binders
     )
@@ -322,9 +320,7 @@ def _elab_pi_infer(term: EPi, env: ElabEnv, state: ElabState) -> tuple[Term, Ela
     return pi_term, ElabType(Univ(result_level), binder_infos)
 
 
-def _elab_uapp_infer(
-    term: EUApp, env: ElabEnv, state: ElabState
-) -> tuple[Term, ElabType]:
+def _elab_uapp_infer(term: EUApp, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
     head_term: Term
     match term.head:
         case EVar(name=name):
@@ -377,7 +373,7 @@ def _level_expr(level: ELevel) -> LevelExpr:
 
 
 def _elab_partial_infer(
-    term: ETerm, env: ElabEnv, state: ElabState, span: Span
+    term: ETerm, env: ElabEnv, state: Solver, span: Span
 ) -> tuple[Term, ElabType]:
     match term:
         case EApp(fn=fn, args=args, named_args=named_args):
@@ -387,9 +383,7 @@ def _elab_partial_infer(
     return elab_infer(term, env, state)
 
 
-def _elab_let_infer(
-    term: ELet, env: ElabEnv, state: ElabState
-) -> tuple[Term, ElabType]:
+def _elab_let_infer(term: ELet, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
     if len(set(term.uparams)) != len(term.uparams):
         raise ElabError("Duplicate universe binder", term.span)
     val_src = term.val
@@ -417,7 +411,7 @@ def _elab_let_infer(
 
 
 def elab_binders(
-    env: ElabEnv, state: ElabState, binders: tuple[EBinder, ...]
+    env: ElabEnv, state: Solver, binders: tuple[EBinder, ...]
 ) -> tuple[list[Term], list[bool], list[LevelExpr], ElabEnv]:
     binder_tys: list[Term] = []
     binder_impls: list[bool] = []
