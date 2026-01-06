@@ -32,7 +32,7 @@ from mltt.kernel.tel import Spine, Telescope, decompose_uapp
 from types import MappingProxyType
 
 
-def elab_ind_infer(term: EInd, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
+def elab_ind_infer(term: EInd, env: ElabEnv, solver: Solver) -> tuple[Term, ElabType]:
     decl, gty = require_global_info(
         env, term.name, term.span, f"Unknown inductive {term.name}"
     )
@@ -44,12 +44,12 @@ def elab_ind_infer(term: EInd, env: ElabEnv, state: Solver) -> tuple[Term, ElabT
         ind = decl.value
     else:
         raise ElabError(f"{term.name} is not an inductive", term.span)
-    term_k, levels = state.apply_implicit_levels(ind, decl.uarity, term.span)
+    term_k, levels = solver.apply_implicit_levels(ind, decl.uarity, term.span)
     ty = gty.inst_levels(levels)
-    return term_k, ElabType(state.zonk(ty.term), ty.binders)
+    return term_k, ElabType(solver.zonk(ty.term), ty.binders)
 
 
-def elab_ctor_infer(term: ECtor, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
+def elab_ctor_infer(term: ECtor, env: ElabEnv, solver: Solver) -> tuple[Term, ElabType]:
     decl, gty = require_global_info(
         env, term.name, term.span, f"Unknown constructor {term.name}"
     )
@@ -57,19 +57,19 @@ def elab_ctor_infer(term: ECtor, env: ElabEnv, state: Solver) -> tuple[Term, Ela
         raise ElabError(f"Unknown constructor {term.name}", term.span)
     if isinstance(decl.value, UApp) and isinstance(decl.value.head, Ctor):
         ctor = decl.value.head
-        term_k, levels = state.apply_implicit_levels(ctor, decl.uarity, term.span)
+        term_k, levels = solver.apply_implicit_levels(ctor, decl.uarity, term.span)
         ty = gty.inst_levels(levels)
-        return term_k, ElabType(state.zonk(ty.term), ty.binders)
+        return term_k, ElabType(solver.zonk(ty.term), ty.binders)
     if not isinstance(decl.value, Ctor):
         raise ElabError(f"{term.name} is not a constructor", term.span)
     ctor = decl.value
-    term_k, levels = state.apply_implicit_levels(ctor, decl.uarity, term.span)
+    term_k, levels = solver.apply_implicit_levels(ctor, decl.uarity, term.span)
     ty = gty.inst_levels(levels)
-    return term_k, ElabType(state.zonk(ty.term), ty.binders)
+    return term_k, ElabType(solver.zonk(ty.term), ty.binders)
 
 
 def elab_inductive_infer(
-    term: EInductiveDef, env: ElabEnv, state: Solver
+    term: EInductiveDef, env: ElabEnv, solver: Solver
 ) -> tuple[Term, ElabType]:
     if env.lookup_global(term.name) is not None:
         raise ElabError(f"Duplicate inductive {term.name}", term.span)
@@ -84,20 +84,20 @@ def elab_inductive_infer(
         if binder.implicit:
             raise ElabError("Inductive indices cannot be implicit", binder.span)
     param_tys, _param_impls, _param_levels, env_params = elab_binders(
-        env, state, term.params
+        env, solver, term.params
     )
     index_tys, _index_impls, _index_levels, env_indices = elab_binders(
-        env_params, state, index_binders
+        env_params, solver, index_binders
     )
-    level_term, level_ty = elab_infer(level_body, env_indices, state)
+    level_term, level_ty = elab_infer(level_body, env_indices, solver)
     expect_universe(level_ty.term, env_indices.kenv, level_body.span)
     if not isinstance(level_term, Univ):
         raise ElabError("Inductive level must be a Type", level_body.span)
     uarity = len(term.uparams)
     if uarity == 0:
         terms = [*param_tys, *index_tys, level_term]
-        terms = state.merge_type_level_metas(terms)
-        uarity, generalized = state.generalize_levels(terms)
+        terms = solver.merge_type_level_metas(terms)
+        uarity, generalized = solver.generalize_levels(terms)
         param_tys = generalized[: len(param_tys)]
         index_tys = generalized[len(param_tys) : len(param_tys) + len(index_tys)]
         level_term = generalized[-1]
@@ -153,10 +153,10 @@ def elab_inductive_infer(
         if env.lookup_global(ctor_name) is not None:
             raise ElabError(f"Duplicate constructor {ctor_name}", ctor_decl.span)
         field_tys, _field_impls, _field_levels, env_fields = elab_binders(
-            env_params_with_ind, state, ctor_decl.fields
+            env_params_with_ind, solver, ctor_decl.fields
         )
         result_indices = Spine.empty()
-        result_term, result_ty = elab_infer(ctor_decl.result, env_fields, state)
+        result_term, result_ty = elab_infer(ctor_decl.result, env_fields, solver)
         expect_universe(result_ty.term, env_fields.kenv, ctor_decl.span)
         head, _levels, args = decompose_uapp(result_term)
         ind_head = resolve_inductive_head(env_with_ind.kenv, head)
@@ -226,7 +226,7 @@ def elab_inductive_infer(
         locals=env.locals,
         eglobals=env_full.eglobals,
     )
-    body_term, body_ty = elab_infer(term.body, env1, state)
+    body_term, body_ty = elab_infer(term.body, env1, solver)
     if isinstance(body_term, UApp) and isinstance(body_term.head, Ind):
         body_term = body_term.head
     if isinstance(body_term, Ind) and body_term.name == term.name:

@@ -35,9 +35,9 @@ def _looks_like_ctor(name: str) -> bool:
 
 
 def _elab_scrutinee_info(
-    scrutinee: ETerm, env: ElabEnv, state: Solver
+    scrutinee: ETerm, env: ElabEnv, solver: Solver
 ) -> tuple[Term, Term, Term, tuple[LevelExpr, ...], Spine]:
-    scrut_term, scrut_ty = elab_infer(scrutinee, env, state)
+    scrut_term, scrut_ty = elab_infer(scrutinee, env, solver)
     scrut_ty_whnf = scrut_ty.term.whnf(env.kenv)
     head, level_actuals, args = decompose_uapp(scrut_ty_whnf)
     return scrut_term, scrut_ty_whnf, head, level_actuals, args
@@ -174,36 +174,36 @@ def _branch_map(
 
 
 def elab_match_infer(
-    match: EMatch, env: ElabEnv, state: Solver
+    match: EMatch, env: ElabEnv, solver: Solver
 ) -> tuple[Term, ElabType]:
     if match.motive is None:
         if len(match.branches) != 1:
             raise ElabError(
                 "Cannot infer match result type; use check-mode", match.span
             )
-        level = state.fresh_level_meta("type", match.span)
+        level = solver.fresh_level_meta("type", match.span)
         expected_ty = Univ(level)
-        expected = state.fresh_meta(env.kenv, expected_ty, match.span, kind="match")
-        term = _elab_match_core(match, env, state, ElabType(expected))
+        expected = solver.fresh_meta(env.kenv, expected_ty, match.span, kind="match")
+        term = _elab_match_core(match, env, solver, ElabType(expected))
         return term, ElabType(expected)
-    return _elab_match_with_motive(match, env, state)
+    return _elab_match_with_motive(match, env, solver)
 
 
 def elab_match_check(
-    match: EMatch, env: ElabEnv, state: Solver, expected: ElabType
+    match: EMatch, env: ElabEnv, solver: Solver, expected: ElabType
 ) -> Term:
     if match.motive is not None:
-        term, term_ty = _elab_match_with_motive(match, env, state)
-        state.add_constraint(env.kenv, term_ty.term, expected.term, match.span)
+        term, term_ty = _elab_match_with_motive(match, env, solver)
+        solver.add_constraint(env.kenv, term_ty.term, expected.term, match.span)
         return term
-    return _elab_match_core(match, env, state, expected)
+    return _elab_match_core(match, env, solver, expected)
 
 
 def _elab_match_core(
-    match: EMatch, env: ElabEnv, state: Solver, expected: ElabType
+    match: EMatch, env: ElabEnv, solver: Solver, expected: ElabType
 ) -> Term:
     scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
-        match.scrutinee, env, state
+        match.scrutinee, env, solver
     )
     ind = resolve_inductive_head(env.kenv, head)
     if ind is None:
@@ -249,19 +249,19 @@ def _elab_match_core(
         env_fields = env
         for name, ty in binder_names:
             env_fields = env_fields.push_binder(ElabType(ty), name=name)
-        rhs_term = elab_check(branch_rhs, env_fields, state, ElabType(codomain))
+        rhs_term = elab_check(branch_rhs, env_fields, solver, ElabType(codomain))
         cases.append(mk_lams(*tel, body=rhs_term))
     match_term = Elim(ind, motive, tuple(cases), scrut_term)
     return match_term
 
 
 def _elab_match_with_motive(
-    match: EMatch, env: ElabEnv, state: Solver
+    match: EMatch, env: ElabEnv, solver: Solver
 ) -> tuple[Term, ElabType]:
     if match.motive is None:
         raise ElabError("Match motive missing", match.span)
     scrut_term, scrut_ty_whnf, head, level_actuals, args = _elab_scrutinee_info(
-        match.scrutinee, env, state
+        match.scrutinee, env, solver
     )
     ind = resolve_inductive_head(env.kenv, head)
     if ind is None:
@@ -272,7 +272,7 @@ def _elab_match_with_motive(
         raise ElabError("Match scrutinee has wrong arity", match.span)
     params_actual = args[:p]
     indices_actual = args[p:]
-    motive_term, motive_ty = elab_infer(match.motive, env, state)
+    motive_term, motive_ty = elab_infer(match.motive, env, solver)
     expect_universe(motive_ty.term, env.kenv, match.motive.span)
     scrut_ty_in_ctx = mk_uapp(ind, level_actuals, params_actual.shift(q), Spine.vars(q))
     motive_body = motive_term.shift(q)
@@ -299,7 +299,7 @@ def _elab_match_with_motive(
         env_fields = env
         for name, ty in binder_names:
             env_fields = env_fields.push_binder(ElabType(ty), name=name)
-        rhs_term = elab_check(branch_rhs, env_fields, state, ElabType(codomain))
+        rhs_term = elab_check(branch_rhs, env_fields, solver, ElabType(codomain))
         cases.append(mk_lams(*tel, body=rhs_term))
     match_term = Elim(ind, motive_fn, tuple(cases), scrut_term)
     match_ty = mk_app(motive_fn, indices_actual, scrut_term)

@@ -11,46 +11,46 @@ from mltt.surface.parse import parse_elab_term
 
 def elab_ok(src: str) -> None:
     env = ElabEnv.from_env(prelude_env())
-    state = Solver()
+    solver = Solver()
     term = parse_elab_term(src)
-    term_k, ty_k = elab_infer(term, env, state)
-    state.solve(env.kenv)
-    term_k = state.zonk(term_k)
-    ty_term = state.zonk(ty_k.term)
-    state.ensure_solved()
+    term_k, ty_k = elab_infer(term, env, solver)
+    solver.solve(env.kenv)
+    term_k = solver.zonk(term_k)
+    ty_term = solver.zonk(ty_k.term)
+    solver.ensure_solved()
     _ = (term_k, ty_term)
 
 
 def elab_ok_in_env(src: str, env: Env) -> None:
     elab_env = ElabEnv.from_env(env)
-    state = Solver()
+    solver = Solver()
     term = parse_elab_term(src)
-    term_k, ty_k = elab_infer(term, elab_env, state)
-    state.solve(elab_env.kenv)
-    term_k = state.zonk(term_k)
-    ty_term = state.zonk(ty_k.term)
-    state.ensure_solved()
+    term_k, ty_k = elab_infer(term, elab_env, solver)
+    solver.solve(elab_env.kenv)
+    term_k = solver.zonk(term_k)
+    ty_term = solver.zonk(ty_k.term)
+    solver.ensure_solved()
     _ = (term_k, ty_term)
 
 
 def elab_with_state(src: str) -> Solver:
     env = ElabEnv.from_env(prelude_env())
-    state = Solver()
+    solver = Solver()
     term = parse_elab_term(src)
-    elab_infer(term, env, state)
-    state.solve(env.kenv)
-    return state
+    elab_infer(term, env, solver)
+    solver.solve(env.kenv)
+    return solver
 
 
 def elab_eval(src: str) -> Term:
     kenv = prelude_env()
     env = ElabEnv.from_env(kenv)
-    state = Solver()
+    solver = Solver()
     term = parse_elab_term(src)
-    term_k, _ty_k = elab_infer(term, env, state)
-    state.solve(env.kenv)
-    term_k = state.zonk(term_k)
-    state.ensure_solved()
+    term_k, _ty_k = elab_infer(term, env, solver)
+    solver.solve(env.kenv)
+    term_k = solver.zonk(term_k)
+    solver.ensure_solved()
     while isinstance(term_k, Let):
         kenv = kenv.push_let(term_k.arg_ty, term_k.value)
         term_k = term_k.body

@@ -40,12 +40,12 @@ def elab_apply(
     args: tuple[EArg, ...],
     named_args: tuple[ENamedArg, ...],
     env: ElabEnv,
-    state: Solver,
+    solver: Solver,
     span: Span,
     *,
     allow_partial: bool,
 ) -> tuple[Term, ElabType]:
-    fn_term, fn_ty = _elab_infer(fn, env, state)
+    fn_term, fn_ty = _elab_infer(fn, env, solver)
     remaining_binders = fn_ty.binders
     fn_term_closed = fn_term
     fn_ty_closed = fn_ty
@@ -80,9 +80,9 @@ def elab_apply(
             case "stop":
                 break
             case "implicit":
-                before_constraints = len(state.constraints)
-                before_metas = set(state.metas.keys())
-                meta_term_ctx = state.fresh_meta(
+                before_constraints = len(solver.constraints)
+                before_metas = set(solver.metas.keys())
+                meta_term_ctx = solver.fresh_meta(
                     ctx_env.kenv, fn_ty_ctx_whnf.arg_ty, span, kind="implicit"
                 )
                 arg_term_closed = _close_term(meta_term_ctx, actuals)
@@ -92,10 +92,10 @@ def elab_apply(
                 )
                 fn_ty_ctx = fn_ty_ctx_whnf.return_ty.subst(meta_term_ctx)
                 _close_new_constraints(
-                    state, before_constraints, actuals, base_ctx_len, missing_depth
+                    solver, before_constraints, actuals, base_ctx_len, missing_depth
                 )
                 _close_new_metas(
-                    state, before_metas, actuals, base_ctx_len, missing_depth
+                    solver, before_metas, actuals, base_ctx_len, missing_depth
                 )
                 continue
             case "missing":
@@ -136,19 +136,19 @@ def elab_apply(
                             "Implicit argument provided where explicit expected",
                             decision.arg.term.span,
                         )
-                before_constraints = len(state.constraints)
-                before_metas = set(state.metas.keys())
+                before_constraints = len(solver.constraints)
+                before_metas = set(solver.metas.keys())
                 arg_term_ctx = _elab_check(
                     decision.arg.term,
                     ctx_env,
-                    state,
+                    solver,
                     ElabType(fn_ty_ctx_whnf.arg_ty),
                 )
                 _close_new_constraints(
-                    state, before_constraints, actuals, base_ctx_len, missing_depth
+                    solver, before_constraints, actuals, base_ctx_len, missing_depth
                 )
                 _close_new_metas(
-                    state, before_metas, actuals, base_ctx_len, missing_depth
+                    solver, before_metas, actuals, base_ctx_len, missing_depth
                 )
                 arg_term_closed = _close_term(arg_term_ctx, actuals)
                 fn_term_closed = App(fn_term_closed, arg_term_closed)
@@ -192,16 +192,16 @@ def elab_apply(
     return fn_term_closed, fn_ty_closed
 
 
-def _elab_infer(term: ETerm, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
+def _elab_infer(term: ETerm, env: ElabEnv, solver: Solver) -> tuple[Term, ElabType]:
     from mltt.elab.term import elab_infer
 
-    return elab_infer(term, env, state)
+    return elab_infer(term, env, solver)
 
 
-def _elab_check(term: ETerm, env: ElabEnv, state: Solver, expected: ElabType) -> Term:
+def _elab_check(term: ETerm, env: ElabEnv, solver: Solver, expected: ElabType) -> Term:
     from mltt.elab.term import elab_check
 
-    return elab_check(term, env, state, expected)
+    return elab_check(term, env, solver, expected)
 
 
 def _close_term(term: Term, actuals: list[Term]) -> Term:
@@ -345,16 +345,16 @@ def _term_mentions_name(term: ETerm, name: str) -> bool:
 
 
 def _close_new_constraints(
-    state: Solver,
+    solver: Solver,
     start: int,
     actuals: list[Term],
     base_ctx_len: int,
     missing_depth: int,
 ) -> None:
-    if start >= len(state.constraints):
+    if start >= len(solver.constraints):
         return
     actuals_spine = Spine.of(*actuals) if actuals else None
-    for constraint in state.constraints[start:]:
+    for constraint in solver.constraints[start:]:
         if actuals_spine is not None:
             constraint.lhs = constraint.lhs.instantiate(actuals_spine, depth_above=0)
             constraint.rhs = constraint.rhs.instantiate(actuals_spine, depth_above=0)
@@ -362,18 +362,18 @@ def _close_new_constraints(
 
 
 def _close_new_metas(
-    state: Solver,
+    solver: Solver,
     before: set[int],
     actuals: list[Term],
     base_ctx_len: int,
     missing_depth: int,
 ) -> None:
-    new_meta_ids = set(state.metas.keys()) - before
+    new_meta_ids = set(solver.metas.keys()) - before
     if not new_meta_ids:
         return
     actuals_spine = Spine.of(*actuals) if actuals else None
     for mid in new_meta_ids:
-        meta = state.metas[mid]
+        meta = solver.metas[mid]
         if actuals_spine is not None:
             meta.ty = meta.ty.instantiate(actuals_spine, depth_above=0)
             if meta.solution is not None:

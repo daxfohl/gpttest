@@ -40,17 +40,17 @@ from mltt.kernel.ind import Ctor, Ind
 from mltt.kernel.levels import LConst, LVar, LevelExpr
 
 
-def elab_infer(term: ETerm, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
+def elab_infer(term: ETerm, env: ElabEnv, solver: Solver) -> tuple[Term, ElabType]:
     match term:
         case EVar(name=name):
             idx = env.lookup_local(name)
             if idx is not None:
                 binder = env.binders[idx]
-                term_k, levels = state.apply_implicit_levels(
+                term_k, levels = solver.apply_implicit_levels(
                     Var(idx), binder.uarity, term.span
                 )
                 ty = env.local_type(idx).inst_levels(levels)
-                return term_k, ElabType(state.zonk(ty.term), ty.binders)
+                return term_k, ElabType(solver.zonk(ty.term), ty.binders)
             decl, gty = require_global_info(
                 env, name, term.span, f"Unknown identifier {name}"
             )
@@ -59,86 +59,86 @@ def elab_infer(term: ETerm, env: ElabEnv, state: Solver) -> tuple[Term, ElabType
                 head = decl.value
             else:
                 head = Const(name)
-            term_k, levels = state.apply_implicit_levels(head, decl.uarity, term.span)
+            term_k, levels = solver.apply_implicit_levels(head, decl.uarity, term.span)
             ty = gty.inst_levels(levels)
-            return term_k, ElabType(state.zonk(ty.term), ty.binders)
+            return term_k, ElabType(solver.zonk(ty.term), ty.binders)
         case EConst(name=name):
             decl, gty = require_global_info(
                 env, name, term.span, f"Unknown constant {name}"
             )
-            term_k, levels = state.apply_implicit_levels(
+            term_k, levels = solver.apply_implicit_levels(
                 Const(name), decl.uarity, term.span
             )
             ty = gty.inst_levels(levels)
-            return term_k, ElabType(state.zonk(ty.term), ty.binders)
+            return term_k, ElabType(solver.zonk(ty.term), ty.binders)
         case EUniv(level=level):
             level_expr: LevelExpr | int
             if level is None:
-                level_expr = state.fresh_level_meta("type", term.span)
+                level_expr = solver.fresh_level_meta("type", term.span)
             else:
                 level_expr = _level_expr(level)
             term_k = Univ(level_expr)
             return term_k, ElabType(Univ(LevelExpr.of(level_expr).succ()))
         case EAnn(term=inner, ty=ty_src):
-            ty_term, ty_ty = elab_infer(ty_src, env, state)
+            ty_term, ty_ty = elab_infer(ty_src, env, solver)
             expect_universe(ty_ty.term, env.kenv, term.span)
-            term_k = elab_check(inner, env, state, ElabType(ty_term))
+            term_k = elab_check(inner, env, solver, ElabType(ty_term))
             return term_k, ElabType(ty_term)
         case EHole():
             raise ElabError("Hole needs expected type", term.span)
         case ELam():
-            return _elab_lam_infer(term, env, state)
+            return _elab_lam_infer(term, env, solver)
         case EPi():
-            return _elab_pi_infer(term, env, state)
+            return _elab_pi_infer(term, env, solver)
         case EApp(fn=fn, args=args, named_args=named_args):
             return elab_apply(
-                fn, args, named_args, env, state, term.span, allow_partial=False
+                fn, args, named_args, env, solver, term.span, allow_partial=False
             )
         case EUApp():
-            return _elab_uapp_infer(term, env, state)
+            return _elab_uapp_infer(term, env, solver)
         case EPartial(term=inner):
-            return _elab_partial_infer(inner, env, state, term.span)
+            return _elab_partial_infer(inner, env, solver, term.span)
         case ELet():
-            return _elab_let_infer(term, env, state)
+            return _elab_let_infer(term, env, solver)
         case EMatch():
             from mltt.elab.match import elab_match_infer
 
-            return elab_match_infer(term, env, state)
+            return elab_match_infer(term, env, solver)
         case EInd():
             from mltt.elab.inductive import elab_ind_infer
 
-            return elab_ind_infer(term, env, state)
+            return elab_ind_infer(term, env, solver)
         case ECtor():
             from mltt.elab.inductive import elab_ctor_infer
 
-            return elab_ctor_infer(term, env, state)
+            return elab_ctor_infer(term, env, solver)
         case EInductiveDef():
             from mltt.elab.inductive import elab_inductive_infer
 
-            return elab_inductive_infer(term, env, state)
+            return elab_inductive_infer(term, env, solver)
         case _:
             raise ElabError("Unsupported surface term", term.span)
 
 
-def elab_check(term: ETerm, env: ElabEnv, state: Solver, expected: ElabType) -> Term:
+def elab_check(term: ETerm, env: ElabEnv, solver: Solver, expected: ElabType) -> Term:
     match term:
         case EHole():
-            return state.fresh_meta(env.kenv, expected.term, term.span, kind="hole")
+            return solver.fresh_meta(env.kenv, expected.term, term.span, kind="hole")
         case ELam():
-            return _elab_lam_check(term, env, state, expected)
+            return _elab_lam_check(term, env, solver, expected)
         case EMatch():
             from mltt.elab.match import elab_match_check
 
-            return elab_match_check(term, env, state, expected)
+            return elab_match_check(term, env, solver, expected)
         case EAnn(term=inner, ty=ty_src):
-            ty_term, ty_ty = elab_infer(ty_src, env, state)
+            ty_term, ty_ty = elab_infer(ty_src, env, solver)
             expect_universe(ty_ty.term, env.kenv, term.span)
-            term_k = elab_check(inner, env, state, ElabType(ty_term))
-            state.add_constraint(env.kenv, ty_term, expected.term, term.span)
+            term_k = elab_check(inner, env, solver, ElabType(ty_term))
+            solver.add_constraint(env.kenv, ty_term, expected.term, term.span)
             return term_k
         case _:
-            term_k, term_ty = elab_infer(term, env, state)
-            state.add_constraint(env.kenv, term_ty.term, expected.term, term.span)
+            term_k, term_ty = elab_infer(term, env, solver)
+            solver.add_constraint(env.kenv, term_ty.term, expected.term, term.span)
             return term_k
 
 
@@ -238,16 +238,16 @@ def require_global_info(
     return info
 
 
-def _elab_lam_infer(term: ELam, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
+def _elab_lam_infer(term: ELam, env: ElabEnv, solver: Solver) -> tuple[Term, ElabType]:
     if any(b.ty is None for b in term.binders):
         raise ElabError(
             "Cannot infer unannotated lambda; add binder types or use check-mode",
             term.span,
         )
     binder_tys, binder_impls, _binder_levels, env1 = elab_binders(
-        env, state, term.binders
+        env, solver, term.binders
     )
-    body_term, body_ty = elab_infer(term.body, env1, state)
+    body_term, body_ty = elab_infer(term.body, env1, solver)
     lam_term = body_term
     lam_ty_term = body_ty.term
     binder_infos = body_ty.binders
@@ -263,7 +263,7 @@ def _elab_lam_infer(term: ELam, env: ElabEnv, state: Solver) -> tuple[Term, Elab
 
 
 def _elab_lam_check(
-    term: ELam, env: ElabEnv, state: Solver, expected: ElabType
+    term: ELam, env: ElabEnv, solver: Solver, expected: ElabType
 ) -> Term:
     binder_tys: list[Term] = []
     binder_impls: list[bool] = []
@@ -277,9 +277,9 @@ def _elab_lam_check(
         if binder.ty is None:
             binder_ty = pi_ty.arg_ty
         else:
-            binder_ty, binder_ty_ty = elab_infer(binder.ty, env1, state)
+            binder_ty, binder_ty_ty = elab_infer(binder.ty, env1, solver)
             expect_universe(binder_ty_ty.term, env1.kenv, binder.span)
-            state.add_constraint(env1.kenv, binder_ty, pi_ty.arg_ty, binder.span)
+            solver.add_constraint(env1.kenv, binder_ty, pi_ty.arg_ty, binder.span)
             binder_ty_info = attach_binder_types(
                 binder_ty, _binder_specs_from_type(binder.ty), env1.kenv
             )
@@ -287,32 +287,32 @@ def _elab_lam_check(
         binder_impls.append(binder.implicit)
         env1 = env1.push_binder(ElabType(binder_ty, binder_ty_info), name=binder.name)
         expected_ty = ElabType(pi_ty.return_ty, expected_ty.binders[1:])
-    body_term = elab_check(term.body, env1, state, expected_ty)
+    body_term = elab_check(term.body, env1, solver, expected_ty)
     lam_term = body_term
     for ty in reversed(binder_tys):
         lam_term = Lam(ty, lam_term)
     return lam_term
 
 
-def _elab_pi_infer(term: EPi, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
+def _elab_pi_infer(term: EPi, env: ElabEnv, solver: Solver) -> tuple[Term, ElabType]:
     binder_tys, binder_impls, binder_levels, env1 = elab_binders(
-        env, state, term.binders
+        env, solver, term.binders
     )
-    body_term, body_ty = elab_infer(term.body, env1, state)
+    body_term, body_ty = elab_infer(term.body, env1, solver)
     body_ty_whnf = expect_universe(body_ty.term, env1.kenv, term.body.span)
     body_level = body_ty_whnf.level
     pi_term: Term = body_term
     result_level: LevelExpr | None = None
     for ty, arg_level in reversed(list(zip(binder_tys, binder_levels))):
         if result_level is None:
-            result_level = state.fresh_level_meta("type", term.span)
-        state.add_level_constraint(arg_level, result_level, term.span)
-        state.add_level_constraint(body_level, result_level, term.span)
+            result_level = solver.fresh_level_meta("type", term.span)
+        solver.add_level_constraint(arg_level, result_level, term.span)
+        solver.add_level_constraint(body_level, result_level, term.span)
         body_level = result_level
         pi_term = Pi(ty, pi_term)
     if result_level is None:
-        result_level = state.fresh_level_meta("type", term.span)
-        state.add_level_constraint(body_level, result_level, term.span)
+        result_level = solver.fresh_level_meta("type", term.span)
+        solver.add_level_constraint(body_level, result_level, term.span)
     binder_infos = tuple(
         BinderSpec(normalize_binder_name(b.name), b.implicit, ty)
         for b, ty in zip(term.binders, binder_tys, strict=True)
@@ -320,7 +320,9 @@ def _elab_pi_infer(term: EPi, env: ElabEnv, state: Solver) -> tuple[Term, ElabTy
     return pi_term, ElabType(Univ(result_level), binder_infos)
 
 
-def _elab_uapp_infer(term: EUApp, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
+def _elab_uapp_infer(
+    term: EUApp, env: ElabEnv, solver: Solver
+) -> tuple[Term, ElabType]:
     head_term: Term
     match term.head:
         case EVar(name=name):
@@ -353,7 +355,7 @@ def _elab_uapp_infer(term: EUApp, env: ElabEnv, state: Solver) -> tuple[Term, El
             if isinstance(head_term, UApp) and isinstance(head_term.head, Ctor):
                 head_term = head_term.head
         case _:
-            head_term, _ = elab_infer(term.head, env, state)
+            head_term, _ = elab_infer(term.head, env, solver)
             if isinstance(head_term, UApp):
                 head_term = head_term.head
     level_terms: tuple[LevelExpr, ...] = tuple(
@@ -373,32 +375,32 @@ def _level_expr(level: ELevel) -> LevelExpr:
 
 
 def _elab_partial_infer(
-    term: ETerm, env: ElabEnv, state: Solver, span: Span
+    term: ETerm, env: ElabEnv, solver: Solver, span: Span
 ) -> tuple[Term, ElabType]:
     match term:
         case EApp(fn=fn, args=args, named_args=named_args):
             return elab_apply(
-                fn, args, named_args, env, state, span, allow_partial=True
+                fn, args, named_args, env, solver, span, allow_partial=True
             )
-    return elab_infer(term, env, state)
+    return elab_infer(term, env, solver)
 
 
-def _elab_let_infer(term: ELet, env: ElabEnv, state: Solver) -> tuple[Term, ElabType]:
+def _elab_let_infer(term: ELet, env: ElabEnv, solver: Solver) -> tuple[Term, ElabType]:
     if len(set(term.uparams)) != len(term.uparams):
         raise ElabError("Duplicate universe binder", term.span)
     val_src = term.val
     if term.ty is None:
-        val_term, val_ty = elab_infer(val_src, env, state)
+        val_term, val_ty = elab_infer(val_src, env, solver)
         ty_term = val_ty.term
         binder_infos = val_ty.binders
     else:
-        ty_term, ty_ty = elab_infer(term.ty, env, state)
+        ty_term, ty_ty = elab_infer(term.ty, env, solver)
         expect_universe(ty_ty.term, env.kenv, term.span)
         binder_infos = attach_binder_types(
             ty_term, _binder_specs_from_type(term.ty), env.kenv
         )
-        val_term = elab_check(val_src, env, state, ElabType(ty_term))
-    uarity, ty_term, val_term = state.generalize_let(ty_term, val_term)
+        val_term = elab_check(val_src, env, solver, ElabType(ty_term))
+    uarity, ty_term, val_term = solver.generalize_let(ty_term, val_term)
     env1 = env.push_let(
         ElabType(ty_term, binder_infos),
         val_term,
@@ -406,12 +408,12 @@ def _elab_let_infer(term: ELet, env: ElabEnv, state: Solver) -> tuple[Term, Elab
         uarity=uarity,
     )
     env1.eglobals[term.name] = ElabType(ty_term, binder_infos)
-    body_term, body_ty = elab_infer(term.body, env1, state)
+    body_term, body_ty = elab_infer(term.body, env1, solver)
     return Let(ty_term, val_term, body_term), body_ty
 
 
 def elab_binders(
-    env: ElabEnv, state: Solver, binders: tuple[EBinder, ...]
+    env: ElabEnv, solver: Solver, binders: tuple[EBinder, ...]
 ) -> tuple[list[Term], list[bool], list[LevelExpr], ElabEnv]:
     binder_tys: list[Term] = []
     binder_impls: list[bool] = []
@@ -419,7 +421,7 @@ def elab_binders(
     for binder in binders:
         if binder.ty is None:
             raise ElabError("Missing binder type", binder.span)
-        ty_term, ty_ty = elab_infer(binder.ty, env, state)
+        ty_term, ty_ty = elab_infer(binder.ty, env, solver)
         ty_ty_whnf = expect_universe(ty_ty.term, env.kenv, binder.span)
         binder_infos = attach_binder_types(
             ty_term, _binder_specs_from_type(binder.ty), env.kenv
