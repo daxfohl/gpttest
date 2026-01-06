@@ -10,6 +10,7 @@ from mltt.elab.ast import (
     EPi,
 )
 from mltt.elab.errors import ElabError
+from mltt.elab.generalize import Generalizer
 from mltt.elab.match import resolve_inductive_head
 from mltt.solver.solver import Solver
 from mltt.elab.term import (
@@ -96,8 +97,9 @@ def elab_inductive_infer(
     uarity = len(term.uparams)
     if uarity == 0:
         terms = [*param_tys, *index_tys, level_term]
-        terms = solver.merge_type_level_metas(terms)
-        uarity, generalized = solver.generalize_levels(terms)
+        generalizer = Generalizer(solver)
+        terms = generalizer.merge_type_level_metas(terms)
+        uarity, generalized = generalizer.generalize_levels(terms)
         param_tys = generalized[: len(param_tys)]
         index_tys = generalized[len(param_tys) : len(param_tys) + len(index_tys)]
         level_term = generalized[-1]
