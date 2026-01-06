@@ -2,7 +2,7 @@ import pytest
 
 from mltt.common.span import Span
 from mltt.elab.errors import ElabError
-from mltt.kernel.ast import App, MetaVar, Univ, Var
+from mltt.kernel.ast import App, MetaVar, Univ, Var, Pi, Lam
 from mltt.kernel.env import Env
 from mltt.kernel.levels import LConst, LMeta
 from mltt.solver.solver import Solver
