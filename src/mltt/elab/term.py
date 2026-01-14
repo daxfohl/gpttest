@@ -25,7 +25,7 @@ from mltt.elab.ast import (
     ETerm,
 )
 from mltt.elab.errors import ElabError
-from mltt.elab.generalize import Generalizer
+from mltt.elab.generalize import generalize_let
 from mltt.elab.names import NameEnv
 from mltt.solver.solver import Solver
 from mltt.elab.types import (
@@ -401,8 +401,7 @@ def _elab_let_infer(term: ELet, env: ElabEnv, solver: Solver) -> tuple[Term, Ela
             ty_term, _binder_specs_from_type(term.ty), env.kenv
         )
         val_term = elab_check(val_src, env, solver, ElabType(ty_term))
-    generalizer = Generalizer(solver)
-    uarity, ty_term, val_term = generalizer.generalize_let(ty_term, val_term)
+    uarity, ty_term, val_term = generalize_let(solver, ty_term, val_term)
     env1 = env.push_let(
         ElabType(ty_term, binder_infos),
         val_term,
