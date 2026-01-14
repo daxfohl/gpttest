@@ -123,21 +123,22 @@ class Solver:
 
         def walk(t: Term) -> Term:
             if isinstance(t, MetaVar):
-                if t.mid in cache:
+                zonked_args = tuple(walk(arg) for arg in t.args)
+                if not zonked_args and t.mid in cache:
                     return cache[t.mid]
                 meta = self.metas.get(t.mid)
                 if meta is not None and meta.solution is not None:
-                    if t.args:
-                        instantiated = meta.solution.instantiate(
-                            Spine.of(*t.args), depth_above=0
+                    solution = walk(meta.solution)
+                    if zonked_args:
+                        instantiated = solution.instantiate(
+                            Spine.of(*zonked_args), depth_above=0
                         )
-                        cache[t.mid] = walk(instantiated)
-                    else:
-                        cache[t.mid] = walk(meta.solution)
-                    return cache[t.mid]
-                if not t.args:
+                        return walk(instantiated)
+                    cache[t.mid] = solution
+                    return solution
+                if not zonked_args:
                     return t
-                return MetaVar(t.mid, args=tuple(walk(arg) for arg in t.args))
+                return MetaVar(t.mid, args=zonked_args)
             if isinstance(t, Univ):
                 return Univ(self.zonk_level(t.level))
             if isinstance(t, UApp):
