@@ -34,7 +34,7 @@ class Solver:
         self.metas[mid] = Meta(
             ctx_len=len(env.binders), ty=expected, span=span, kind=kind
         )
-        args = tuple(Var(i) for i in reversed(range(len(env.binders))))
+        args = Spine.vars(len(env.binders))
         return MetaVar(mid, args=args)
 
     def fresh_level_meta(self, origin: str, span: Span | None) -> LMeta:
@@ -123,16 +123,14 @@ class Solver:
 
         def walk(t: Term) -> Term:
             if isinstance(t, MetaVar):
-                zonked_args = tuple(walk(arg) for arg in t.args)
+                zonked_args = Spine.of(*(walk(arg) for arg in t.args))
                 if not zonked_args and t.mid in cache:
                     return cache[t.mid]
                 meta = self.metas.get(t.mid)
                 if meta is not None and meta.solution is not None:
                     solution = walk(meta.solution)
                     if zonked_args:
-                        instantiated = solution.instantiate(
-                            Spine.of(*zonked_args), depth_above=0
-                        )
+                        instantiated = solution.instantiate(zonked_args, depth_above=0)
                         return walk(instantiated)
                     cache[t.mid] = solution
                     return solution

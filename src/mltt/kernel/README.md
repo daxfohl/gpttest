@@ -5,7 +5,7 @@
   - `Term` public methods: `shift` (raise free vars at/above cutoff), `subst` (replace `Var(j)`), `instantiate` (substitute a binder block with `Spine` actuals), `inst_levels` (instantiate universe levels), `whnf_step` (one-step weak-head reduction), `whnf` (normalize to WHNF), `normalize_step` (one reduction anywhere), `normalize` (full normalization), `infer_type` (synthesize type), `type_check` (check against a type), `expect_universe` (require `Type(u)`), `type_equal` (definitional equality), `__str__` (pretty-print).
   - `TermFieldMeta(binder_count, unchecked)` annotates dataclass fields for binder depth and type-equality checks.
   - `Var(k)`: `k` is a de Bruijn index (0 = innermost). `Var.subst` removes the binder (`k > j` decrements); `Var.shift` bumps indices at/above cutoff.
-  - `MetaVar(mid, args)`: `mid` is the elaboration metavariable id; `args` carries the explicit context arguments for the meta.
+  - `MetaVar(mid, args)`: `mid` is the elaboration metavariable id; `args` is a `Spine` of explicit context arguments for the meta.
   - `Lam(arg_ty, body)`: `arg_ty` is the binder type; `body` is under one binder (`binder_count=1`).
   - `Pi(arg_ty, return_ty)`: `arg_ty` is the binder type; `return_ty` is under one binder (`binder_count=1`).
   - `App(func, arg)`: `func` is applied to `arg`; reduces by beta if the head is a `Lam`; inference checks `Pi` and substitutes the argument into the codomain.

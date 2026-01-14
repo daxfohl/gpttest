@@ -15,11 +15,23 @@ if TYPE_CHECKING:
 
 
 def _map_term_values(value: Any, f: Callable[[Term], Term]) -> Any:
-    if isinstance(value, Term):
-        return f(value)
-    if isinstance(value, tuple):
-        return tuple(_map_term_values(v, f) for v in value)
-    return value
+    from mltt.kernel.tel import Spine
+
+    match value:
+        case Term() as term:
+            return f(term)
+        case tuple() as items:
+            return tuple(_map_term_values(v, f) for v in items)
+        case Spine() as spine:
+            return spine._map(f)
+        case _:
+            return value
+
+
+def _empty_spine() -> Spine:
+    from mltt.kernel.tel import Spine
+
+    return Spine.empty()
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -250,7 +262,7 @@ class MetaVar(Term):
     """Metavariable introduced during elaboration."""
 
     mid: int
-    args: tuple[Term, ...] = field(default_factory=tuple)
+    args: Spine = field(default_factory=_empty_spine)
 
     def _infer_type(self, env: Env) -> Term:
         raise TypeError("Cannot infer type for metavariable without elaboration state")
