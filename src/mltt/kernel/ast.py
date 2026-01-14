@@ -250,7 +250,7 @@ class MetaVar(Term):
     """Metavariable introduced during elaboration."""
 
     mid: int
-    is_terminal: ClassVar[bool] = True
+    args: tuple[Term, ...] = field(default_factory=tuple)
 
     def _infer_type(self, env: Env) -> Term:
         raise TypeError("Cannot infer type for metavariable without elaboration state")

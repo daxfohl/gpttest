@@ -40,6 +40,8 @@ def _uses_var(term: Term, target: int, depth: int = 0) -> bool:
             )
         case App(f, a):
             return _uses_var(f, target, depth) or _uses_var(a, target, depth)
+        case MetaVar(_mid, args):
+            return any(_uses_var(arg, target, depth) for arg in args)
         case UApp(head, _levels):
             return _uses_var(head, target, depth)
         case Elim(inductive, motive, cases, scrutinee):
@@ -121,8 +123,11 @@ def pretty(term: Term) -> str:
             case Const(name):
                 return name, ATOM_PREC
 
-            case MetaVar(mid):
-                return f"?m{mid}", ATOM_PREC
+            case MetaVar(mid, args):
+                if not args:
+                    return f"?m{mid}", ATOM_PREC
+                arg_parts = [fmt(arg, env) for arg in args]
+                return _render_app_like(f"?m{mid}", arg_parts)
 
             case App(f, a):
                 func_text, func_prec = fmt(f, env)

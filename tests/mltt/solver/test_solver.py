@@ -33,7 +33,7 @@ def test_zonk_substitutes_meta_solution() -> None:
     meta = solver.fresh_meta(env, Univ(0), Span(0, 0), kind="implicit")
     solver.add_constraint(env, meta, Var(0), Span(0, 0))
     solver.solve(env)
-    assert solver.zonk(MetaVar(meta.mid)) == Var(0)
+    assert solver.zonk(meta) == Var(0)
 
 
 def test_spine_meta_solve() -> None:

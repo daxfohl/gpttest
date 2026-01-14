@@ -10,6 +10,7 @@ from mltt.elab.errors import ElabError
 from mltt.kernel.ast import App, Lam, MetaVar, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Env
 from mltt.kernel.ind import Elim
+from mltt.kernel.tel import Spine
 from mltt.kernel.levels import LMax, LMeta, LSucc, LevelExpr
 from mltt.solver.constraints import Constraint
 from mltt.solver.levels import LMetaInfo, LevelConstraint
@@ -33,7 +34,8 @@ class Solver:
         self.metas[mid] = Meta(
             ctx_len=len(env.binders), ty=expected, span=span, kind=kind
         )
-        return MetaVar(mid)
+        args = tuple(Var(i) for i in reversed(range(len(env.binders))))
+        return MetaVar(mid, args=args)
 
     def fresh_level_meta(self, origin: str, span: Span | None) -> LMeta:
         mid = self.next_level_id
@@ -125,9 +127,17 @@ class Solver:
                     return cache[t.mid]
                 meta = self.metas.get(t.mid)
                 if meta is not None and meta.solution is not None:
-                    cache[t.mid] = walk(meta.solution)
+                    if t.args:
+                        instantiated = meta.solution.instantiate(
+                            Spine.of(*t.args), depth_above=0
+                        )
+                        cache[t.mid] = walk(instantiated)
+                    else:
+                        cache[t.mid] = walk(meta.solution)
                     return cache[t.mid]
-                return t
+                if not t.args:
+                    return t
+                return MetaVar(t.mid, args=tuple(walk(arg) for arg in t.args))
             if isinstance(t, Univ):
                 return Univ(self.zonk_level(t.level))
             if isinstance(t, UApp):
@@ -465,6 +475,8 @@ class Solver:
     def _occurs(self, mid: int, term: Term) -> bool:
         if isinstance(term, MetaVar):
             if term.mid == mid:
+                return True
+            if term.args and any(self._occurs(mid, arg) for arg in term.args):
                 return True
             meta = self.metas.get(term.mid)
             if meta is not None and meta.solution is not None:
