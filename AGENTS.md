@@ -8,6 +8,7 @@
 - Run `source .venv/bin/activate && mypy` when type-safety is affected or after non-trivial Python changes.
 - Run `source .venv/bin/activate && black .` before sending changes that touch Python files.
 - Use `source .venv/bin/activate && python` when running repo-local Python scripts.
+- Use `scripts/check.sh` to run `black`, `mypy`, and `pytest` together when you intend to run the full suite.
 - The `mltt.kernel` module implements a miniature Martin-Löf type theory.
 - The `mltt.ind` module implements several common inductives such as `Nat`, `Vec`, `Fin`, `Maybe`, `List`, `Bool`, `Sigma`, `Eq`, `Unit`, `Empty`, and others.
 - The `mltt.surface` module implements a parser and elaborator for surface syntax.
