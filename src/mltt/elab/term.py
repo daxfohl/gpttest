@@ -26,7 +26,6 @@ from mltt.elab.ast import (
 )
 from mltt.elab.errors import ElabError
 from mltt.elab.generalize import generalize_let
-from mltt.elab.names import NameEnv
 from mltt.solver.solver import Solver
 from mltt.elab.types import (
     BinderSpec,
@@ -141,86 +140,6 @@ def elab_check(term: ETerm, env: ElabEnv, solver: Solver, expected: ElabType) ->
             term_k, term_ty = elab_infer(term, env, solver)
             solver.add_constraint(env.kenv, term_ty.term, expected.term, term.span)
             return term_k
-
-
-def _resolve(term: ETerm, env: Env, names: NameEnv) -> Term:
-    match term:
-        case EVar(name=name):
-            idx = names.lookup(name)
-            if idx is not None:
-                return Var(idx)
-            decl = env.lookup_global(name)
-            if decl is not None:
-                if isinstance(decl.value, (Ind, Ctor)):
-                    return decl.value
-                return Const(name)
-            raise ElabError(f"Unknown identifier {name}", term.span)
-        case EConst(name=name):
-            if env.lookup_global(name) is None:
-                raise ElabError(f"Unknown constant {name}", term.span)
-            return Const(name)
-        case EUniv(level=level):
-            if level is None:
-                raise ElabError("Universe requires elaboration", term.span)
-            return Univ(_level_expr(level))
-        case EAnn(term=inner, ty=ty_src):
-            _ = ty_src
-            return _resolve(inner, env, names)
-        case EHole():
-            raise ElabError("Hole requires elaboration", term.span)
-        case ELam(binders=binders, body=body):
-            if any(b.ty is None for b in binders):
-                raise ElabError("Missing binder type", term.span)
-            tys: list[Term] = []
-            for binder in binders:
-                assert binder.ty is not None
-                tys.append(_resolve(binder.ty, env, names))
-                names.push(binder.name)
-            term_k = _resolve(body, env, names)
-            for ty in reversed(tys):
-                term_k = Lam(ty, term_k)
-                names.pop()
-            return term_k
-        case EPi(binders=binders, body=body):
-            if any(b.ty is None for b in binders):
-                raise ElabError("Missing binder type", term.span)
-            pi_tys: list[Term] = []
-            for binder in binders:
-                assert binder.ty is not None
-                pi_tys.append(_resolve(binder.ty, env, names))
-                names.push(binder.name)
-            term_k = _resolve(body, env, names)
-            for ty in reversed(pi_tys):
-                term_k = Pi(ty, term_k)
-                names.pop()
-            return term_k
-        case EApp(fn=fn, args=args, named_args=named_args):
-            term_k = _resolve(fn, env, names)
-            for arg in args:
-                arg_term = _resolve(arg.term, env, names)
-                term_k = App(term_k, arg_term)
-            if named_args:
-                raise ElabError("Named arguments require elaboration", term.span)
-            return term_k
-        case EUApp(head=head, levels=levels):
-            head_term = _resolve(head, env, names)
-            level_terms = tuple(_level_expr(level) for level in levels)
-            return UApp(head_term, level_terms)
-        case EPartial(term=inner):
-            return _resolve(inner, env, names)
-        case ELet(name=name, ty=ty_src, val=val_src, body=body):
-            if ty_src is None:
-                raise ElabError("Missing let type; needs elaboration", term.span)
-            ty_term = _resolve(ty_src, env, names)
-            val_term = _resolve(val_src, env, names)
-            names.push(name)
-            body_term = _resolve(body, env, names)
-            names.pop()
-            return Let(ty_term, val_term, body_term)
-        case EMatch() | EInd() | ECtor() | EInductiveDef():
-            raise ElabError("Surface construct requires elaboration", term.span)
-        case _:
-            raise ElabError("Unsupported surface term", term.span)
 
 
 def expect_universe(term: Term, env: Env, span: Span) -> Univ:
