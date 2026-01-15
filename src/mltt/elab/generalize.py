@@ -5,6 +5,7 @@ from __future__ import annotations
 from mltt.kernel.ast import Term, Univ, UApp
 from mltt.kernel.ind import Ind
 from mltt.kernel.levels import LConst, LMax, LMeta, LSucc, LVar, LevelExpr
+from mltt.kernel.tel import Spine
 from mltt.solver.constraints import Constraint
 from mltt.solver.levels import LevelConstraint
 from mltt.solver.solver import Solver
@@ -83,7 +84,7 @@ def generalize_let(solver: Solver, ty: Term, value: Term) -> tuple[int, Term, Te
     return len(to_generalize), ty_gen, value_gen
 
 
-def merge_type_level_metas(solver: Solver, terms: list[Term]) -> list[Term]:
+def merge_type_level_metas(solver: Solver, terms: Spine) -> Spine:
     meta_ids: list[int] = []
     for term in terms:
         meta_ids.extend(_collect_level_metas(term))
@@ -101,7 +102,7 @@ def merge_type_level_metas(solver: Solver, terms: list[Term]) -> list[Term]:
         return terms
     root = type_metas[0]
     mapping: dict[int, LevelExpr] = {mid: LMeta(root) for mid in type_metas[1:]}
-    terms = [_replace_level_metas(term, mapping) for term in terms]
+    terms = terms.map(lambda t: _replace_level_metas(t, mapping))
     if mapping:
         solver.constraints = [
             Constraint(
@@ -127,7 +128,7 @@ def merge_type_level_metas(solver: Solver, terms: list[Term]) -> list[Term]:
     return terms
 
 
-def generalize_levels(solver: Solver, terms: list[Term]) -> tuple[int, list[Term]]:
+def generalize_levels(solver: Solver, terms: Spine) -> tuple[int, Spine]:
     meta_ids: set[int] = set()
     for term in terms:
         meta_ids |= _collect_level_metas(term)
@@ -174,7 +175,7 @@ def generalize_levels(solver: Solver, terms: list[Term]) -> tuple[int, list[Term
     for idx, group in enumerate(to_generalize):
         for mid in group:
             mapping[mid] = LVar(idx)
-    terms_gen = [_replace_level_metas(term, mapping) for term in terms]
+    terms_gen = terms.map(lambda t: _replace_level_metas(t, mapping))
     if mapping:
         solver.constraints = [
             Constraint(

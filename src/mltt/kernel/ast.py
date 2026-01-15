@@ -23,7 +23,7 @@ def _map_term_values(value: Any, f: Callable[[Term], Term]) -> Any:
         case tuple() as items:
             return tuple(_map_term_values(v, f) for v in items)
         case Spine() as spine:
-            return spine._map(f)
+            return spine.map(f)
         case _:
             return value
 

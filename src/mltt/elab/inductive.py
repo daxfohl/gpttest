@@ -96,11 +96,13 @@ def elab_inductive_infer(
         raise ElabError("Inductive level must be a Type", level_body.span)
     uarity = len(term.uparams)
     if uarity == 0:
-        terms = [*param_tys, *index_tys, level_term]
+        terms = Spine.of(*param_tys, *index_tys, level_term)
         terms = merge_type_level_metas(solver, terms)
         uarity, generalized = generalize_levels(solver, terms)
-        param_tys = generalized[: len(param_tys)]
-        index_tys = generalized[len(param_tys) : len(param_tys) + len(index_tys)]
+        param_len = len(param_tys)
+        index_len = len(index_tys)
+        param_tys = Telescope.of(*generalized[:param_len])
+        index_tys = Telescope.of(*generalized[param_len : param_len + index_len])
         level_term = generalized[-1]
     if not isinstance(level_term, Univ):
         raise ElabError("Inductive level must be a Type", level_body.span)

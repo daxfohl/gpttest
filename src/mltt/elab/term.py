@@ -38,6 +38,7 @@ from mltt.kernel.ast import App, Lam, Let, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Ind
 from mltt.kernel.levels import LConst, LVar, LevelExpr
+from mltt.kernel.tel import Telescope
 
 
 def elab_infer(term: ETerm, env: ElabEnv, solver: Solver) -> tuple[Term, ElabType]:
@@ -185,7 +186,7 @@ def _elab_lam_infer(term: ELam, env: ElabEnv, solver: Solver) -> tuple[Term, Ela
 def _elab_lam_check(
     term: ELam, env: ElabEnv, solver: Solver, expected: ElabType
 ) -> Term:
-    binder_tys: list[Term] = []
+    binder_tys = Telescope.empty()
     binder_impls: list[bool] = []
     env1 = env
     expected_ty = expected
@@ -203,7 +204,7 @@ def _elab_lam_check(
             binder_ty_info = attach_binder_types(
                 binder_ty, _binder_specs_from_type(binder.ty), env1.kenv
             )
-        binder_tys.append(binder_ty)
+        binder_tys += binder_ty
         binder_impls.append(binder.implicit)
         env1 = env1.push_binder(ElabType(binder_ty, binder_ty_info), name=binder.name)
         expected_ty = ElabType(pi_ty.return_ty, expected_ty.binders[1:])
@@ -334,8 +335,8 @@ def _elab_let_infer(term: ELet, env: ElabEnv, solver: Solver) -> tuple[Term, Ela
 
 def elab_binders(
     env: ElabEnv, solver: Solver, binders: tuple[EBinder, ...]
-) -> tuple[list[Term], list[bool], list[LevelExpr], ElabEnv]:
-    binder_tys: list[Term] = []
+) -> tuple[Telescope, list[bool], list[LevelExpr], ElabEnv]:
+    binder_tys = Telescope.empty()
     binder_impls: list[bool] = []
     binder_levels: list[LevelExpr] = []
     for binder in binders:
@@ -347,7 +348,7 @@ def elab_binders(
             ty_term, _binder_specs_from_type(binder.ty), env.kenv
         )
         env = env.push_binder(ElabType(ty_term, binder_infos), name=binder.name)
-        binder_tys.append(ty_term)
+        binder_tys += ty_term
         binder_impls.append(binder.implicit)
         binder_levels.append(ty_ty_whnf.level)
     return binder_tys, binder_impls, binder_levels, env

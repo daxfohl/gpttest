@@ -52,7 +52,7 @@ def elab_apply(
     fn_ty_ctx = fn_ty.term
     ctx_env = env
     base_ctx_len = len(env.binders)
-    actuals: list[Term] = []
+    actuals = Spine.empty()
     missing_binders: list[tuple[Term, str | None]] = []
     missing_depth = 0
     matcher = ArgMatcher(remaining_binders, args, named_args, span)
@@ -85,7 +85,7 @@ def elab_apply(
                 meta_term_ctx = solver.fresh_meta(
                     ctx_env.kenv, fn_ty_ctx_whnf.arg_ty, span, kind="implicit"
                 )
-                arg_term_closed = _close_term(meta_term_ctx, actuals)
+                arg_term_closed = meta_term_ctx.instantiate(actuals, depth_above=0)
                 fn_term_closed = App(fn_term_closed, arg_term_closed)
                 fn_ty_closed = _apply_fn_type(
                     fn_ty_closed, arg_term_closed, ctx_env.kenv, remaining_binders, span
@@ -111,8 +111,8 @@ def elab_apply(
                     else:
                         message = f"Missing explicit argument {missing_name}"
                     raise ElabError(message, matcher.next_arg_span())
-                actuals = _shift_terms(actuals, 1)
-                missing_ty = _close_term(fn_ty_ctx_whnf.arg_ty, actuals)
+                actuals = actuals.shift(1)
+                missing_ty = fn_ty_ctx_whnf.arg_ty.instantiate(actuals, depth_above=0)
                 missing_binders.append((missing_ty, binder_info.name))
                 missing_depth += 1
                 fn_term_closed = fn_term_closed.shift(1)
@@ -126,7 +126,7 @@ def elab_apply(
                 fn_ty_closed = _apply_fn_type(
                     fn_ty_closed, arg_term_closed, ctx_env.kenv, remaining_binders, span
                 )
-                actuals.append(arg_term_closed)
+                actuals += arg_term_closed
                 continue
             case "explicit":
                 assert isinstance(decision.arg, (EArg, ENamedArg))
@@ -150,7 +150,7 @@ def elab_apply(
                 _close_new_metas(
                     solver, before_metas, actuals, base_ctx_len, missing_depth
                 )
-                arg_term_closed = _close_term(arg_term_ctx, actuals)
+                arg_term_closed = arg_term_ctx.instantiate(actuals, depth_above=0)
                 fn_term_closed = App(fn_term_closed, arg_term_closed)
                 fn_ty_closed = _apply_fn_type(
                     fn_ty_closed, arg_term_closed, ctx_env.kenv, remaining_binders, span
@@ -175,7 +175,7 @@ def elab_apply(
                     name=binding_name,
                 )
                 fn_ty_ctx = fn_ty_ctx_whnf.return_ty
-                actuals.append(arg_term_closed)
+                actuals += arg_term_closed
                 continue
     if matcher.has_named():
         unknown = matcher.unknown_named()
@@ -202,18 +202,6 @@ def _elab_check(term: ETerm, env: ElabEnv, solver: Solver, expected: ElabType) -
     from mltt.elab.term import elab_check
 
     return elab_check(term, env, solver, expected)
-
-
-def _close_term(term: Term, actuals: list[Term]) -> Term:
-    if not actuals:
-        return term
-    return term.instantiate(Spine.of(*actuals), depth_above=0)
-
-
-def _shift_terms(terms: list[Term], amount: int) -> list[Term]:
-    if amount == 0:
-        return list(terms)
-    return [term.shift(amount) for term in terms]
 
 
 def _dependent_binder_names(
@@ -347,37 +335,33 @@ def _term_mentions_name(term: ETerm, name: str) -> bool:
 def _close_new_constraints(
     solver: Solver,
     start: int,
-    actuals: list[Term],
+    actuals: Spine,
     base_ctx_len: int,
     missing_depth: int,
 ) -> None:
     if start >= len(solver.constraints):
         return
-    actuals_spine = Spine.of(*actuals) if actuals else None
     for constraint in solver.constraints[start:]:
-        if actuals_spine is not None:
-            constraint.lhs = constraint.lhs.instantiate(actuals_spine, depth_above=0)
-            constraint.rhs = constraint.rhs.instantiate(actuals_spine, depth_above=0)
+        constraint.lhs = constraint.lhs.instantiate(actuals, depth_above=0)
+        constraint.rhs = constraint.rhs.instantiate(actuals, depth_above=0)
         constraint.ctx_len = base_ctx_len + missing_depth
 
 
 def _close_new_metas(
     solver: Solver,
     before: set[int],
-    actuals: list[Term],
+    actuals: Spine,
     base_ctx_len: int,
     missing_depth: int,
 ) -> None:
     new_meta_ids = set(solver.metas.keys()) - before
     if not new_meta_ids:
         return
-    actuals_spine = Spine.of(*actuals) if actuals else None
     for mid in new_meta_ids:
         meta = solver.metas[mid]
-        if actuals_spine is not None:
-            meta.ty = meta.ty.instantiate(actuals_spine, depth_above=0)
-            if meta.solution is not None:
-                meta.solution = meta.solution.instantiate(actuals_spine, depth_above=0)
+        meta.ty = meta.ty.instantiate(actuals, depth_above=0)
+        if meta.solution is not None:
+            meta.solution = meta.solution.instantiate(actuals, depth_above=0)
         meta.ctx_len = base_ctx_len + missing_depth
 
 

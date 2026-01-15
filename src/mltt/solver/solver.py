@@ -9,7 +9,7 @@ from mltt.common.span import Span
 from mltt.kernel.ast import App, Lam, MetaVar, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Env
 from mltt.kernel.ind import Elim
-from mltt.kernel.tel import Spine
+from mltt.kernel.tel import Spine, Telescope, decompose_app
 from mltt.kernel.levels import LMax, LMeta, LSucc, LevelExpr
 from mltt.solver.constraints import Constraint
 from mltt.solver.errors import SolverError
@@ -271,8 +271,8 @@ class Solver:
             return True
         if isinstance(rhs, MetaVar) and self._try_solve_meta(env, rhs, lhs):
             return True
-        lhs_head, lhs_spine = self._decompose_app(lhs)
-        rhs_head, rhs_spine = self._decompose_app(rhs)
+        lhs_head, lhs_spine = decompose_app(lhs)
+        rhs_head, rhs_spine = decompose_app(rhs)
         if isinstance(lhs_head, MetaVar) and self._try_solve_spine(
             env, lhs_head, lhs_spine, rhs, constraint
         ):
@@ -322,7 +322,7 @@ class Solver:
         self,
         env: Env,
         meta_term: MetaVar,
-        spine: list[Term],
+        spine: Spine,
         rhs: Term,
         constraint: Constraint,
     ) -> bool:
@@ -330,7 +330,7 @@ class Solver:
         meta = self.metas.get(meta_term.mid)
         if meta is None or meta.solution is not None:
             return False
-        if not spine:
+        if len(spine) == 0:
             return False
         var_indices: list[int] = []
         for arg in spine:
@@ -361,8 +361,8 @@ class Solver:
         meta.solution = term
         return True
 
-    def _pi_spine(self, ty: Term, ctx_len: int, count: int, env: Env) -> list[Term]:
-        arg_tys: list[Term] = []
+    def _pi_spine(self, ty: Term, ctx_len: int, count: int, env: Env) -> Telescope:
+        arg_tys = Telescope.empty()
         current = ty
         ctx_env = self._env_for_ctx(env, ctx_len)
         for _ in range(count):
@@ -371,7 +371,7 @@ class Solver:
                 raise SolverError(
                     "Cannot solve meta: type is not a function", Span(0, 0)
                 )
-            arg_tys.append(current.arg_ty)
+            arg_tys += current.arg_ty
             current = current.return_ty
         return arg_tys
 
@@ -439,18 +439,9 @@ class Solver:
         ctx_env = self._env_for_ctx(env, constraint.ctx_len)
         lhs = self.zonk(constraint.lhs).whnf(ctx_env)
         rhs = self.zonk(constraint.rhs).whnf(ctx_env)
-        lhs_head, _ = self._decompose_app(lhs)
-        rhs_head, _ = self._decompose_app(rhs)
+        lhs_head, _ = decompose_app(lhs)
+        rhs_head, _ = decompose_app(rhs)
         return isinstance(lhs_head, MetaVar) or isinstance(rhs_head, MetaVar)
-
-    def _decompose_app(self, term: Term) -> tuple[Term, list[Term]]:
-        spine: list[Term] = []
-        head = term
-        while isinstance(head, App):
-            spine.append(head.arg)
-            head = head.func
-        spine.reverse()
-        return head, spine
 
     def _env_for_ctx(self, env: Env, ctx_len: int) -> Env:
         if ctx_len == len(env.binders):

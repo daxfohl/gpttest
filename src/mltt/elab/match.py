@@ -82,7 +82,7 @@ def _match_branch_types(
     )
     p = len(ind.param_types)
     q = len(ind.index_types)
-    ihs: list[Term] = []
+    ih_types = Telescope.empty()
     for ri, j in enumerate(ctor.rps):
         rec_head, rec_levels, rec_field_args = decompose_uapp(
             ctor_field_types[j].shift(m - j)
@@ -95,8 +95,7 @@ def _match_branch_types(
         rec_indices = rec_field_args[p : p + q]
         _ = rec_params
         ih_type = mk_app(motive_in_fields_ctx, rec_indices, field_vars[j])
-        ihs.append(ih_type.shift(ri))
-    ih_types = Telescope.of(*ihs)
+        ih_types += ih_type.shift(ri)
     codomain = mk_app(motive_in_fields_ctx, result_indices, scrut_like).shift(
         len(ih_types)
     )
@@ -215,7 +214,7 @@ def _elab_match_core(
     params_actual = args[:p]
     indices_actual = args[p:]
     branch_map, default_branch = _branch_map(match.branches, env, ind)
-    cases: list[Term] = []
+    cases = Spine.empty()
     scrut_ty_in_ctx = mk_uapp(ind, level_actuals, params_actual.shift(q), Spine.vars(q))
     motive = mk_lams(
         *ind.index_types,
@@ -250,7 +249,7 @@ def _elab_match_core(
         for name, ty in binder_names:
             env_fields = env_fields.push_binder(ElabType(ty), name=name)
         rhs_term = elab_check(branch_rhs, env_fields, solver, ElabType(codomain))
-        cases.append(mk_lams(*tel, body=rhs_term))
+        cases += mk_lams(*tel, body=rhs_term)
     match_term = Elim(ind, motive, tuple(cases), scrut_term)
     return match_term
 
@@ -278,7 +277,7 @@ def _elab_match_with_motive(
     motive_body = motive_term.shift(q)
     motive_fn = mk_lams(*ind.index_types, body=Lam(scrut_ty_in_ctx, motive_body))
     branch_map, default_branch = _branch_map(match.branches, env, ind)
-    cases: list[Term] = []
+    cases = Spine.empty()
     for ctor in ind.constructors:
         branch = branch_map.get(ctor.name)
         tel, codomain = _match_branch_types(
@@ -300,7 +299,7 @@ def _elab_match_with_motive(
         for name, ty in binder_names:
             env_fields = env_fields.push_binder(ElabType(ty), name=name)
         rhs_term = elab_check(branch_rhs, env_fields, solver, ElabType(codomain))
-        cases.append(mk_lams(*tel, body=rhs_term))
+        cases += mk_lams(*tel, body=rhs_term)
     match_term = Elim(ind, motive_fn, tuple(cases), scrut_term)
     match_ty = mk_app(motive_fn, indices_actual, scrut_term)
     return match_term, ElabType(match_ty)

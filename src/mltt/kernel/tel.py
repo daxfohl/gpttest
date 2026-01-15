@@ -34,6 +34,9 @@ class SeqBase[T](Sequence[T]):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({list(self._data)!r})"
 
+    def __bool__(self) -> bool:
+        return bool(self._data)
+
     # ---- a couple generic helpers you might want everywhere ----
     def _map(self, f: Callable[[T], T]) -> Self:
         return self.of(*(f(x) for x in self._data))
@@ -51,7 +54,9 @@ class Spine(SeqBase[Term]):
     def empty(cls) -> Self:
         return cls.of()
 
-    def __add__(self, other: Iterable[Term]) -> Self:
+    def __add__(self, other: Term | Iterable[Term]) -> Self:
+        if isinstance(other, Term):
+            return self.of(*self, other)
         return self.of(*self, *other)
 
     @staticmethod
@@ -67,6 +72,12 @@ class Spine(SeqBase[Term]):
     def inst_levels(self, actuals: tuple[LevelExpr, ...]) -> Self:
         return self._map(lambda e: e.inst_levels(actuals))
 
+    def map(self, f: Callable[[Term], Term]) -> Self:
+        return self._map(f)
+
+    def __reversed__(self) -> Self:
+        return self.of(*reversed(self._data))
+
 
 class Telescope(SeqBase[Term]):
     @classmethod
@@ -77,7 +88,9 @@ class Telescope(SeqBase[Term]):
     def empty(cls) -> Self:
         return cls.of()
 
-    def __add__(self, other: Iterable[Term]) -> Self:
+    def __add__(self, other: Term | Iterable[Term]) -> Self:
+        if isinstance(other, Term):
+            return self.of(*self, other)
         return self.of(*self, *other)
 
     def instantiate(self, actuals: Spine, depth_above: int = 0) -> Self:
@@ -85,6 +98,12 @@ class Telescope(SeqBase[Term]):
 
     def inst_levels(self, actuals: tuple[LevelExpr, ...]) -> Self:
         return self._map(lambda t: t.inst_levels(actuals))
+
+    def map(self, f: Callable[[Term], Term]) -> Self:
+        return self._map(f)
+
+    def __reversed__(self) -> Self:
+        return self.of(*reversed(self._data))
 
 
 def mk_app(fn: Term, *args: Term | Spine) -> Term:
