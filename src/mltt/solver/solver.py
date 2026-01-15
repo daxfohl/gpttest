@@ -6,13 +6,13 @@ from collections import deque
 from dataclasses import dataclass, field
 
 from mltt.common.span import Span
-from mltt.elab.errors import ElabError
 from mltt.kernel.ast import App, Lam, MetaVar, Pi, Term, Univ, Var, UApp
 from mltt.kernel.env import Env
 from mltt.kernel.ind import Elim
 from mltt.kernel.tel import Spine
 from mltt.kernel.levels import LMax, LMeta, LSucc, LevelExpr
 from mltt.solver.constraints import Constraint
+from mltt.solver.errors import SolverError
 from mltt.solver.levels import LMetaInfo, LevelConstraint
 from mltt.solver.meta import Meta
 
@@ -107,7 +107,7 @@ class Solver:
                             span = smallest.span or Span(0, 0)
                             lhs = self.zonk(smallest.lhs)
                             rhs = self.zonk(smallest.rhs)
-                            raise ElabError(f"Stuck constraint: {lhs} ≡ {rhs}", span)
+                            raise SolverError(f"Stuck constraint: {lhs} ≡ {rhs}", span)
             if self.constraints:
                 queue.extendleft(
                     reversed(
@@ -176,11 +176,11 @@ class Solver:
                 message = (
                     f"Cannot synthesize value for hole ?m{mid}; expected type {ty}"
                 )
-            raise ElabError(message, span)
+            raise SolverError(message, span)
         for mid, info in self.level_metas.items():
             if info.solution is None:
                 span = info.span or Span(0, 0)
-                raise ElabError(f"Cannot infer universe level ?u{mid}", span)
+                raise SolverError(f"Cannot infer universe level ?u{mid}", span)
 
     def _solve_constraint(self, env: Env, constraint: Constraint) -> str:
         ctx_env = self._env_for_ctx(env, constraint.ctx_len)
@@ -213,7 +213,7 @@ class Solver:
             self.add_level_constraint(rhs.level, lhs.level, constraint.span)
             return "progress"
         if type(lhs) is not type(rhs):
-            raise ElabError(
+            raise SolverError(
                 f"Cannot unify {lhs} with {rhs}", constraint.span or Span(0, 0)
             )
         if isinstance(lhs, Pi) and isinstance(rhs, Pi):
@@ -260,7 +260,9 @@ class Solver:
                     Constraint(constraint.ctx_len, l_case, r_case, constraint.span)
                 )
             return "progress"
-        raise ElabError(f"Cannot unify {lhs} with {rhs}", constraint.span or Span(0, 0))
+        raise SolverError(
+            f"Cannot unify {lhs} with {rhs}", constraint.span or Span(0, 0)
+        )
 
     def _solve_meta(
         self, env: Env, constraint: Constraint, lhs: Term, rhs: Term
@@ -309,7 +311,7 @@ class Solver:
             return False
         rhs = self.zonk(rhs)
         if self._occurs(meta_term.mid, rhs):
-            raise ElabError(
+            raise SolverError(
                 "Cannot solve hole: occurs check failed", meta.span or Span(0, 0)
             )
         adapted = self._adapt_to_ctx(rhs, len(env.binders), meta.ctx_len)
@@ -366,7 +368,9 @@ class Solver:
         for _ in range(count):
             current = self.zonk(current).whnf(ctx_env)
             if not isinstance(current, Pi):
-                raise ElabError("Cannot solve meta: type is not a function", Span(0, 0))
+                raise SolverError(
+                    "Cannot solve meta: type is not a function", Span(0, 0)
+                )
             arg_tys.append(current.arg_ty)
             current = current.return_ty
         return arg_tys
@@ -405,7 +409,7 @@ class Solver:
             if lhs_val is not None and rhs_val is not None:
                 if lhs_val > rhs_val:
                     span = constraint.span or Span(0, 0)
-                    raise ElabError(
+                    raise SolverError(
                         f"Universe level mismatch: {lhs} ≤ {rhs} does not hold", span
                     )
         for mid, info in self.level_metas.items():
@@ -417,7 +421,7 @@ class Solver:
                     if ub_val is not None and cand_val is not None:
                         if cand_val > ub_val:
                             span = info.span or Span(0, 0)
-                            raise ElabError(
+                            raise SolverError(
                                 "Universe level mismatch: lower bound exceeds upper",
                                 span,
                             )
@@ -505,7 +509,7 @@ class Solver:
                     return t
                 idx = t.k - depth
                 if idx < drop:
-                    raise ElabError(
+                    raise SolverError(
                         "Cannot solve hole: solution mentions locals out of scope",
                         Span(0, 0),
                     )

@@ -9,6 +9,7 @@ terms and does **not** depend on surface syntax.
 - Solve term equality constraints and assign metas (`solver.py`).
 - Solve universe level constraints (`levels.py`).
 - Zonk terms and levels (substitute solved metas).
+- Report solver failures as `SolverError` (`errors.py`).
 
 ## Interfaces used by elaboration
 

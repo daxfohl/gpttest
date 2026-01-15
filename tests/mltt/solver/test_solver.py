@@ -1,7 +1,7 @@
 import pytest
 
 from mltt.common.span import Span
-from mltt.elab.errors import ElabError
+from mltt.solver.errors import SolverError
 from mltt.kernel.ast import App, MetaVar, Univ, Var, Pi, Lam
 from mltt.kernel.env import Env
 from mltt.kernel.levels import LConst, LMeta
@@ -12,7 +12,7 @@ def test_occurs_check_fails() -> None:
     env = Env.of(Univ(0))
     solver = Solver()
     meta = solver.fresh_meta(env, Univ(0), Span(0, 0), kind="hole")
-    with pytest.raises(ElabError, match="occurs check failed"):
+    with pytest.raises(SolverError, match="occurs check failed"):
         solver.add_constraint(env, meta, App(meta, Var(0)), Span(0, 0))
 
 
