@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import overload, Self, Sequence, Iterable, Callable
+from typing import overload, Self, Sequence, Iterable, Callable, Iterator
 
 from mltt.kernel.ast import Term, App, Lam, Pi, Var, UApp
 from mltt.kernel.levels import LevelExpr
@@ -75,8 +75,8 @@ class Spine(SeqBase[Term]):
     def map(self, f: Callable[[Term], Term]) -> Self:
         return self._map(f)
 
-    def __reversed__(self) -> Self:
-        return self.of(*reversed(self._data))
+    def __reversed__(self) -> Iterator[Term]:
+        return iter(reversed(self._data))
 
 
 class Telescope(SeqBase[Term]):
@@ -102,8 +102,8 @@ class Telescope(SeqBase[Term]):
     def map(self, f: Callable[[Term], Term]) -> Self:
         return self._map(f)
 
-    def __reversed__(self) -> Self:
-        return self.of(*reversed(self._data))
+    def __reversed__(self) -> Iterator[Term]:
+        return iter(reversed(self._data))
 
 
 def mk_app(fn: Term, *args: Term | Spine) -> Term:
