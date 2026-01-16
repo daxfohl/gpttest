@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, cast
 
 from mltt.common.span import Span
 from mltt.kernel.ast import (
@@ -76,7 +76,8 @@ class Solver:
             made_progress = False
             remaining: list[Constraint] = []
             for c in self.constraints:
-                if self._try_unify(env, c.lhs, c.rhs, c.span):
+                span = c.span or Span(0, 0)
+                if self._try_unify(env, c.lhs, c.rhs, span):
                     made_progress = True
                 else:
                     remaining.append(c)
@@ -127,8 +128,8 @@ class Solver:
                 if k1 != k2:
                     raise SolverError("Cannot unify terms", span)
                 return True
-            case Const(name=a), Const(name=b):
-                if a != b:
+            case Const(name=left_name), Const(name=right_name):
+                if left_name != right_name:
                     raise SolverError("Cannot unify terms", span)
                 return True
             case Ind(), Ind():
@@ -153,9 +154,7 @@ class Solver:
                 self._try_unify(env, f1, f2, span)
                 self._try_unify(env, a1, a2, span)
                 return True
-            case Let(arg_ty=a1, value=v1, body=b1), Let(
-                arg_ty=a2, value=v2, body=b2
-            ):
+            case Let(arg_ty=a1, value=v1, body=b1), Let(arg_ty=a2, value=v2, body=b2):
                 self._try_unify(env, a1, a2, span)
                 self._try_unify(env, v1, v2, span)
                 env2 = env.push_let(a1, v1)
@@ -165,15 +164,15 @@ class Solver:
                 if len(lv1) != len(lv2):
                     raise SolverError("Universe application arity mismatch", span)
                 self._try_unify(env, h1, h2, span)
-                for a, b in zip(lv1, lv2, strict=True):
-                    self._unify_levels(a, b, span)
+                for left_level, right_level in zip(lv1, lv2, strict=True):
+                    self._unify_levels(left_level, right_level, span)
                 return True
             case Univ(level=l1), Univ(level=l2):
                 self._unify_levels(l1, l2, span)
                 return True
-            case Elim(
-                inductive=i1, motive=m1, cases=c1, scrutinee=s1
-            ), Elim(inductive=i2, motive=m2, cases=c2, scrutinee=s2):
+            case Elim(inductive=i1, motive=m1, cases=c1, scrutinee=s1), Elim(
+                inductive=i2, motive=m2, cases=c2, scrutinee=s2
+            ):
                 if i1 != i2 or len(c1) != len(c2):
                     raise SolverError("Cannot unify terms", span)
                 self._try_unify(env, m1, m2, span)
@@ -194,12 +193,13 @@ class Solver:
         args = list(meta_term.args)
         if not self._args_solvable(args):
             return False
-        if not self._vars_subset(rhs, args):
+        arg_vars = cast(list[Var], args)
+        if not self._vars_subset(rhs, arg_vars):
             return False
         arg_types = self._pi_arg_types(meta.ty, len(args), env)
         if arg_types is None:
             return False
-        body = self._abstract_over_args(rhs, args)
+        body = self._abstract_over_args(rhs, arg_vars)
         solution = body
         for arg_ty in reversed(arg_types):
             solution = Lam(arg_ty, solution)
@@ -239,8 +239,8 @@ class Solver:
         self, lhs: LevelExpr, rhs: LevelExpr, constraint: LevelConstraint
     ) -> None:
         match lhs, rhs:
-            case LConst(a), LConst(b):
-                if a > b:
+            case LConst(left_const), LConst(right_const):
+                if left_const > right_const:
                     span = constraint.span or Span(0, 0)
                     raise SolverError("Universe level constraint failed", span)
             case LMeta(mid), _:
@@ -359,12 +359,18 @@ class Solver:
                     self._replace_var(arg, target, replacement, depth),
                 )
             case UApp(head=head, levels=levels):
-                return UApp(head=self._replace_var(head, target, replacement, depth), levels=levels)
+                return UApp(
+                    head=self._replace_var(head, target, replacement, depth),
+                    levels=levels,
+                )
             case MetaVar(mid=mid, args=args):
                 return MetaVar(
                     mid=mid,
                     args=Spine.of(
-                        *(self._replace_var(arg, target, replacement, depth) for arg in args)
+                        *(
+                            self._replace_var(arg, target, replacement, depth)
+                            for arg in args
+                        )
                     ),
                 )
             case Elim(inductive=ind, motive=motive, cases=cases, scrutinee=scrutinee):

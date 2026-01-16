@@ -12,6 +12,7 @@ from mltt.elab.ast import (
     EApp,
     EArg,
     EBranch,
+    EConst,
     ECtor,
     EHole,
     EInd,
@@ -40,11 +41,19 @@ from mltt.elab.types import (
     attach_binder_types,
     normalize_binder_name,
 )
-from mltt.kernel.ast import App, Const, Lam, Let, Pi, Term, UApp, Univ, Var
-from mltt.kernel.env import Env, GlobalDecl
+from mltt.kernel.ast import App, Lam, Let, Pi, Term, UApp, Univ, Var
+from mltt.kernel.env import Const, Env, GlobalDecl
 from mltt.kernel.ind import Ctor, Elim, Ind
-from mltt.kernel.levels import LConst, LevelExpr, LVar
-from mltt.kernel.tel import Spine, Telescope, decompose_uapp, mk_app, mk_lams, mk_pis, mk_uapp
+from mltt.kernel.levels import LConst, LevelExpr, LMax, LMeta, LSucc, LVar
+from mltt.kernel.tel import (
+    Spine,
+    Telescope,
+    decompose_uapp,
+    mk_app,
+    mk_lams,
+    mk_pis,
+    mk_uapp,
+)
 from mltt.solver.solver import Solver
 
 
@@ -52,8 +61,12 @@ def elab_infer(term: ETerm, env: ElabEnv, solver: Solver) -> tuple[Term, ElabTyp
     match term:
         case EVar():
             return _infer_name(term.name, env, solver, term.span, allow_uapp=True)
+        case EConst():
+            return _infer_name(term.name, env, solver, term.span, allow_uapp=True)
         case EInd():
-            return _infer_name(term.name, env, solver, term.span, allow_uapp=True, ind=True)
+            return _infer_name(
+                term.name, env, solver, term.span, allow_uapp=True, ind=True
+            )
         case ECtor():
             return _infer_name(
                 term.name, env, solver, term.span, allow_uapp=True, ctor=True
@@ -88,9 +101,7 @@ def elab_infer(term: ETerm, env: ElabEnv, solver: Solver) -> tuple[Term, ElabTyp
             raise ElabError("Unsupported term for elaboration", term.span)
 
 
-def elab_check(
-    term: ETerm, expected: ElabType, env: ElabEnv, solver: Solver
-) -> Term:
+def elab_check(term: ETerm, expected: ElabType, env: ElabEnv, solver: Solver) -> Term:
     match term:
         case EHole():
             return solver.fresh_meta(env.kenv, expected.term, term.span, kind="hole")
@@ -131,7 +142,7 @@ def _infer_name(
         raise ElabError(f"{name} is not an inductive", span)
     if ctor and not isinstance(decl.value, Ctor):
         raise ElabError(f"{name} is not a constructor", span)
-    if isinstance(decl.value, (Ind, Ctor)):
+    if isinstance(decl.value, (Ind, Ctor, UApp)):
         term = decl.value
     else:
         term = Const(name)
@@ -170,6 +181,7 @@ def _elab_lam_infer(term: ELam, env: ElabEnv, solver: Solver) -> tuple[Term, Ela
     arg_types: list[Term] = []
     binder_specs: list[BinderSpec] = []
     for binder in binders:
+        assert binder.ty is not None
         arg_ty = _elab_type(binder.ty, current_env, solver)
         arg_types.append(arg_ty)
         spec = BinderSpec(
@@ -178,9 +190,7 @@ def _elab_lam_infer(term: ELam, env: ElabEnv, solver: Solver) -> tuple[Term, Ela
             ty=arg_ty,
         )
         binder_specs.append(spec)
-        lam_body_env = lam_body_env.push_binder(
-            ElabType(arg_ty), name=spec.name
-        )
+        lam_body_env = lam_body_env.push_binder(ElabType(arg_ty), name=spec.name)
         current_env = current_env.push_binder(ElabType(arg_ty), name=spec.name)
     body_term, body_ty = elab_infer(term.body, lam_body_env, solver)
     lam_term = mk_lams(*arg_types, body=body_term)
@@ -196,11 +206,12 @@ def _elab_lam_check(
     lam_body_env = env
     arg_types: list[Term] = []
     for binder in term.binders:
-        current_ty = current_ty.whnf(env.kenv)
+        current_ty = current_ty.whnf(current_env.kenv)
         if not isinstance(current_ty, Pi):
             raise ElabError("Lambda expected to have Pi type", term.span)
+        assert binder.ty is not None
         arg_ty = _elab_type(binder.ty, current_env, solver)
-        solver.add_constraint(env.kenv, arg_ty, current_ty.arg_ty, term.span)
+        solver.add_constraint(current_env.kenv, arg_ty, current_ty.arg_ty, term.span)
         arg_types.append(arg_ty)
         name = normalize_binder_name(binder.name)
         lam_body_env = lam_body_env.push_binder(ElabType(arg_ty), name=name)
@@ -214,6 +225,7 @@ def _elab_pi(term: EPi, env: ElabEnv, solver: Solver) -> tuple[Term, ElabType]:
     current_env = env
     arg_types: list[Term] = []
     for binder in term.binders:
+        assert binder.ty is not None
         arg_ty = _elab_type(binder.ty, current_env, solver)
         arg_types.append(arg_ty)
         name = normalize_binder_name(binder.name)
@@ -224,13 +236,24 @@ def _elab_pi(term: EPi, env: ElabEnv, solver: Solver) -> tuple[Term, ElabType]:
 
 
 def _elab_uapp(term: EUApp, env: ElabEnv, solver: Solver) -> tuple[Term, ElabType]:
-    head_term, head_ty = _infer_name(
-        term.head.name if isinstance(term.head, EVar) else "",
-        env,
-        solver,
-        term.span,
-        allow_uapp=False,
-    ) if isinstance(term.head, EVar) else elab_infer(term.head, env, solver)
+    if isinstance(term.head, EVar):
+        head_term, head_ty = _infer_name(
+            term.head.name, env, solver, term.span, allow_uapp=False
+        )
+    elif isinstance(term.head, EConst):
+        head_term, head_ty = _infer_name(
+            term.head.name, env, solver, term.span, allow_uapp=False
+        )
+    elif isinstance(term.head, EInd):
+        head_term, head_ty = _infer_name(
+            term.head.name, env, solver, term.span, allow_uapp=False, ind=True
+        )
+    elif isinstance(term.head, ECtor):
+        head_term, head_ty = _infer_name(
+            term.head.name, env, solver, term.span, allow_uapp=False, ctor=True
+        )
+    else:
+        head_term, head_ty = elab_infer(term.head, env, solver)
     levels = tuple(_elab_level(level, solver, term.span) for level in term.levels)
     return UApp(head_term, levels), head_ty.inst_levels(levels)
 
@@ -240,8 +263,12 @@ def _elab_app(
 ) -> tuple[Term, ElabType]:
     fn_term, fn_ty = elab_infer(term.fn, env, solver)
     if allow_partial:
-        return _apply_partial(fn_term, fn_ty, term.args, term.named_args, env, solver, term.span)
-    return _apply_args(fn_term, fn_ty, term.args, term.named_args, env, solver, term.span)
+        return _apply_partial(
+            fn_term, fn_ty, term.args, term.named_args, env, solver, term.span
+        )
+    return _apply_args(
+        fn_term, fn_ty, term.args, term.named_args, env, solver, term.span
+    )
 
 
 def _elab_partial(
@@ -278,6 +305,7 @@ def _apply_args(
         if not isinstance(current_ty, Pi):
             raise ElabError("Application of non-function", span)
         arg_ty = binder.ty or current_ty.arg_ty
+        arg_term: Term
         if decision.kind == "implicit":
             arg_term = solver.fresh_meta(env.kenv, arg_ty, span, kind="implicit")
         else:
@@ -311,7 +339,8 @@ def _apply_partial(
         binder = remaining[0]
         decision = matcher.match_for_binder(binder, allow_partial=True)
         if decision.kind in ("missing", "stop"):
-            for rem in remaining:
+            chunk = remaining if decision.kind == "stop" else remaining[:1]
+            for rem in chunk:
                 current_ty_whnf = current_ty.whnf(current_env.kenv)
                 if not isinstance(current_ty_whnf, Pi):
                     raise ElabError("Application of non-function", span)
@@ -322,17 +351,22 @@ def _apply_partial(
                 )
                 current_env = current_env.push_binder(ElabType(arg_ty), name=name)
                 term = term.shift(1)
-                current_ty = current_ty.shift(1)
                 term = App(term, Var(0))
                 current_ty = current_ty_whnf.return_ty.shift(1).subst(Var(0))
-            remaining = []
-            break
+            remaining = remaining[len(chunk) :]
+            if decision.kind == "stop":
+                remaining = []
+                break
+            continue
         current_ty = current_ty.whnf(current_env.kenv)
         if not isinstance(current_ty, Pi):
             raise ElabError("Application of non-function", span)
         arg_ty = current_ty.arg_ty
+        arg_term: Term
         if decision.kind == "implicit":
-            arg_term = solver.fresh_meta(current_env.kenv, arg_ty, span, kind="implicit")
+            arg_term = solver.fresh_meta(
+                current_env.kenv, arg_ty, span, kind="implicit"
+            )
         else:
             assert decision.arg is not None
             arg_term = _elab_arg(decision.arg, ElabType(arg_ty), current_env, solver)
@@ -463,30 +497,29 @@ def _elab_match_cases(
     solver: Solver,
     span: Span,
 ) -> tuple[Term, ...]:
-    ctor_map = {ctor.name: ctor for ctor in ind.constructors}
     ctor_branches: dict[str, EBranch] = {}
     default_branch: EBranch | None = None
-    for branch in branches:
-        match branch.pat:
+    for match_branch in branches:
+        match match_branch.pat:
             case EPatCtor(ctor=name):
-                ctor_branches[name] = branch
+                ctor_branches[name] = match_branch
             case EPatWild():
-                default_branch = branch
+                default_branch = match_branch
             case EPatVar():
-                default_branch = branch
+                default_branch = match_branch
             case _:
-                raise ElabError("Unsupported match pattern", branch.span)
+                raise ElabError("Unsupported match pattern", match_branch.span)
     cases: list[Term] = []
     for ctor in ind.constructors:
-        branch = ctor_branches.get(ctor.name)
-        if branch is None:
-            branch = ctor_branches.get(f"{ind.name}.{ctor.name}")
-        if branch is None:
-            branch = default_branch
-        if branch is None:
+        case_branch: EBranch | None = ctor_branches.get(ctor.name)
+        if case_branch is None:
+            case_branch = ctor_branches.get(f"{ind.name}.{ctor.name}")
+        if case_branch is None:
+            case_branch = default_branch
+        if case_branch is None:
             raise ElabError("Missing match branch", span)
         case_term = _elab_match_branch(
-            branch, ctor, ind, levels, params_actual, motive, env, solver
+            case_branch, ctor, ind, levels, params_actual, motive, env, solver
         )
         cases.append(case_term)
     return tuple(cases)
@@ -518,15 +551,15 @@ def _elab_match_branch(
     field_pats = pat_args[:field_count]
     ih_pats = pat_args[field_count:]
     current_env = env
-    for field_ty, pat in zip(field_types, field_pats, strict=False):
+    for idx, field_ty in enumerate(field_types):
         name = None
-        if isinstance(pat, EPatVar):
-            name = normalize_binder_name(pat.name)
+        if idx < len(field_pats) and isinstance(field_pats[idx], EPatVar):
+            name = normalize_binder_name(field_pats[idx].name)
         current_env = current_env.push_binder(ElabType(field_ty), name=name)
-    for ih_ty, pat in zip(ih_types, ih_pats, strict=False):
+    for idx, ih_ty in enumerate(ih_types):
         name = None
-        if isinstance(pat, EPatVar):
-            name = normalize_binder_name(pat.name)
+        if idx < len(ih_pats) and isinstance(ih_pats[idx], EPatVar):
+            name = normalize_binder_name(ih_pats[idx].name)
         current_env = current_env.push_binder(ElabType(ih_ty), name=name)
     codomain = mk_app(motive.shift(field_count), result_indices, scrut_like).shift(
         ih_count
@@ -555,12 +588,12 @@ def _elim_info(
     motive_in_fields = motive.shift(m)
     field_vars = Spine.vars(m)
     scrut_like = mk_uapp(ctor, levels, params_in_fields, field_vars)
-    result_indices = ctor.result_indices.inst_levels(levels).instantiate(params_actual, m)
+    result_indices = ctor.result_indices.inst_levels(levels).instantiate(
+        params_actual, m
+    )
     ihs: list[Term] = []
     for ri, j in enumerate(ctor.rps):
-        rec_head, rec_levels, rec_args = decompose_uapp(
-            field_types[j].shift(m - j)
-        )
+        rec_head, rec_levels, rec_args = decompose_uapp(field_types[j].shift(m - j))
         assert rec_head == ind
         if levels and rec_levels and rec_levels != levels:
             raise ElabError("Recursive field uses mismatched universes", Span(0, 0))
@@ -572,14 +605,31 @@ def _elim_info(
 
 def _elab_let(term: ELet, env: ElabEnv, solver: Solver) -> tuple[Term, ElabType]:
     extended_env = env
-    uarity = len(term.uparams)
+    binder_specs: tuple[BinderSpec, ...]
     if term.ty is None:
         value_term, value_ty = elab_infer(term.val, extended_env, solver)
         arg_ty = value_ty.term
+        binder_specs = value_ty.binders
     else:
         arg_ty = _elab_type(term.ty, extended_env, solver)
         value_term = elab_check(term.val, ElabType(arg_ty), extended_env, solver)
-        value_ty = ElabType(arg_ty)
+        binder_specs = ()
+        if isinstance(term.val, ELam):
+            binder_specs = tuple(
+                BinderSpec(
+                    name=normalize_binder_name(b.name),
+                    implicit=b.implicit,
+                )
+                for b in term.val.binders
+            )
+            binder_specs = attach_binder_types(arg_ty, binder_specs, env.kenv)
+        value_ty = ElabType(arg_ty, binder_specs)
+    uarity = len(term.uparams)
+    if uarity == 0:
+        arg_ty, value_term, binder_specs, uarity = _generalize_levels(
+            arg_ty, value_term, binder_specs, solver
+        )
+        value_ty = ElabType(arg_ty, binder_specs)
     name = normalize_binder_name(term.name)
     body_env = env.push_let(value_ty, value_term, name=name, uarity=uarity)
     body_term, body_ty = elab_infer(term.body, body_env, solver)
@@ -594,11 +644,10 @@ def _elab_inductive_def(
     param_specs: list[BinderSpec] = []
     param_env = env
     for binder in term.params:
+        assert binder.ty is not None
         arg_ty = _elab_type(binder.ty, param_env, solver)
         name = normalize_binder_name(binder.name)
-        param_specs.append(
-            BinderSpec(name=name, implicit=binder.implicit, ty=arg_ty)
-        )
+        param_specs.append(BinderSpec(name=name, implicit=binder.implicit, ty=arg_ty))
         param_types.append(arg_ty)
         param_env = param_env.push_binder(ElabType(arg_ty), name=name)
     level_term = _elab_type(term.level, param_env, solver)
@@ -610,32 +659,42 @@ def _elab_inductive_def(
         level=ind_level,
         uarity=uarity,
     )
-    ind_env = _extend_globals(
-        env,
-        {
-            term.name: GlobalDecl(
-                ty=ind.infer_type(env.kenv),
-                value=ind,
-                reducible=False,
-                uarity=uarity,
-            )
-        },
-        {
-            term.name: ElabType(
-                ind.infer_type(env.kenv),
-                tuple(param_specs)
-                + tuple(BinderSpec(name=None, implicit=False, ty=ty) for ty in index_types),
-            )
-        },
+    ind_ty = ind.infer_type(env.kenv)
+    binder_specs = tuple(param_specs) + tuple(
+        BinderSpec(name=None, implicit=False, ty=ty) for ty in index_types
     )
+    ind_decl = GlobalDecl(
+        ty=ind_ty,
+        value=ind,
+        reducible=False,
+        uarity=uarity,
+    )
+    ind_elab = ElabType(ind_ty, binder_specs)
+    ind_env = _extend_globals(env, {term.name: ind_decl}, {term.name: ind_elab})
+    ctor_env_base = ind_env
+    if uarity:
+        level_vars = tuple(LVar(i) for i in reversed(range(uarity)))
+        scoped_ind = UApp(ind, level_vars)
+        scoped_ty = ind_ty.inst_levels(level_vars)
+        scoped_decl = GlobalDecl(
+            ty=scoped_ty,
+            value=scoped_ind,
+            reducible=False,
+            uarity=0,
+        )
+        scoped_elab = ElabType(scoped_ty, binder_specs)
+        ctor_env_base = _extend_globals(
+            ind_env, {term.name: scoped_decl}, {term.name: scoped_elab}
+        )
     ctors: list[Ctor] = []
     ctor_entries: dict[str, GlobalDecl] = {}
     ctor_types: dict[str, ElabType] = {}
     for ctor_decl in term.ctors:
-        ctor_env = ind_env
+        ctor_env = ctor_env_base
         field_types: list[Term] = []
         field_specs: list[BinderSpec] = []
         for field in ctor_decl.fields:
+            assert field.ty is not None
             field_ty = _elab_type(field.ty, ctor_env, solver)
             name = normalize_binder_name(field.name)
             field_specs.append(
@@ -676,10 +735,6 @@ def _elab_inductive_def(
             ctor.infer_type(env.kenv),
             tuple(param_specs) + tuple(field_specs),
         )
-        if params_actual:
-            _ = params_actual
-        if result_indices:
-            _ = result_indices
     object.__setattr__(ind, "constructors", tuple(ctors))
     extended_env = _extend_globals(ind_env, ctor_entries, ctor_types)
     return elab_infer(term.body, extended_env, solver)
@@ -714,3 +769,111 @@ def _extend_globals(
         locals=env.locals,
         eglobals=new_elab,
     )
+
+
+def _generalize_levels(
+    arg_ty: Term,
+    value_term: Term,
+    binders: tuple[BinderSpec, ...],
+    solver: Solver,
+) -> tuple[Term, Term, tuple[BinderSpec, ...], int]:
+    mids = sorted(
+        _collect_level_metas(arg_ty, solver)
+        | _collect_level_metas(value_term, solver)
+        | _collect_level_metas_binders(binders, solver)
+    )
+    if not mids:
+        return arg_ty, value_term, binders, 0
+    mapping: dict[int, LevelExpr] = {mid: LVar(i) for i, mid in enumerate(mids)}
+    arg_ty = _replace_levels(arg_ty, mapping)
+    value_term = _replace_levels(value_term, mapping)
+    new_binders = tuple(
+        BinderSpec(
+            name=b.name,
+            implicit=b.implicit,
+            ty=_replace_levels(b.ty, mapping) if b.ty is not None else None,
+        )
+        for b in binders
+    )
+    return arg_ty, value_term, new_binders, len(mids)
+
+
+def _collect_level_metas(term: Term, solver: Solver) -> set[int]:
+    metas: set[int] = set()
+
+    def collect_level(level: LevelExpr) -> None:
+        match level:
+            case LVar():
+                return
+            case LConst():
+                return
+            case LMeta(mid=mid):
+                info = solver.level_metas.get(mid)
+                if info is not None and info.solution is None:
+                    metas.add(mid)
+            case LSucc(e):
+                collect_level(e)
+            case LMax(a, b):
+                collect_level(a)
+                collect_level(b)
+            case _:
+                return
+
+    def walk(t: Term) -> None:
+        match t:
+            case UApp(head=head, levels=levels):
+                walk(head)
+                for level in levels:
+                    collect_level(level)
+            case Univ(level=level):
+                collect_level(level)
+            case _:
+                for field in type(t)._reducible_fields():
+                    value = getattr(t, field.name)
+                    if isinstance(value, Term):
+                        walk(value)
+                    elif isinstance(value, tuple):
+                        for item in value:
+                            if isinstance(item, Term):
+                                walk(item)
+                    else:
+                        continue
+
+    walk(term)
+    return metas
+
+
+def _collect_level_metas_binders(
+    binders: tuple[BinderSpec, ...], solver: Solver
+) -> set[int]:
+    metas: set[int] = set()
+    for binder in binders:
+        if binder.ty is None:
+            continue
+        metas |= _collect_level_metas(binder.ty, solver)
+    return metas
+
+
+def _replace_levels(term: Term, mapping: dict[int, LevelExpr]) -> Term:
+    match term:
+        case UApp(head=head, levels=levels):
+            new_levels = tuple(_replace_level_expr(level, mapping) for level in levels)
+            return UApp(head=_replace_levels(head, mapping), levels=new_levels)
+        case Univ(level=level):
+            return Univ(_replace_level_expr(level, mapping))
+        case _:
+            return term._replace_terms(lambda t, _m: _replace_levels(t, mapping))
+
+
+def _replace_level_expr(level: LevelExpr, mapping: dict[int, LevelExpr]) -> LevelExpr:
+    match level:
+        case LMeta(mid=mid):
+            return mapping.get(mid, level)
+        case LSucc(e):
+            return LSucc(_replace_level_expr(e, mapping))
+        case LMax(a, b):
+            return LMax(
+                _replace_level_expr(a, mapping), _replace_level_expr(b, mapping)
+            )
+        case _:
+            return level
